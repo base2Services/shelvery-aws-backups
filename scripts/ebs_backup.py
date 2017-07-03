@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import importlib
 import sys
 import os
 
@@ -15,7 +16,6 @@ sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
 from shelvery.ebs_backup import ShelveryEBSBackup
-
 
 def entrypoint():
     ebs_backup = ShelveryEBSBackup()

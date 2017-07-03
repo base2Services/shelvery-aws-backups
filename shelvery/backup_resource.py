@@ -91,8 +91,7 @@ class BackupResource:
         self.expire_date = expire_date
 
     def is_stale(self):
-        """Determine whether backup expire date is in past"""
         self.calculate_expire_date()
-        now = datetime.utcnow()
-        return now > self.expire_date
+        now = datetime.now(self.date_created.tzinfo)
+        return now > self.date_created
 

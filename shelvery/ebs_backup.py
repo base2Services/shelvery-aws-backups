@@ -1,5 +1,6 @@
-from typing import List
+import boto3
 
+from typing import List
 from shelvery.ec2_backup import ShelveryEC2Backup
 from shelvery.entity_resource import EntityResource
 from shelvery.backup_resource import BackupResource
@@ -57,7 +58,32 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 volumes
             )
         )
+
+    def is_backup_available(self, backup_id) -> bool:
+        try:
+            snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
+            return snapshot['State'] == 'completed'
+        except Exception as e:
+            self.logger.warn(f"Problem getting status of ec2 snapshot status for snapshot {backup_id}:{e}")
     
+    def copy_backup_to_region(self, backup_id: str, region: str):
+        snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
+        regional_client = boto3.client('ec2', region_name=region)
+        regional_client.copy_snapshot(SourceSnapshotId=backup_id,
+                                      SourceRegion=self.ec2client._client_config.region_name,
+                                      DestinationRegion=region,
+                                      Description=snapshot['Description'])
+    
+    def share_backup_with_account(self, backup_id: str, aws_account_id: str):
+        ec2 = boto3.resource('ec2')
+        snapshot = ec2.Snapshot(backup_id)
+        snapshot.modify_attribute(Attribute='createVolumePermission',
+                                  CreateVolumePermission={
+                                      'Add': [{'UserId':aws_account_id}]
+                                  },
+                                  UserIds=[aws_account_id],
+                                  OperationType='add')
+
     # collect all volumes tagged with given tag, in paginated manner
     def collect_volumes(self, tag_name: str):
         load_volumes = True
@@ -74,5 +100,5 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 next_token = tagged_volumes['NextToken']
             else:
                 load_volumes = False
-        
+    
         return all_volumes

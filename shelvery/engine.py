@@ -1,14 +1,18 @@
 import abc
 import logging
+import time
+import sys
 
 from typing import List, Dict
 from abc import abstractmethod
 from abc import abstractclassmethod
 
+from shelvery.lambda_helper import ShelveryLambdaHelper
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.entity_resource import EntityResource
-from datetime import datetime
+
+LAMBDA_WAIT_ITERATION = 'lambda_wait_iteration'
 
 
 class ShelveryEngine:
@@ -27,7 +31,18 @@ class ShelveryEngine:
         # system logger
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
+        self.aws_request_id = 0
+        self.lambda_wait_iteration = 0
+        self.lambda_payload = None
+        self.lambda_context = None
         logging.info("Initialize logger")
+    
+    def set_lambda_environment(self, payload, context):
+        self.lambda_payload = payload
+        self.lambda_context = context
+        self.aws_request_id = context.aws_request_id
+        if LAMBDA_WAIT_ITERATION in payload:
+            self.lambda_wait_iteration = payload[LAMBDA_WAIT_ITERATION]
     
     def create_backups(self):
         """Create backups from all collected entities marked for backup by using specific tag"""
@@ -53,6 +68,16 @@ class ShelveryEngine:
             self.logger.info(f"Created backup of type {resource_type} for entity {backup_resource.entity_id} "
                              f"with id {backup_resource.backup_id}")
             backup_resources.append(backup_resource)
+        
+        # create backups and disaster recovery region
+        if RuntimeConfig.get_dr_enabled():
+            for br in backup_resources:
+                # TODO share with aws accounts if any
+                self.copy_backup(br, RuntimeConfig.get_dr_regions())
+        
+        for aws_account_id in RuntimeConfig.get_share_with_accounts(self):
+            for br in backup_resources:
+                self.share_backup(br, aws_account_id)
     
     def clean_backups(self):
         # collect backups
@@ -73,6 +98,109 @@ class ShelveryEngine:
             else:
                 self.logger.info(f"{backup.retention_type} backup {backup.name} is valid "
                                  f"until {backup.expire_date}, keeping this backup")
+    
+    def do_wait_backup_available(self, backup_id: str, timeout_fn=None):
+        """Wait for backup to become available. Additionally pass on timeout function
+            to be executed if code is running in lambda environment, and remaining execution
+            time is lower than threshold of 20 seconds"""
+        
+        total_wait_time = 0
+        retry = 15
+        timeout = RuntimeConfig.get_wait_backup_timeout(self)
+        self.logger.info(f"Waiting for backup {backup_id} to become available, timing out after {timeout} seconds...")
+        
+        available = self.is_backup_available(backup_id)
+        while not available:
+            if total_wait_time >= timeout or total_wait_time + retry > timeout:
+                timeout_fn()
+                raise Exception(f"Backup {backup_id} did not become available in {timeout} seconds")
+            self.logger.info(f"Sleeping for {retry} seconds until backup {backup_id} becomes available")
+            time.sleep(retry)
+            total_wait_time = total_wait_time + retry
+            available = self.is_backup_available(backup_id)
+    
+    def wait_backup_available(self, backup_id: str, lambda_method: str, lambda_args: Dict):
+        """Wait for backup to become available. If running in lambda environment, pass lambda method and
+            arguments to be executed if lambda functions times out"""
+        
+        def call_recursively():
+            # check if exceeded allowed number of wait iterations in lambda
+            if self.lambda_wait_iteration > RuntimeConfig.get_max_lambda_wait_iterations():
+                raise Exception(f"Reached maximum of {RuntimeConfig.get_max_lambda_wait_iterations()} lambda wait"
+                                f"operations")
+            
+            lambda_args['lambda_wait_iteration'] = self.lambda_wait_iteration + 1
+            ShelveryLambdaHelper().invoke_shelvery(
+                engine_name=self.lambda_payload.backup_type,
+                method_name=lambda_method,
+                method_arguments=lambda_args)
+        
+        def panic():
+            self.logger.error(f"Failed to wait for backup to become available, exiting...")
+            sys.exit(-5)
+        
+        # if running in lambda environment, call function recursively on timeout
+        # otherwise in cli mode, just exit
+        timeout_fn = call_recursively if RuntimeConfig.is_lambda_runtime(self) else panic
+        self.do_wait_backup_available(backup_id=backup_id, timeout_fn=timeout_fn)
+    
+    def copy_backup(self, backup_resource: BackupResource, target_regions: List[str]):
+        """Copy backup to set of regions - this is orchestration method, rather than
+            logic implementation"""
+        
+        # if started with invoke lambda, pass down to handler, if not invoke lambda
+        if RuntimeConfig.is_lambda_runtime(self):
+            # call lambda recursively for each backup / region pair
+            for region in target_regions:
+                self.logger.info(f"Copy backup {backup_resource.backup_id} to region {region}\n"
+                                 f"Calling lambda function recursively for this operation...")
+                ShelveryLambdaHelper().invoke_shelvery(
+                    engine_name=self.lambda_payload.backup_type,
+                    method_name='do_copy_backup',
+                    method_arguments={
+                        'BackupId': backup_resource.backup_id,
+                        'Region': region
+                    })
+        
+        # if not running in lambda environment, just start copy operation for all regions
+        else:
+            for region in target_regions:
+                self.logger.info(f"Copy backup {backup_resource.backup_id} to region {region}")
+                self.do_copy_backup(BackupId=backup_resource.backup_id, Region=region)
+    
+    def share_backup(self, backup_resource: BackupResource, aws_account_id: str):
+        """Share backup with other AWS account - this is orchestration method, rather than
+            logic implementation"""
+        if RuntimeConfig.is_lambda_runtime(self):
+            self.logger.info(f"Share backup {backup_resource.backup_id} with AWS account {aws_account_id}"
+                             f"Calling lambda function recursively for this operation...")
+            ShelveryLambdaHelper().invoke_shelvery(
+                engine_name=self.lambda_payload.backup_type,
+                method_name='do_share_backup',
+                method_arguments={
+                    'BackupId': backup_resource.backup_id,
+                    'AwsAccountId': aws_account_id
+                }
+            )
+        else:
+            self.logger.info(f"Share backup {backup_resource.backup_id} with AWS account {aws_account_id}")
+            self.do_share_backup(BackupId=backup_resource.backup_id, AwsAccountId=aws_account_id)
+    
+    def do_copy_backup(self, map_args={}, **kwargs):
+        """Copy backup to another region, actual implementation"""
+        kwargs.update(map_args)
+        self.wait_backup_available(backup_id=kwargs['BackupId'], lambda_method='do_copy_backup', lambda_args=kwargs)
+        self.copy_backup_to_region(kwargs['BackupId'], kwargs['Region'])
+    
+    def do_share_backup(self, map_args={}, **kwargs):
+        """Share backup with other AWS account, actual implementation"""
+        kwargs.update(map_args)
+        self.wait_backup_available(backup_id=kwargs['BackupId'], lambda_method='do_share_backup', lambda_args=kwargs)
+        self.share_backup_with_account(kwargs['BackupId'], kwargs['AwsAccountId'])
+    
+    ####
+    # Abstract methods, for engine implementations to implement
+    ####
     
     @abstractclassmethod
     def get_resource_type(self) -> str:
@@ -99,3 +227,16 @@ class ShelveryEngine:
     @abstractmethod
     def tag_backup_resource(self, backup_resource_id: str, tags: Dict):
         """Create backup resource tags"""
+    
+    @abstractmethod
+    def copy_backup_to_region(self, backup_id: str, region: str):
+        """Copy backup to another region """
+    
+    @abstractmethod
+    def is_backup_available(self, backup_id) -> bool:
+        """Determine whether backup has completed and is available to be copied
+           to other regions and shared with other ebs accounts"""
+    
+    @abstractmethod
+    def share_backup_with_account(self, backup_id: str, aws_account_id: str):
+        """Share backup with another AWS Account"""
