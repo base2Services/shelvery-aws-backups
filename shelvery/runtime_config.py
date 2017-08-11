@@ -3,30 +3,34 @@ import os
 
 
 class RuntimeConfig:
-    """Helper to read runtime and other values
+    """
+    Helper to read runtime and other values
+    Valid environment variables are
     
-       Valid environment variables are
-       shelvery_keep_daily_backups - daily backups to keep, defaults to 14 days
-       shelvery_keep_weekly_backups - daily backups to keep, defaults to 8 weeks
-       shelvery_keep_monthly_backups - daily backups to keep, defaults to 12 months
-       shelvery_keep_yearly_backups - daily backups to keep, defaults to 10 years
-       
-       shelvery_dr_regions - disaster recovery regions, comma separated, empty (disabled) by default
-       
-       shelvery_keep_daily_backups_dr - daily backups to keep in disaster recover region
-       shelvery_keep_weekly_backups_dr - daily backups to keep in disaster recover region
-       shelvery_keep_monthly_backups_dr - daily backups to keep in disaster recover region
-       shelvery_keep_yearly_backups_dr - daily backups to keep in disaster recover region
-       
-       shelvery_wait_snapshot_timeout - timeout in seconds to wait for snapshot to become available
-                                        before copying it to another region / sharing with other account
-                                        defaults to 1200
+    shelvery_keep_daily_backups - daily backups to keep, defaults to 14 days
+    shelvery_keep_weekly_backups - daily backups to keep, defaults to 8 weeks
+    shelvery_keep_monthly_backups - daily backups to keep, defaults to 12 months
+    shelvery_keep_yearly_backups - daily backups to keep, defaults to 10 years
+    
+    shelvery_dr_regions - disaster recovery regions, comma separated, empty (disabled) by default
+    
+    shelvery_keep_daily_backups_dr - daily backups to keep in disaster recover region
+    shelvery_keep_weekly_backups_dr - daily backups to keep in disaster recover region
+    shelvery_keep_monthly_backups_dr - daily backups to keep in disaster recover region
+    shelvery_keep_yearly_backups_dr - daily backups to keep in disaster recover region
+    
+    shelvery_wait_snapshot_timeout - timeout in seconds to wait for snapshot to become available
+                                    before copying it to another region / sharing with other account
+                                    defaults to 1200
+                                    
+    shelvery_lambda_max_wait_iterations - maximum number of wait calls to lambda function. E.g.
+                                        if lambda is set to timeout in 5 minutes, and this
+                                        values is set to 3, total wait time will be approx 14 minutes,
+                                        as lambda is invoked recursively 20 seconds before timeout
+                                        defaults to 5
                                         
-       shelvery_lambda_max_wait_iterations - maximum number of wait calls to lambda function. E.g.
-                                            if lambda is set to timeout in 5 minutes, and this
-                                            values is set to 3, total wait time will be approx 14 minutes,
-                                            as lambda is invoked recursively 20 seconds before timeout
-                                            defaults to 5
+    shelvery_share_aws_account_ids - AWS Account Ids to share backups with. Applies to both original and regional
+                                    backups
     """
     
     DEFAULT_KEEP_DAILY = 14
@@ -61,7 +65,7 @@ class RuntimeConfig:
     
     @classmethod
     def get_tag_prefix(cls):
-        return cls.get_envvalue('shelvery_tag_prefix', 'base2:shelvery')
+        return cls.get_envvalue('shelvery_tag_prefix', 'shelvery')
     
     @classmethod
     def get_dr_regions(cls):
@@ -79,7 +83,7 @@ class RuntimeConfig:
         # 3. payload 'is_started_internally' key is set to True
         return cls.is_lambda_runtime(engine) \
                and 'is_started_internally' in engine.lambda_payload \
-               and engine.lambda_payload.is_started_internally
+               and engine.lambda_payload['is_started_internally']
     
     @classmethod
     def get_wait_backup_timeout(cls, shelvery):
@@ -96,6 +100,8 @@ class RuntimeConfig:
     def get_share_with_accounts(cls, shelvery):
         # collect account from env vars
         accounts = cls.get_envvalue('shelvery_share_aws_account_ids', None)
+        
+        # by default it is empty list
         accounts = accounts.split(',') if accounts is not None else []
         
         # collect account from lambda payload

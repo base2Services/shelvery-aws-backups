@@ -1,6 +1,6 @@
 from shelvery.ebs_backup import ShelveryEBSBackup
 from shelvery.engine import ShelveryEngine
-
+from shelvery.rds_backup import  ShelveryRDSBackup
 
 class ShelveryFactory:
     
@@ -10,7 +10,7 @@ class ShelveryFactory:
             return ShelveryEBSBackup()
         
         if type == 'rds':
-            raise Exception("RDS Not supported yet")
+            return ShelveryRDSBackup()
         
         if type == 'ami':
             raise Exception("AMIs not supported yet")

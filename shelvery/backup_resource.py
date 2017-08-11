@@ -48,20 +48,26 @@ class BackupResource:
         
         self.tags = {
             'Name': self.name,
+            "shelvery:tag_name": tag_prefix,
             f"{tag_prefix}:date_created": date_formatted,
             f"{tag_prefix}:name": self.name,
+            f"{tag_prefix}:region": entity_resource.resource_region,
             f"{tag_prefix}:retention_type": self.retention_type,
             f"{tag_prefix}:{self.BACKUP_MARKER_TAG}": 'true'
         }
         self.backup_id = None
         self.expire_date = None
+        self.__region = entity_resource.resource_region
     
     @classmethod
     def construct(cls,
                   tag_prefix: str,
                   backup_id: str,
                   tags: Dict):
-        """Construct BackupResource object from object id and aws tags stored by shelvery"""
+        """
+        Construct BackupResource object from object id and aws tags stored by shelvery
+        """
+        
         obj = BackupResource(None, None, True)
         obj.backup_id = backup_id
         obj.tags = tags
@@ -70,6 +76,7 @@ class BackupResource:
         obj.retention_type = tags[f"{tag_prefix}:retention_type"]
         obj.name = tags[f"{tag_prefix}:name"]
         obj.date_created = datetime.strptime(tags[f"{tag_prefix}:date_created"], cls.TIMESTAMP_FORMAT)
+        obj.region = tags[f"{tag_prefix}:region"]
         obj.calculate_expire_date()
         return obj
     
@@ -89,9 +96,18 @@ class BackupResource:
             expire_date = datetime.utcnow() + relativedelta(years=10)
         
         self.expire_date = expire_date
-
+    
     def is_stale(self):
         self.calculate_expire_date()
         now = datetime.now(self.date_created.tzinfo)
         return now > self.date_created
-
+        
+        self.__region = None
+    
+    @property
+    def region(self):
+        return self.__region
+    
+    @region.setter
+    def region(self, region: str):
+        self.__region = region

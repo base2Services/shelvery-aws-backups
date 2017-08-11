@@ -33,6 +33,9 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         
         return backups
     
+    def get_engine_type(self) -> str:
+        return 'ebs'
+    
     def get_resource_type(self) -> str:
         return 'ec2 volume'
     
@@ -45,6 +48,12 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         backup_resource.backup_id = snap['SnapshotId']
         return backup_resource
     
+    def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:
+        ec2 = boto3.session.Session(region_name=region).resource('ec2')
+        snapshot = ec2.Snapshot(backup_id)
+        d_tags = dict(map(lambda t: (t['Key'], t['Value']), snapshot.tags));
+        return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
+        
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
         volumes = self.collect_volumes(tag_name)
         print(volumes)
@@ -52,38 +61,45 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             map(
                 lambda vol: EntityResource(
                     resource_id=vol['VolumeId'],
+                    resource_region=self.region,
                     date_created=vol['CreateTime'],
                     tags=dict(map(lambda t: (t['Key'], t['Value']), vol['Tags']))
                 ),
                 volumes
             )
         )
-
-    def is_backup_available(self, backup_id) -> bool:
+    
+    def is_backup_available(self, region: str, backup_id: str) -> bool:
         try:
-            snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
-            return snapshot['State'] == 'completed'
+            regional_client = boto3.client('ec2', region_name=region)
+            snapshot = regional_client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
+            complete = snapshot['State'] == 'completed'
+            self.logger.info(f"{backup_id} is {snapshot['Progress']} complete")
+            return complete
         except Exception as e:
             self.logger.warn(f"Problem getting status of ec2 snapshot status for snapshot {backup_id}:{e}")
     
     def copy_backup_to_region(self, backup_id: str, region: str):
         snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
         regional_client = boto3.client('ec2', region_name=region)
-        regional_client.copy_snapshot(SourceSnapshotId=backup_id,
-                                      SourceRegion=self.ec2client._client_config.region_name,
-                                      DestinationRegion=region,
-                                      Description=snapshot['Description'])
+        copy_snapshot_response = regional_client.copy_snapshot(SourceSnapshotId=backup_id,
+                                                               SourceRegion=self.ec2client._client_config.region_name,
+                                                               DestinationRegion=region,
+                                                               Description=snapshot['Description'])
+        
+        # return id of newly created snapshot in dr region
+        return copy_snapshot_response['SnapshotId']
     
-    def share_backup_with_account(self, backup_id: str, aws_account_id: str):
-        ec2 = boto3.resource('ec2')
+    def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
+        ec2 = boto3.session.Session(region_name=backup_region).resource('ec2')
         snapshot = ec2.Snapshot(backup_id)
         snapshot.modify_attribute(Attribute='createVolumePermission',
                                   CreateVolumePermission={
-                                      'Add': [{'UserId':aws_account_id}]
+                                      'Add': [{'UserId': aws_account_id}]
                                   },
                                   UserIds=[aws_account_id],
                                   OperationType='add')
-
+    
     # collect all volumes tagged with given tag, in paginated manner
     def collect_volumes(self, tag_name: str):
         load_volumes = True
@@ -100,5 +116,5 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 next_token = tagged_volumes['NextToken']
             else:
                 load_volumes = False
-    
+        
         return all_volumes

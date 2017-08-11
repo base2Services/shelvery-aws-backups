@@ -1,7 +1,14 @@
 import os
 import sys
+import logging
+import json
 
 def lambda_handler(event, context):
+    
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.info(f"Received event\n{json.dumps(event,indent=2)}")
+    
     if 'backup_type' not in event:
         raise Exception("Expecting backup type in event payload in \"backup_type\" key")
 
