@@ -66,7 +66,7 @@ class ShelveryEngine:
             )
             self.logger.info(f"Processing {resource_type} with id {r.resource_id}")
             self.logger.info(f"Creating backup {backup_resource.name}")
-            backup_resource = self.backup_resource(backup_resource)
+            self.backup_resource(backup_resource)
             self.tag_backup_resource(backup_resource)
             self.logger.info(f"Created backup of type {resource_type} for entity {backup_resource.entity_id} "
                              f"with id {backup_resource.backup_id}")

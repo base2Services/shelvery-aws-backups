@@ -18,11 +18,11 @@ class ShelveryRDSBackup(ShelveryEngine):
     
     def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
         rds_client = boto3.client('rds')
-        backup_resource.backup_id = backup_resource.name
         rds_client.create_db_snapshot(
-            DBSnapshotIdentifier=backup_resource.backup_id,
+            DBSnapshotIdentifier=backup_resource.name,
             DBInstanceIdentifier=backup_resource.entity_id
         )
+        backup_resource.backup_id = backup_resource.name
         return backup_resource
 
     def delete_backup(self, backup_resource: BackupResource):
