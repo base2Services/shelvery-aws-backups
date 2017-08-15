@@ -16,14 +16,15 @@ class ShelveryRDSBackup(ShelveryEngine):
     def get_resource_type(self) -> str:
         return 'RDS Instance'
     
-    def backup_resource(self, backup_resource: BackupResource):
+    def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
         rds_client = boto3.client('rds')
         backup_resource.backup_id = backup_resource.name
         rds_client.create_db_snapshot(
             DBSnapshotIdentifier=backup_resource.backup_id,
             DBInstanceIdentifier=backup_resource.entity_id
         )
-    
+        return backup_resource
+
     def delete_backup(self, backup_resource: BackupResource):
         rds_client = boto3.client('rds')
         rds_client.delete_db_snapshot(
@@ -55,14 +56,18 @@ class ShelveryRDSBackup(ShelveryEngine):
     
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
+        client_local = boto3.client('rds')
         rds_client = boto3.client('rds', region_name=region)
+        snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
+        snapshot = snapshots['DBSnapshots'][0]
         rds_client.copy_db_snapshot(
-            SourceDBSnapshotIdentifier=backup_id,
+            SourceDBSnapshotIdentifier=snapshot['DBSnapshotArn'],
             TargetDBSnapshotIdentifier=backup_id,
             SourceRegion=local_region,
             # tags are created explicitly
             CopyTags=False
         )
+        return backup_id
     
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
         rds_client = boto3.client('rds', region_name=backup_region)
@@ -86,13 +91,13 @@ class ShelveryRDSBackup(ShelveryEngine):
         db_instances = self.get_all_instances(rds_client)
         
         # collect tags in check if instance tagged with marker tag
-       
+
         for instance in db_instances:
             tags = rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
-            
+
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-            
+
             # check if marker tag is present
             if tag_name in d_tags:
                 resource = EntityResource(instance['DBInstanceIdentifier'],
