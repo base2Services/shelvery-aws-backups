@@ -37,6 +37,9 @@ class RuntimeConfig:
     DEFAULT_KEEP_WEEKLY = 8
     DEFAULT_KEEP_MONTHLY = 12
     DEFAULT_KEEP_YEARLY = 10
+
+    RDS_COPY_AUTOMATED_SNAPSHOT = 'RDS_COPY_AUTOMATED_SNAPSHOT'
+    RDS_CREATE_SNAPSHOT = 'RDS_CREATE_SNAPSHOT'
     
     @classmethod
     def is_lambda_runtime(cls, engine) -> bool:
@@ -116,3 +119,8 @@ class RuntimeConfig:
                 shelvery.logger.info(f"Collected account {acc} to share backups with")
         
         return accounts
+    
+    @classmethod
+    def get_rds_mode(cls):
+        rds_backup_mode = cls.get_envvalue('rds_backup_mode', cls.RDS_COPY_AUTOMATED_SNAPSHOT)
+        return rds_backup_mode

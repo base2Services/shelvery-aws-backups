@@ -1,5 +1,6 @@
 import boto3
 
+from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.engine import ShelveryEngine
 from shelvery.entity_resource import EntityResource
@@ -17,6 +18,36 @@ class ShelveryRDSBackup(ShelveryEngine):
         return 'RDS Instance'
     
     def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
+        if RuntimeConfig.get_rds_mode() == RuntimeConfig.RDS_CREATE_SNAPSHOT:
+            return self.backup_from_instance(backup_resource)
+        if RuntimeConfig.get_rds_mode() == RuntimeConfig.RDS_COPY_AUTOMATED_SNAPSHOT:
+            return self.backup_from_latest_automated(backup_resource)
+        
+        raise Exception(f"Only {RuntimeConfig.RDS_COPY_AUTOMATED_SNAPSHOT} and "
+                        f"{RuntimeConfig.RDS_CREATE_SNAPSHOT} rds backup "
+                        f"modes supported - set rds backup mode using rds_backup_mode configuration option ")
+    
+    def backup_from_latest_automated(self, backup_resource: BackupResource):
+        rds_client = boto3.client('rds')
+        auto_snapshots = rds_client.describe_db_snapshots(
+            DBInstanceIdentifier=backup_resource.entity_id,
+            SnapshotType='automated',
+            # API always returns in date descending order, and we only need last one
+            MaxRecords=20
+        )
+        auto_snapshots = sorted(auto_snapshots['DBSnapshots'], key=lambda k: k['SnapshotCreateTime'], reverse=True)
+        
+        # TODO handle case when there are no latest automated backups
+        automated_snapshot_id = auto_snapshots[0]['DBSnapshotIdentifier']
+        rds_client.copy_db_snapshot(
+            SourceDBSnapshotIdentifier=automated_snapshot_id,
+            TargetDBSnapshotIdentifier=backup_resource.name,
+            CopyTags=False
+        )
+        backup_resource.backup_id = backup_resource.name
+        return backup_resource
+    
+    def backup_from_instance(self, backup_resource):
         rds_client = boto3.client('rds')
         rds_client.create_db_snapshot(
             DBSnapshotIdentifier=backup_resource.name,
@@ -24,7 +55,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         )
         backup_resource.backup_id = backup_resource.name
         return backup_resource
-
+    
     def delete_backup(self, backup_resource: BackupResource):
         rds_client = boto3.client('rds')
         rds_client.delete_db_snapshot(
@@ -52,7 +83,12 @@ class ShelveryRDSBackup(ShelveryEngine):
         return all_backups
     
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
-        pass
+        rds_client = boto3.client('rds', region_name=backup_region)
+        rds_client.modify_db_snapshot_attribute(
+            DBSnapshotIdentifier=backup_id,
+            AttributeName='restore',
+            ValuesToAdd=[aws_account_id]
+        )
     
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
@@ -91,13 +127,13 @@ class ShelveryRDSBackup(ShelveryEngine):
         db_instances = self.get_all_instances(rds_client)
         
         # collect tags in check if instance tagged with marker tag
-
+        
         for instance in db_instances:
             tags = rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
-
+            
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-
+            
             # check if marker tag is present
             if tag_name in d_tags:
                 resource = EntityResource(instance['DBInstanceIdentifier'],
