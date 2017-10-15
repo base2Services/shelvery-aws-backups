@@ -100,10 +100,9 @@ class BackupResource:
     def is_stale(self):
         self.calculate_expire_date()
         now = datetime.now(self.date_created.tzinfo)
-        return now > self.date_created
+        return now > self.expire_date
         
-        self.__region = None
-    
+
     @property
     def region(self):
         return self.__region
