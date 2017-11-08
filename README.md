@@ -1,18 +1,42 @@
 # Shelvery
 
-Shelvery is tool for backups creation in Amazon IaaS. Currently it support RDS and EBS backups,
-and IAM support is scheduled to be released soon.
+Shelvery is tool for creating backups in Amazon cloud (AWS). It currently supports RDS and EBS backups,
+and AMI support is scheduled to be released soon.
 
+## Installation
+
+```shell
+pip install shelvery
+
+# create ebs backups
+shelvery ebs create_backups
+
+# create rds backups
+shelvery rds create_backups
+
+# cleanup ebs backups
+shelvery ebs clean_backups
+
+# cleanup rds backups
+shelvery rds clean_backups
+
+```
+
+## AWS Credentials configuration
+
+Shelvery uses boto3 as client library to communicate with Amazon Web Services. Use any environment variables that
+boto3 supports to configure credentials. In Amazon Lambda environment, shelvery will pick up IAM credentials from 
+IAM role that Lambda is running under. 
 
 ## Runtime environment
 
-Shelvery requires Python3.6 to run. You can ran it either from any server or local machine capable of interpreting 
+Shelvery requires Python3.6 to run. You can run it either from any server or local machine capable of interpreting 
 Python3.6 code, or as Amazon Lambda functions. All Shelvery code is written in such way that it supports
 both CLI and Lambda execution. 
 
 ## Backup lifecycle and retention periods
 
-Any backups created will get tagged with metadata, including backup name, creation time, and backup retention type
+Any backups created via shelvery will get tagged with metadata, including backup name, creation time, and backup retention type
 (daily, weekly, monthly or yearly). Retention is following Grandfather-father-son [backup scheme](https://en.wikipedia.org/wiki/Backup_rotation_scheme).
 Stale backups are cleaned using cleanup commands, according to retention policy.
 Default retention policy is as follows
@@ -51,7 +75,9 @@ TBD deployment via serverless
 
 ## Runtime Configuration
 
-TBD
+There are multiple configuration options for shelvery backup engine, configurable either through lambda function payload
+or through environment variables
+
 ### Lambda event payload
 
 TBD
