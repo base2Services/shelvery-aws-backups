@@ -94,7 +94,8 @@ python3 setup.py sdist
       steps {
         script {
           def gitsha = shellOut('git rev-parse --short HEAD'),
-              fileName = shellOut('cd dist && ls -1 *.tar.gz')
+              fileName = shellOut('cd $WORKSPACE/dist && ls -1 *.tar.gz'),
+              releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz','-develop.tar.gz')
               releaseUrl = "https://${env.DIST_BUCKET}.s3.amazonaws.com/release/${fileName}"
           echo "Shelvery pipeline: Release"
           unstash name: 'archive'
