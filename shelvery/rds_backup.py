@@ -172,7 +172,8 @@ class ShelveryRDSBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = rds_client.list_tags_for_resource(snap['DBSnapshotArn'])
+            tags = rds_client.list_tags_for_resource(ResourceName=snap['DBSnapshotArn'])['TagList']
+            self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
                 all_backups.append(BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags))
