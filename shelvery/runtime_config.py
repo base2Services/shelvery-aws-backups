@@ -37,7 +37,7 @@ class RuntimeConfig:
     DEFAULT_KEEP_WEEKLY = 8
     DEFAULT_KEEP_MONTHLY = 12
     DEFAULT_KEEP_YEARLY = 10
-
+    
     RDS_COPY_AUTOMATED_SNAPSHOT = 'RDS_COPY_AUTOMATED_SNAPSHOT'
     RDS_CREATE_SNAPSHOT = 'RDS_CREATE_SNAPSHOT'
     
@@ -46,20 +46,44 @@ class RuntimeConfig:
         return engine.aws_request_id != 0 and engine.lambda_payload is not None
     
     @classmethod
-    def get_keep_daily(cls, dr=False):
+    def get_keep_daily(cls, dr=False, entity_resource=None):
+        # check if resource is tagged with retention config
+        if entity_resource is not None:
+            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_daily_backups"
+            if retention_config_tag_key in entity_resource.tags:
+                return int(entity_resource.tags[retention_config_tag_key])
+            
         return int(cls.get_envvalue(f"shelvery_keep_daily_backups{'_dr' if dr else ''}",
                                     cls.DEFAULT_KEEP_DAILY))
     
     @classmethod
-    def get_keep_weekly(cls, dr=False):
+    def get_keep_weekly(cls, dr=False, entity_resource=None):
+        # check if resource is tagged with retention config
+        if entity_resource is not None:
+            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_weekly_backups"
+            if retention_config_tag_key in entity_resource.tags:
+                return int(entity_resource.tags[retention_config_tag_key])
+            
         return int(cls.get_envvalue(f"shelvery_keep_weekly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_WEEKLY))
     
     @classmethod
-    def get_keep_monthly(cls, dr=False):
+    def get_keep_monthly(cls, dr=False, entity_resource=None):
+        # check if resource is tagged with retention config
+        if entity_resource is not None:
+            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_monthly_backups"
+            if retention_config_tag_key in entity_resource.tags:
+                return int(entity_resource.tags[retention_config_tag_key])
+    
         return int(cls.get_envvalue(f"shelvery_keep_monthly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_MONTHLY))
     
     @classmethod
-    def get_keep_yearly(cls, dr=False):
+    def get_keep_yearly(cls, dr=False, entity_resource=None):
+        # check if resource is tagged with retention config
+        if entity_resource is not None:
+            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_yearly_backups"
+            if retention_config_tag_key in entity_resource.tags:
+                return int(entity_resource.tags[retention_config_tag_key])
+            
         return int(cls.get_envvalue(f"shelvery_keep_yearly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_YEARLY))
     
     @classmethod

@@ -85,7 +85,7 @@ class ShelveryEngine:
         # collect backups
         existing_backups = self.get_existing_backups(RuntimeConfig.get_tag_prefix())
         self.logger.info(f"Collected {len(existing_backups)} backups to be checked for expiry date")
-        self.logger.info(f"""Using following retention settings:
+        self.logger.info(f"""Using following retention settings from environment:
                             Keeping last {RuntimeConfig.get_keep_daily()} daily backups
                             Keeping last {RuntimeConfig.get_keep_weekly()} weekly backups
                             Keeping last {RuntimeConfig.get_keep_monthly()} monthly backups

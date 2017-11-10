@@ -176,7 +176,9 @@ class ShelveryRDSBackup(ShelveryEngine):
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
-                all_backups.append(BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags))
+                backup_resource = BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags)
+                backup_resource.entity_resource = snap['EntityResource']
+                all_backups.append(backup_resource)
         return all_backups
     
     def collect_all_snapshots(self, rds_client):
@@ -191,4 +193,28 @@ class ShelveryRDSBackup(ShelveryEngine):
             tmp_snapshots = rds_client.describe_db_snapshots()
             all_snapshots.extend(tmp_snapshots['DBSnapshots'])
         
+        self.populate_snap_entity_resource(all_snapshots)
+        
         return all_snapshots
+    
+    def populate_snap_entity_resource(self, all_snapshots):
+        instance_ids = []
+        for snap in all_snapshots:
+            if snap['DBInstanceIdentifier'] not in instance_ids:
+                instance_ids.append(snap['DBInstanceIdentifier'])
+        entities = {}
+        rds_client = boto3.client('rds')
+        local_region = boto3.session.Session().region_name
+        
+        for instance_id in instance_ids:
+            rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
+            tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+            d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+            rds_entity = EntityResource(instance_id,
+                                        local_region,
+                                        rds_instance['InstanceCreateTime'],
+                                        d_tags)
+            entities[instance_id] = rds_entity
+        
+        for snap in all_snapshots:
+            snap['EntityResource'] = entities[snap['DBInstanceIdentifier']]

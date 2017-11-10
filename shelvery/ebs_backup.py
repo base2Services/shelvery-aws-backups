@@ -56,7 +56,6 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
         volumes = self.collect_volumes(tag_name)
-        print(volumes)
         return list(
             map(
                 lambda vol: EntityResource(
