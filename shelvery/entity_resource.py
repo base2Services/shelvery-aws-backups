@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict
+import boto3
 
 
 class EntityResource:
@@ -10,3 +11,9 @@ class EntityResource:
         self.date_created = date_created
         self.tags = tags
         self.resource_region = resource_region
+    
+    @classmethod
+    def empty(cls):
+        local_region = boto3.session.Session().region_name
+        resource = EntityResource(None, local_region, None, {})
+        return resource

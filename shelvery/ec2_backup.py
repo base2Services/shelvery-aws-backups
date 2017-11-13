@@ -17,7 +17,7 @@ class ShelveryEC2Backup(ShelveryEngine):
         self.region = boto3.session.Session().region_name
 
     def tag_backup_resource(self, backup_resource: BackupResource):
-        regional_client = boto3.client('ec2',region_name=backup_resource.region)
+        regional_client = boto3.client('ec2', region_name=backup_resource.region)
         regional_client.create_tags(
             Resources=[backup_resource.backup_id],
             Tags=list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k]}, backup_resource.tags))
