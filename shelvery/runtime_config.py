@@ -41,50 +41,57 @@ class RuntimeConfig:
     RDS_COPY_AUTOMATED_SNAPSHOT = 'RDS_COPY_AUTOMATED_SNAPSHOT'
     RDS_CREATE_SNAPSHOT = 'RDS_CREATE_SNAPSHOT'
     
+    DEFAULTS = {
+        'shelvery_keep_daily_backups': 14,
+        'shelvery_keep_weekly_backups': 8,
+        'shelvery_keep_monthly_backups': 12,
+        'shelvery_keep_yearly_backups': 10,
+        'shelvery_wait_snapshot_timeout': 1200,
+        'shelvery_lambda_max_wait_iterations': 5,
+        'shelvery_dr_regions': None,
+        'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT
+    }
+    
+    @classmethod
+    def get_conf_value(cls, key: str,  resource_tags=None, lambda_payload=None):
+        # priority 3 are resource tags
+        if resource_tags is not None:
+            tag_key = f"shelvery:config:{key}"
+            if tag_key in resource_tags:
+                return resource_tags[tag_key]
+        
+        # priority 2 is lambda payload
+        if (lambda_payload is not None) and ('config' in lambda_payload) and (key in lambda_payload['config']):
+            return lambda_payload['config'][key]
+        
+        # priority 1 are environment variables
+        if key in os.environ:
+            return os.environ[key]
+        
+        # priority 0 are defaults
+        if key in cls.DEFAULTS:
+            return cls.DEFAULTS[key]
+    
     @classmethod
     def is_lambda_runtime(cls, engine) -> bool:
         return engine.aws_request_id != 0 and engine.lambda_payload is not None
     
     @classmethod
-    def get_keep_daily(cls, dr=False, entity_resource=None):
-        # check if resource is tagged with retention config
-        if entity_resource is not None:
-            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_daily_backups"
-            if retention_config_tag_key in entity_resource.tags:
-                return int(entity_resource.tags[retention_config_tag_key])
-            
-        return int(cls.get_envvalue(f"shelvery_keep_daily_backups{'_dr' if dr else ''}",
-                                    cls.DEFAULT_KEEP_DAILY))
+    def get_keep_daily(cls, resource_tags=None, engine=None):
+        return int(cls.get_conf_value('shelvery_keep_daily_backups', resource_tags, engine.lambda_payload))
+
+    @classmethod
+    def get_keep_weekly(cls, resource_tags=None, engine=None):
+        return int(cls.get_conf_value('shelvery_keep_weekly_backups', resource_tags, engine.lambda_payload))
+        
+    @classmethod
+    def get_keep_monthly(cls, resource_tags=None, engine=None):
+        return int(cls.get_conf_value('shelvery_keep_monthly_backups', resource_tags, engine.lambda_payload))
+        
     
     @classmethod
-    def get_keep_weekly(cls, dr=False, entity_resource=None):
-        # check if resource is tagged with retention config
-        if entity_resource is not None:
-            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_weekly_backups"
-            if retention_config_tag_key in entity_resource.tags:
-                return int(entity_resource.tags[retention_config_tag_key])
-            
-        return int(cls.get_envvalue(f"shelvery_keep_weekly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_WEEKLY))
-    
-    @classmethod
-    def get_keep_monthly(cls, dr=False, entity_resource=None):
-        # check if resource is tagged with retention config
-        if entity_resource is not None:
-            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_monthly_backups"
-            if retention_config_tag_key in entity_resource.tags:
-                return int(entity_resource.tags[retention_config_tag_key])
-    
-        return int(cls.get_envvalue(f"shelvery_keep_monthly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_MONTHLY))
-    
-    @classmethod
-    def get_keep_yearly(cls, dr=False, entity_resource=None):
-        # check if resource is tagged with retention config
-        if entity_resource is not None:
-            retention_config_tag_key = f"{cls.get_tag_prefix()}:config:shelvery_keep_yearly_backups"
-            if retention_config_tag_key in entity_resource.tags:
-                return int(entity_resource.tags[retention_config_tag_key])
-            
-        return int(cls.get_envvalue(f"shelvery_keep_yearly_backups{'_dr' if dr else ''}", cls.DEFAULT_KEEP_YEARLY))
+    def get_keep_yearly(cls, resource_tags=None, engine=None):
+        return cls.get_conf_value('shelvery_keep_yearly_backups', resource_tags, engine.lambda_payload)
     
     @classmethod
     def get_envvalue(cls, key: str, default_value):
@@ -95,13 +102,10 @@ class RuntimeConfig:
         return cls.get_envvalue('shelvery_tag_prefix', 'shelvery')
     
     @classmethod
-    def get_dr_regions(cls):
-        regions = cls.get_envvalue('shelvery_dr_regions', None)
+    def get_dr_regions(cls, resource_tags, engine):
+        regions = cls.get_conf_value('shelvery_dr_regions', resource_tags, engine.lambda_payload)
         return [] if regions is None else regions.split(',')
     
-    @classmethod
-    def get_dr_enabled(cls):
-        return cls.get_dr_regions() is not None
     
     @classmethod
     def is_started_internally(cls, engine) -> bool:
@@ -117,7 +121,7 @@ class RuntimeConfig:
         if cls.is_lambda_runtime(shelvery):
             return (shelvery.lambda_context.get_remaining_time_in_millis() / 1000) - 20
         else:
-            return int(cls.get_envvalue('shelvery_wait_snapshot_timeout', '1200'))
+            return int(cls.get_conf_value('shelvery_wait_snapshot_timeout', None, shelvery.lambda_payload))
     
     @classmethod
     def get_max_lambda_wait_iterations(cls):
@@ -126,14 +130,10 @@ class RuntimeConfig:
     @classmethod
     def get_share_with_accounts(cls, shelvery):
         # collect account from env vars
-        accounts = cls.get_envvalue('shelvery_share_aws_account_ids', None)
+        accounts = cls.get_conf_value('shelvery_share_aws_account_ids', None, shelvery.lambda_payload)
         
         # by default it is empty list
         accounts = accounts.split(',') if accounts is not None else []
-        
-        # collect account from lambda payload
-        if cls.is_lambda_runtime(shelvery) and 'share_aws_account_ids' in shelvery.lambda_payload:
-            accounts = accounts + shelvery.lambda_payload['share_aws_account_ids']
         
         # validate account format
         for acc in accounts:
@@ -145,6 +145,5 @@ class RuntimeConfig:
         return accounts
     
     @classmethod
-    def get_rds_mode(cls):
-        rds_backup_mode = cls.get_envvalue('rds_backup_mode', cls.RDS_COPY_AUTOMATED_SNAPSHOT)
-        return rds_backup_mode
+    def get_rds_mode(cls, resource_tags, engine):
+        return cls.get_conf_value('shelvery_rds_backup_mode', resource_tags, engine.lambda_payload)

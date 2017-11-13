@@ -1,6 +1,9 @@
 import boto3
 
 from typing import List
+
+from botocore.exceptions import ClientError
+
 from shelvery.ec2_backup import ShelveryEC2Backup
 from shelvery.entity_resource import EntityResource
 from shelvery.backup_resource import BackupResource
@@ -29,7 +32,10 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 backup_id=snap['SnapshotId'],
                 tags=dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
             )
+            backup.entity_id = snap['VolumeId']
             backups.append(backup)
+
+        self.populate_volume_information(backups)
         
         return backups
     
@@ -117,3 +123,31 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 load_volumes = False
         
         return all_volumes
+
+    def populate_volume_information(self, backups):
+        volume_ids = []
+        volumes = {}
+        local_region = boto3.session.Session().region_name
+        
+        # create list of all volume ids
+        for backup in backups:
+            if backup.entity_id not in volume_ids:
+                volume_ids.append(backup.entity_id)
+                
+        # populate map volumeid->volume if present
+        for volume_id in volume_ids:
+            try:
+                volume = self.ec2client.describe_volumes(VolumeIds=[volume_id])['Volumes'][0]
+                d_tags = dict(map(lambda t: (t['Key'], t['Value']), volume['Tags']))
+                volumes[volume_id] = EntityResource(volume_id, local_region, volume['CreateTime'], d_tags)
+            except ClientError as e:
+                if 'InvalidVolume.NotFound' in str(e):
+                    volumes[volume_id] = EntityResource.empty()
+                    volumes[volume_id].resource_id = volume_id
+                else:
+                    raise e
+        
+        # add info to backup resource objects
+        for backup in backups:
+            if backup.entity_id in volumes:
+                backup.entity_resource = volumes[backup.entity_id]

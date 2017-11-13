@@ -38,14 +38,13 @@ class ShelveryEngine:
         self.lambda_wait_iteration = 0
         self.lambda_payload = None
         self.lambda_context = None
-      
     
     def set_lambda_environment(self, payload, context):
         self.lambda_payload = payload
         self.lambda_context = context
         self.aws_request_id = context.aws_request_id
-        if LAMBDA_WAIT_ITERATION in payload:
-            self.lambda_wait_iteration = payload[LAMBDA_WAIT_ITERATION]
+        if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
+            self.lambda_wait_iteration = payload['arguments'][LAMBDA_WAIT_ITERATION]
     
     def create_backups(self):
         """Create backups from all collected entities marked for backup by using specific tag"""
@@ -73,9 +72,8 @@ class ShelveryEngine:
             backup_resources.append(backup_resource)
         
         # create backups and disaster recovery region
-        if RuntimeConfig.get_dr_enabled():
-            for br in backup_resources:
-                self.copy_backup(br, RuntimeConfig.get_dr_regions())
+        for br in backup_resources:
+            self.copy_backup(br, RuntimeConfig.get_dr_regions(br.entity_resource.tags, self))
         
         for aws_account_id in RuntimeConfig.get_share_with_accounts(self):
             for br in backup_resources:
@@ -85,15 +83,15 @@ class ShelveryEngine:
         # collect backups
         existing_backups = self.get_existing_backups(RuntimeConfig.get_tag_prefix())
         self.logger.info(f"Collected {len(existing_backups)} backups to be checked for expiry date")
-        self.logger.info(f"""Using following retention settings from environment:
-                            Keeping last {RuntimeConfig.get_keep_daily()} daily backups
-                            Keeping last {RuntimeConfig.get_keep_weekly()} weekly backups
-                            Keeping last {RuntimeConfig.get_keep_monthly()} monthly backups
-                            Keeping last {RuntimeConfig.get_keep_yearly()} yearly backups""")
+        self.logger.info(f"""Using following retention settings from runtime environment (resource overrides enabled):
+                            Keeping last {RuntimeConfig.get_keep_daily(None, self)} daily backups
+                            Keeping last {RuntimeConfig.get_keep_weekly(None, self)} weekly backups
+                            Keeping last {RuntimeConfig.get_keep_monthly(None, self)} monthly backups
+                            Keeping last {RuntimeConfig.get_keep_yearly(None, self)} yearly backups""")
         
         # check backups for expire date, delete if necessary
         for backup in existing_backups:
-            if backup.is_stale():
+            if backup.is_stale(self):
                 self.logger.info(
                     f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
                 self.delete_backup(backup)
@@ -126,6 +124,7 @@ class ShelveryEngine:
             arguments to be executed if lambda functions times out, and return false. Always return true
             in non-lambda mode"""
         has_timed_out = {'value': False}
+        engine = self
         
         def call_recursively():
             # check if exceeded allowed number of wait iterations in lambda
@@ -135,7 +134,7 @@ class ShelveryEngine:
             
             lambda_args['lambda_wait_iteration'] = self.lambda_wait_iteration + 1
             ShelveryInvoker().invoke_shelvery_operation(
-                engine_name=self.lambda_payload['backup_type'],
+                engine,
                 method_name=lambda_method,
                 method_arguments=lambda_args)
             has_timed_out['value'] = True
@@ -154,7 +153,11 @@ class ShelveryEngine:
         """Copy backup to set of regions - this is orchestration method, rather than
             logic implementation"""
         method = 'do_copy_backup'
-     
+        
+        # tag source backup with dr regions
+        backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(target_regions)
+        self.tag_backup_resource(backup_resource)
+        
         # call lambda recursively for each backup / region pair
         for region in target_regions:
             arguments = {
@@ -163,7 +166,7 @@ class ShelveryEngine:
                 'Region': region
             }
             ShelveryInvoker().invoke_shelvery_operation(self, method, arguments)
-        
+    
     def share_backup(self, backup_resource: BackupResource, aws_account_id: str):
         """
         Share backup with other AWS account - this is orchestration method, rather than
@@ -177,7 +180,6 @@ class ShelveryEngine:
             'AwsAccountId': aws_account_id
         }
         ShelveryInvoker().invoke_shelvery_operation(self, method, arguments)
-        
     
     def do_copy_backup(self, map_args={}, **kwargs):
         """
@@ -197,15 +199,31 @@ class ShelveryEngine:
         self.logger.info(f"Do copy backup {kwargs['BackupId']} ({kwargs['OriginRegion']}) to region {kwargs['Region']}")
         
         # copy backup
-        regional_backup_id = self.copy_backup_to_region(kwargs['BackupId'], kwargs['Region'])
-
+        src_region = kwargs['OriginRegion']
+        dst_region = kwargs['Region']
+        regional_backup_id = self.copy_backup_to_region(kwargs['BackupId'], dst_region)
+        
         # create tags on backup copy
-        original_backup = self.get_backup_resource(kwargs['OriginRegion'], kwargs['BackupId'])
+        original_backup_id = kwargs['BackupId']
+        original_backup = self.get_backup_resource(src_region, original_backup_id)
         resource_copy = BackupResource(None, None, True)
         resource_copy.backup_id = regional_backup_id
         resource_copy.region = kwargs['Region']
-        resource_copy.tags = original_backup.tags
+        resource_copy.tags = original_backup.tags.copy()
+        
+        # add metadata to dr copy and original
+        dr_copies_tag_key = f"{RuntimeConfig.get_tag_prefix()}:dr_copies"
+        resource_copy.tags[f"{RuntimeConfig.get_tag_prefix()}:region"] = dst_region
+        resource_copy.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_copy"] = 'true'
+        resource_copy.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_source_backup"] = f"{src_region}:{original_backup_id}"
+        
+        if dr_copies_tag_key not in original_backup.tags:
+            original_backup.tags[dr_copies_tag_key] = ''
+        original_backup.tags[dr_copies_tag_key] = original_backup.tags[
+                                                      dr_copies_tag_key] + f"{dst_region}:{regional_backup_id} "
+        
         self.tag_backup_resource(resource_copy)
+        self.tag_backup_resource(original_backup)
         
         # shared backup copy with same accounts
         for shared_account_id in RuntimeConfig.get_share_with_accounts(self):

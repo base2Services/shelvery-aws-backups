@@ -8,3 +8,4 @@ build
 dist
 shelvery.egg-info
 play.sh
+.serverless

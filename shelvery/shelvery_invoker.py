@@ -24,13 +24,15 @@ class ShelveryInvoker:
         """
         is_lambda_context = RuntimeConfig.is_lambda_runtime(engine)
         parameters = {
-            'backup_type': engine.get_resource_type(),
+            'backup_type': engine.get_engine_type(),
             'action': method_name,
             'arguments': method_arguments
         }
         if is_lambda_context:
             parameters['is_started_internally'] = True
-            payload = json.dumps()
+            if 'config' in engine.lambda_payload:
+                parameters['config'] = engine.lambda_payload['config']
+            payload = json.dumps(parameters)
             bytes_payload = bytearray()
             bytes_payload.extend(map(ord, payload))
             function_name = os.environ['AWS_LAMBDA_FUNCTION_NAME']

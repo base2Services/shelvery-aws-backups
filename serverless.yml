@@ -1,0 +1,95 @@
+service:
+  name: shelvery
+
+provider:
+  name: aws
+  runtime: python3.6
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - 'ec2:Describe*'
+        - 'rds:Describe*'
+        - 'rds:ListTagsForResource'
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - ec2:CreateSnapshot
+        - ec2:ModifySnapshotAttribute
+        - ec2:ResetSnapshotAttribute
+        - ec2:DeleteSnapshot
+        - ec2:DescribeTags
+        - ec2:CreateTags
+        - ec2:DeleteTags
+        - ec2:CopySnapshot
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - rds:ModifyDBSnapshotAttribute
+        - rds:CopyDBSnapshot
+        - rds:DeleteDBSnapshot
+        - rds:CreateDBSnapshot
+        - rds:AddTagsToResource
+        - rds:RemoveTagsFromResource
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - 'lambda:Invoke*'
+      Resource:
+        'Fn::Join':
+          - ''
+          - - 'arn:aws:lambda:'
+            - Ref: 'AWS::Region'
+            - ':'
+            - Ref: 'AWS::AccountId'
+            - ':function:shelvery'
+package:
+  include:
+    - shelvery/*
+    - shelvery_lambda/*
+  exclude:
+    - shelvery_cli/*
+    - tests/**
+    - build/**
+    - dist/**
+    - Jenkinsfile
+    - nosetests.xml
+    - setup.py
+    - shelvery.egg-info/**
+  excludeDevDependencies: true
+
+functions:
+  shelvery:
+    handler: shelvery_lambda/lambda_handler.lambda_handler
+    name: shelvery
+    runtime: python3.6
+    timeout: 300
+    events:
+      # create ebs
+      - schedule:
+          rate: 'cron(0 1 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ebs
+            action: create_backups
+      # create rds
+      - schedule:
+          rate: 'cron(0 1 ? * * *)'
+          enabled: true
+          input:
+            backup_type: rds
+            action: create_backups
+      # clean ebs
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ebs
+            action: clean_backups
+      # clean rds
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ebs
+            action: clean_backups
+
