@@ -1,5 +1,5 @@
 #!groovy
-@Library('github.com/base2Services/ciinabox-pipelines@refs/tags/version-0.1.1') _
+@Library('github.com/base2Services/ciinabox-pipelines@release/version-0.1.1') _
 
 pipeline {
 
