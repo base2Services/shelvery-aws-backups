@@ -6,6 +6,7 @@ from shelvery.engine import ShelveryEngine
 from shelvery.entity_resource import EntityResource
 
 from typing import Dict, List
+from botocore.errorfactory import ClientError
 
 
 class ShelveryRDSBackup(ShelveryEngine):
@@ -18,9 +19,9 @@ class ShelveryRDSBackup(ShelveryEngine):
         return 'RDS Instance'
     
     def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
-        if RuntimeConfig.get_rds_mode() == RuntimeConfig.RDS_CREATE_SNAPSHOT:
+        if RuntimeConfig.get_rds_mode(backup_resource.entity_resource.tags, self) == RuntimeConfig.RDS_CREATE_SNAPSHOT:
             return self.backup_from_instance(backup_resource)
-        if RuntimeConfig.get_rds_mode() == RuntimeConfig.RDS_COPY_AUTOMATED_SNAPSHOT:
+        if RuntimeConfig.get_rds_mode(backup_resource.entity_resource.tags, self) == RuntimeConfig.RDS_COPY_AUTOMATED_SNAPSHOT:
             return self.backup_from_latest_automated(backup_resource)
         
         raise Exception(f"Only {RuntimeConfig.RDS_COPY_AUTOMATED_SNAPSHOT} and "
@@ -59,14 +60,14 @@ class ShelveryRDSBackup(ShelveryEngine):
     def delete_backup(self, backup_resource: BackupResource):
         rds_client = boto3.client('rds')
         rds_client.delete_db_snapshot(
-            DBInstanceIdentifier=backup_resource.entity_id
+            DBSnapshotIdentifier=backup_resource.backup_id
         )
     
     def tag_backup_resource(self, backup_resource: BackupResource):
-        rds_client = boto3.client('rds')
-        snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_resource.backup_id)
+        regional_rds_client = boto3.client('rds', region_name=backup_resource.region)
+        snapshots = regional_rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_resource.backup_id)
         snapshot_arn = snapshots['DBSnapshots'][0]['DBSnapshotArn']
-        rds_client.add_tags_to_resource(
+        regional_rds_client.add_tags_to_resource(
             ResourceName=snapshot_arn,
             Tags=list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k]}, backup_resource.tags))
         )
@@ -176,7 +177,12 @@ class ShelveryRDSBackup(ShelveryEngine):
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
-                all_backups.append(BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags))
+                backup_resource = BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags)
+                backup_resource.entity_resource = snap['EntityResource']
+                backup_resource.entity_id = snap['EntityResource'].resource_id
+                
+                all_backups.append(backup_resource)
+        
         return all_backups
     
     def collect_all_snapshots(self, rds_client):
@@ -185,10 +191,42 @@ class ShelveryRDSBackup(ShelveryEngine):
         :return: All snapshots within region for rds_client
         """
         all_snapshots = []
-        tmp_snapshots = rds_client.describe_db_snapshots()
+        tmp_snapshots = rds_client.describe_db_snapshots(SnapshotType='manual')
         all_snapshots.extend(tmp_snapshots['DBSnapshots'])
         while 'Marker' in tmp_snapshots:
             tmp_snapshots = rds_client.describe_db_snapshots()
             all_snapshots.extend(tmp_snapshots['DBSnapshots'])
         
+        self.populate_snap_entity_resource(all_snapshots)
+        
         return all_snapshots
+    
+    def populate_snap_entity_resource(self, all_snapshots):
+        instance_ids = []
+        for snap in all_snapshots:
+            if snap['DBInstanceIdentifier'] not in instance_ids:
+                instance_ids.append(snap['DBInstanceIdentifier'])
+        entities = {}
+        rds_client = boto3.client('rds')
+        local_region = boto3.session.Session().region_name
+        
+        for instance_id in instance_ids:
+            try:
+                rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
+                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+                d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+                rds_entity = EntityResource(instance_id,
+                                            local_region,
+                                            rds_instance['InstanceCreateTime'],
+                                            d_tags)
+                entities[instance_id] = rds_entity
+            except ClientError as e:
+                if 'DBInstanceNotFoundFault' in str(type(e)):
+                    entities[instance_id] = EntityResource.empty()
+                    entities[instance_id].resource_id = instance_id
+                else:
+                    raise e
+        
+        for snap in all_snapshots:
+            if snap['DBInstanceIdentifier'] in entities:
+                snap['EntityResource'] = entities[snap['DBInstanceIdentifier']]
