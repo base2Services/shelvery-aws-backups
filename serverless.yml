@@ -92,4 +92,9 @@ functions:
           input:
             backup_type: ebs
             action: clean_backups
-
+    environment:
+      shelvery_keep_daily_backups: ${env:shelvery_keep_daily_backups,14}
+      shelvery_keep_weekly_backups: ${env:shelvery_keep_weekly_backups,8}
+      shelvery_keep_monthly_backups: ${env:shelvery_keep_monthly_backups,12}
+      shelvery_keep_yearly_backups: ${env:shelvery_keep_yearly_backups,10}
+      shelvery_dr_regions: ${env:shelvery_dr_regions,''}
