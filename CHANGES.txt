@@ -1,2 +1,3 @@
 v0.1.0, 6/11/2017 -- Initial release.
 v0.2.0, 14/11/2017 -- Control behaviour via resource tags. Multiple levels of configuration. RDS Cleanup.
+v0.3.0, 20/12/2017 -- RDS Cluster backups added

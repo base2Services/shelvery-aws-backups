@@ -108,7 +108,7 @@ aws s3 cp dist/${fileName} s3://\$DIST_BUCKET/release/${releaseFileName}
 
 """
           if(env.BRANCH_NAME == 'master') {
-            slackSend color: '#00FF00', channel: '#base2-tool-releases', message: "New Shelvery Release: <${releaseUrl}|$fileName>"
+            slackSend color: '#00FF00', channel: '#base2-tool-releases', message: "<https://pypi.python.org/pypi/shelvery|New Shelvery Release on PyPI>"
           }
         }
       }
