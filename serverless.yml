@@ -5,12 +5,14 @@ provider:
   name: aws
   runtime: python3.6
   iamRoleStatements:
+    # read only ec2, rds
     - Effect: Allow
       Action:
         - 'ec2:Describe*'
         - 'rds:Describe*'
         - 'rds:ListTagsForResource'
       Resource: '*'
+    # manage ebs snapshots and tags
     - Effect: Allow
       Action:
         - ec2:CreateSnapshot
@@ -22,12 +24,17 @@ provider:
         - ec2:DeleteTags
         - ec2:CopySnapshot
       Resource: '*'
+    # manage rds snaphosts and tags
     - Effect: Allow
       Action:
         - rds:ModifyDBSnapshotAttribute
+        - rds:MOdifyDBClusterSnapshotAttribute
         - rds:CopyDBSnapshot
+        - rds:CopyDBClusterSnapshot
         - rds:DeleteDBSnapshot
+        - rds:DeleteDBClusterSnapshot
         - rds:CreateDBSnapshot
+        - rds:CreateDBClusterSnapshot
         - rds:AddTagsToResource
         - rds:RemoveTagsFromResource
       Resource: '*'
@@ -78,6 +85,13 @@ functions:
           input:
             backup_type: rds
             action: create_backups
+      # create rds cluster
+      - schedule:
+          rate: 'cron(0 1 ? * * *)'
+          enabled: true
+          input:
+            backup_type: rds_cluster
+            action: create_backups
       # clean ebs
       - schedule:
           rate: 'cron(0 2 ? * * *)'
@@ -90,7 +104,14 @@ functions:
           rate: 'cron(0 2 ? * * *)'
           enabled: true
           input:
-            backup_type: ebs
+            backup_type: rds
+            action: clean_backups
+      # clean rds cluster
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: rds_cluster
             action: clean_backups
     environment:
       shelvery_keep_daily_backups: ${env:shelvery_keep_daily_backups,'14'}
@@ -98,3 +119,5 @@ functions:
       shelvery_keep_monthly_backups: ${env:shelvery_keep_monthly_backups,'12'}
       shelvery_keep_yearly_backups: ${env:shelvery_keep_yearly_backups,'10'}
       shelvery_dr_regions: ${env:shelvery_dr_regions,''}
+      shelvery_share_aws_account_ids: ${env:shelvery_share_aws_account_ids,''}
+      shelvery_rds_backup_mode: ${env:shelvery_rds_backup_mode,'RDS_COPY_AUTOMATED_SNAPSHOT'}
