@@ -1,6 +1,6 @@
 # Shelvery
 
-Shelvery is tool for creating backups in Amazon cloud (AWS). It currently supports RDS and EBS backups,
+Shelvery is a tool for creating backups in Amazon cloud (AWS). It currently supports RDS and EBS backups,
 and AMI support is scheduled to be released soon.
 
 ## Features
@@ -16,13 +16,11 @@ and AMI support is scheduled to be released soon.
 
 ### As Cli
 
-Below is example for installing shelvery within docker `python:3` image, and doing some configuration steps.
-
+Below is an example for installing shelvery within docker `python:3` image, and doing some configuration steps.
 
 ```shell
 # run within docker container (preffered, as it has clean python3 install)
 docker run --rm -it -v $HOME/.aws:/root/.aws -w /shelvery -e 'AWS_DEFAULT_REGION=us-east-1' python:3 bash
-
 
 # install shelvery package
 pip install shelvery
@@ -53,11 +51,11 @@ shelvery rds_cluster clean_backups
 
 ### Deploy as lambda
 
-Shelvery can be deployed as lambda fucntion to AWS using [serverless](www.serverless.com) framework. Serverless takes
-care of creation of necessary IAM roles. It also adds daily scheduled to backup all supported resources at 1AM UTC,
-and to run backup cleanup at 2AM UTC. Schedules are created as CloudWatch event rules.
+Shelvery can be deployed as a lambda fucntion to AWS using [serverless](www.serverless.com) framework. Serverless takes
+care of creating the necessary IAM roles. It also adds daily scheduled backups of all supported resources at 1AM UTC,
+and will run backup cleanup at 2AM UTC. Schedules are created as CloudWatch event rules.
 Look at `serverless.yml` file for more details. For this method of installation (that is deployment)
-there is no python package, and you'll need to clone the project. Below is example from doing this process within
+there is no python package, and you'll need to clone the project. Below is an example of doing this process within a
 `node` docker container
 
 ```text
@@ -134,8 +132,7 @@ both CLI and Lambda execution.
 
 ## Backup lifecycle and retention periods
 
-Any backups created via shelvery will get tagged with metadata, including backup name, creation time, and backup retention type
-(daily, weekly, monthly or yearly). Retention is following Grandfather-father-son [backup scheme](https://en.wikipedia.org/wiki/Backup_rotation_scheme).
+Any backups created via shelvery will get tagged with metadata, including backup name, creation time, and backup retention type (daily, weekly, monthly or yearly). Retention is following Grandfather-father-son [backup scheme](https://en.wikipedia.org/wiki/Backup_rotation_scheme).
 Stale backups are cleaned using cleanup commands, according to retention policy.
 Default retention policy is as follows
 
@@ -144,14 +141,14 @@ Default retention policy is as follows
 - Keep monthly backups for 12 months
 - Keep yearly backups for 10 years
 
-Only one type of backups is created per shelvery run, and determined by current date. Rules are following
+Only one type of backup is created per shelvery run, and determined by current date. Rules are following
 
 1. If running shelvery on 1st January, yearly backups will be created
 2. If running shelvery on 1st of the month, monthly backup will be created
 3. If running shelvery on Sunday, weekly backup will be created
 4. Any other day, daily backup is being created
 
-All retention policy can be tweaked using runtime configuration, explained in **Runtime Configuration** section
+All retention policies can be tweaked using runtime configuration, explained in the **Runtime Configuration** section
 Retention period is calculated at cleanup time, meaning lifetime of the backup created is not fixed, e.g. determined
 at backup creation, but rather dynamic. This allows greater flexibility for the end user - e.g. extending daily backup
 policy from last 7 to last 14 days will preserve all backups created in past 7 days, for another 7 days.
@@ -165,8 +162,8 @@ EC2 instances and RDS instances and clusters.
 
 ### EC2
 
-EBS Backups in form of EBS Snapshots is supported. Support for EC2 instances backup in form
-of AMI is on the roadmap.
+EBS Backups in form of EBS Snapshots is supported. Support for EC2 instances backup in the form
+of AMIs is on the roadmap.
 
 ### RDS
 
@@ -176,19 +173,17 @@ if you wish to directly create snapshot. Note that this may fail if RDS instance
 
 ### RDS Clusters
 
-RDS Cluster backups behave same as RDS instance backups, just on RDS Clusters (Aurora). Value of `shelvery_rds_backup_mode` has
-same effect as for RDS instance backups
-
+RDS Cluster backups behave same as RDS instance backups, just on RDS Clusters (Aurora). Value of `shelvery_rds_backup_mode` has the same effect as for RDS instance backups.
 
 ## Runtime Configuration
 
-There are multiple configuration options for shelvery backup engine, configurable on multiple levels.
-Level with higher priority number take precedence over the ones with lower priority number. Lowest priority
+There are multiple configuration options for the shelvery backup engine, configurable on multiple levels.
+Levels with higher priority number take precedence over the ones with lower priority number. Lowest priority
 are defaults that are set in code. Look at `shelvery/runtime_config.py` source code file for more information.
 
 ### Keys
 
-Available configuration keys are below
+Available configuration keys are listed below:
 
 - `shelvery_keep_daily_backups` - Number of days to retain daily backups
 - `shelvery_keep_weekly_backups` - Number of weeks to retain weekly backups
@@ -203,7 +198,6 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
 on Lambda
 
-
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -215,7 +209,6 @@ shelvery_wait_snapshot_timeout=120
 shelvery_lambda_max_wait_iterations=5
 ```
 
-
 ### Configuration Priority 1: Environment variables
 
 ```shell
@@ -225,8 +218,7 @@ $ shelvery rds create_backups
 
 ### Configuration Priority 2: Lambda Function payload
 
-Any keys passed to lambda function payload (if shelvery is running in Lambda environment), under `config` key will hold
-priority over environment variables. E.g. following payload will clean ebs backups, with rule to delete dailies older
+Any keys passed to the lambda function event payload (if shelvery is running in Lambda environment), under `config` key will hold priority over environment variables. E.g. following payload will clean ebs backups, with rule to delete dailies older
 than 5 days
 
 ```json
