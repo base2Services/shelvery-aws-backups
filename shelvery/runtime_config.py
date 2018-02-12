@@ -91,7 +91,7 @@ class RuntimeConfig:
     
     @classmethod
     def get_keep_yearly(cls, resource_tags=None, engine=None):
-        return cls.get_conf_value('shelvery_keep_yearly_backups', resource_tags, engine.lambda_payload)
+        return int(cls.get_conf_value('shelvery_keep_yearly_backups', resource_tags, engine.lambda_payload))
     
     @classmethod
     def get_envvalue(cls, key: str, default_value):

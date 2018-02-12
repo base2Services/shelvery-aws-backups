@@ -94,6 +94,7 @@ class ShelveryEngine:
 
         # check backups for expire date, delete if necessary
         for backup in existing_backups:
+            self.logger.info(f"Checking backup {backup.backup_id}")
             if backup.is_stale(self):
                 self.logger.info(
                     f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
