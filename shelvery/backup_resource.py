@@ -13,6 +13,7 @@ class BackupResource:
     
     BACKUP_MARKER_TAG = 'backup'
     TIMESTAMP_FORMAT = '%Y-%m-%d-%H%M'
+    TIMESTAMP_FORMAT_LEGACY = '%Y%m%d-%H%M'
     
     RETENTION_DAILY = 'daily'
     RETENTION_WEEKLY = 'weekly'
@@ -78,7 +79,15 @@ class BackupResource:
         # read properties from tags
         obj.retention_type = tags[f"{tag_prefix}:retention_type"]
         obj.name = tags[f"{tag_prefix}:name"]
-        obj.date_created = datetime.strptime(tags[f"{tag_prefix}:date_created"], cls.TIMESTAMP_FORMAT)
+        try:
+            obj.date_created = datetime.strptime(tags[f"{tag_prefix}:date_created"], cls.TIMESTAMP_FORMAT)
+        except Exception as e:
+            if 'does not match format' in str(e):
+                str_date = tags[f"{tag_prefix}:date_created"]
+                print(f"Failed to read {str_date} as date, trying legacy format {cls.TIMESTAMP_FORMAT_LEGACY}")
+                obj.date_created = datetime.strptime(tags[f"{tag_prefix}:date_created"], cls.TIMESTAMP_FORMAT_LEGACY)
+                
+                
         obj.region = tags[f"{tag_prefix}:region"]
         return obj
     

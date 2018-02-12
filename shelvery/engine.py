@@ -95,13 +95,17 @@ class ShelveryEngine:
         # check backups for expire date, delete if necessary
         for backup in existing_backups:
             self.logger.info(f"Checking backup {backup.backup_id}")
-            if backup.is_stale(self):
-                self.logger.info(
-                    f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
-                self.delete_backup(backup)
-            else:
-                self.logger.info(f"{backup.retention_type} backup {backup.name} is valid "
-                                 f"until {backup.expire_date}, keeping this backup")
+            try:
+                if backup.is_stale(self):
+                    self.logger.info(
+                        f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
+                    self.delete_backup(backup)
+                else:
+                    self.logger.info(f"{backup.retention_type} backup {backup.name} is valid "
+                                     f"until {backup.expire_date}, keeping this backup")
+            except Exception as ex:
+                # TODO notify via SNS
+                self.logger.error(f"Error checking backup {backup.backup_id} for cleanup: {ex}")
 
     def do_wait_backup_available(self, backup_region: str, backup_id: str, timeout_fn=None):
         """Wait for backup to become available. Additionally pass on timeout function
