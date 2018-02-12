@@ -28,7 +28,7 @@ provider:
     - Effect: Allow
       Action:
         - rds:ModifyDBSnapshotAttribute
-        - rds:MOdifyDBClusterSnapshotAttribute
+        - rds:ModifyDBClusterSnapshotAttribute
         - rds:CopyDBSnapshot
         - rds:CopyDBClusterSnapshot
         - rds:DeleteDBSnapshot
