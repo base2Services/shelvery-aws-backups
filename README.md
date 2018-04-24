@@ -1,13 +1,28 @@
 # Shelvery
 
-Shelvery is a tool for creating backups in Amazon cloud (AWS). It currently supports RDS and EBS backups,
-and AMI support is scheduled to be released soon.
+Shelvery is a tool for creating backups in Amazon cloud (AWS). It currently supports following reosource types
+
+- EBS volumes
+- EC2 Instances (backups as AMIs)
+- RDS Instances
+- RDS Clusters
+
+Shelvery tries to make distinction in space of aws backup tools by *unifying backup and retention periods logic*
+within single class called `ShelveryEngine` - `shelvery/engine.py`. Also, most of the tools on the market allow
+linear retention periods (e.g. 28days), whereas shelvery enables father-son-grandson backup strategy, effectively
+enabling it's users to "keep last 7 daily backups, but also last 12 monthly backups, created on 1st of each month"
+Supported levels of retention are - daily, weekly (created on Sundays), monthly (created 1st of each month), and yearly
+backups (created on 1st of January). A general idea is that the more you walk back in past on the timeline, 
+less dense backups are. 
+
+Shelvery *does not* cater for backup restore process. 
 
 ## Features
 
 - Create and clean EBS Volume backups
 - Create and clean RDS Instance backups
 - Create and clean RDS Cluster backups
+- Create and clean EC2 Instance backups in form of Amazon Machine Images.
 - Share backups with other accounts automatically
 - Copy backups to disaster recovery AWS regions
 - Multiple levels of configuration, with priorities: Resource tags, Lambda payload, Environment Variables, Config defaults
@@ -15,6 +30,9 @@ and AMI support is scheduled to be released soon.
 ## Installation and usage
 
 ### As Cli
+
+Shelvery is published to PyPI as python package, and can be obtained from there. Additionally, you can 
+clone this repository and deploy it as lambda. 
 
 Below is an example for installing shelvery within docker `python:3` image, and doing some configuration steps.
 
@@ -153,10 +171,24 @@ Retention period is calculated at cleanup time, meaning lifetime of the backup c
 at backup creation, but rather dynamic. This allows greater flexibility for the end user - e.g. extending daily backup
 policy from last 7 to last 14 days will preserve all backups created in past 7 days, for another 7 days.
 
-## Marking your resources to be backed up by tagging
+## What resources are being backed up
 
-Any resources tagged with `shelvery:create_backup` will be included for backups. This applies to EBS volumes,
-EC2 instances and RDS instances and clusters.
+For following resource types:
+
+- EC2 Volumes
+- EC2 Instances
+- RDS Instances
+- RDS Clusters
+
+Simply  add `shelvery:create_backup` tag with any of the following values
+
+- `True`
+- `true`
+- `1`
+
+to resource that should be backed up.
+
+Resources that are not marked to be manage by shelvery are skipped.
 
 ## Supported services
 
@@ -238,6 +270,7 @@ will ensure it's daily backups are retained for 30 days, and copied to `us-west-
 `shelvery_share_aws_account_ids` is not available on a resource level (Pull Requests welcome)
 
 `shelvery:config:shelvery_keep_daily_backups=30`
+
 `shelvery:config:shelvery_dr_regions=us-west-1,us-west-2`
 
 Generic format for shelvery config tag is `shevlery:config:$configkey=$configvalue`

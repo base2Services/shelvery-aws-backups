@@ -2,6 +2,7 @@ from shelvery.ebs_backup import ShelveryEBSBackup
 from shelvery.engine import ShelveryEngine
 from shelvery.rds_backup import  ShelveryRDSBackup
 from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
+from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
 
 class ShelveryFactory:
 
@@ -16,5 +17,5 @@ class ShelveryFactory:
         if type == 'rds_cluster':
             return ShelveryRDSClusterBackup()
 
-        if type == 'ami':
-            raise Exception("AMIs not supported yet")
+        if type == 'ec2ami':
+            return ShelveryEC2AMIBackup()
