@@ -60,7 +60,7 @@ exit 0
                 python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
                 rval=\$?
                 chown -R 1000:1000 .
-                echo $rval
+                echo \$rval
                 exit 0
                 """, returnStdout: true
 
