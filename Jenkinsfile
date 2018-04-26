@@ -57,7 +57,7 @@ pip install nose
 pip install -r requirements.txt -t lib
 chown -R 1000:1000 .
 export AWS_DEFAULT_REGION=us-east-1
-nosetests --with-xunit
+nosetests --with-xunit -v --with-id
 """
         //report unit tests
         junit 'nosetests.xml'

@@ -1,8 +1,10 @@
-import sys, traceback
+import sys
+import traceback
 import unittest
 
 import boto3
 import os
+import time
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,11 +23,15 @@ print(f"Python lib path:\n{sys.path}")
 
 
 class ShelveryEBSIntegrationTestCase(unittest.TestCase):
-    """Shelvery Factory unit tests"""
+    """Shelvery EBS Backups Integration tests"""
 
     def setUp(self):
         self.volume = None
         self.created_snapshots = []
+        self.regional_snapshots = {
+            'us-west-1': [],
+            'us-west-2': []
+        }
 
         print(f"Setting up ebs integraion test")
         print("Create EBS Volume of 1G")
@@ -50,7 +56,9 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         # wait until volume is available
         interm_volume = ec2client.describe_volumes(VolumeIds=[self.volume['VolumeId']])['Volumes'][0]
         while interm_volume['State'] != 'available':
+            time.sleep(5)
             interm_volume = ec2client.describe_volumes(VolumeIds=[self.volume['VolumeId']])['Volumes'][0]
+
         print(f"Created volume: {self.volume}")
         # TODO wait until volume is 'available'
         self.share_with_id = int(self.id['Account']) + 1
@@ -62,6 +70,11 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         for snapid in self.created_snapshots:
             print(f"Deleting snapshot {snapid}")
             ec2client.delete_snapshot(SnapshotId=snapid)
+
+        for region in self.regional_snapshots:
+            ec2regional = boto3.client('ec2',region_name=region)
+            for snapid in self.regional_snapshots[region]:
+                ec2regional.delete_snapshot(SnapshotId=snapid)
 
     def test_CreateBackups(self):
         ebs_backups_engine = ShelveryEBSBackup()
@@ -78,8 +91,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         # validate there is
         for backup in backups:
             if backup.entity_id == self.volume['VolumeId']:
-                self.created_snapshots.append(snapshot_id)
                 snapshot_id = backup.backup_id
+                self.created_snapshots.append(snapshot_id)
                 snapshots = ec2client.describe_snapshots(SnapshotIds=[snapshot_id])['Snapshots']
                 self.assertTrue(len(snapshots) == 1)
                 self.assertTrue(snapshots[0]['VolumeId'] == self.volume['VolumeId'])
@@ -89,7 +102,6 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
                 self.assertTrue(f"{RuntimeConfig.get_tag_prefix()}:entity_id" in d_tags)
                 self.assertTrue(d_tags[f"{RuntimeConfig.get_tag_prefix()}:entity_id"] == self.volume['VolumeId'])
                 valid = True
-
 
         self.assertTrue(valid)
 
@@ -109,14 +121,60 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         # validate there is
         for backup in backups:
             if backup.entity_id == self.volume['VolumeId']:
-                self.created_snapshots.append(snapshot_id)
                 print(f"Testing snap {backup.entity_id} if shared with {self.share_with_id}")
                 snapshot_id = backup.backup_id
+                self.created_snapshots.append(snapshot_id)
                 snapshot = ec2.Snapshot(snapshot_id)
                 attr = snapshot.describe_attribute(Attribute='createVolumePermission')
                 print(f"CreateVolumePermissions: {attr}")
                 userlist = attr['CreateVolumePermissions']
                 self.assertTrue(str(self.share_with_id) in list(map(lambda x: x['UserId'], userlist)))
+                valid = True
+
+        self.assertTrue(valid)
+
+    def test_CopyBackups(self):
+        ebs_backups_engine = ShelveryEBSBackup()
+        try:
+            os.environ['shelvery_dr_regions'] = 'us-west-2'
+            backups = ebs_backups_engine.create_backups()
+        except Exception as e:
+            print(e)
+            print(f"Failed with {e}")
+            traceback.print_exc(file=sys.stdout)
+            raise e
+
+        ec2dr_region = boto3.client('ec2', region_name='us-west-2')
+        valid = False
+        # validate there is
+        for backup in backups:
+            if backup.entity_id == self.volume['VolumeId']:
+                print(
+                    f"Testing snap {backup.entity_id} if copied to region us-west-2")
+                snapshot_id = backup.backup_id
+                self.created_snapshots.append(snapshot_id)
+                drsnapshot = ec2dr_region.describe_snapshots(Filters=[
+                    {'Name': f"tag:{RuntimeConfig.get_tag_prefix()}:entity_id",
+                     'Values': [self.volume['VolumeId']]
+                     }])['Snapshots'][0]
+                drsnapshot_dtags = dict(map(lambda x: (x['Key'], x['Value']), drsnapshot['Tags']))
+
+                tag_key = f"{RuntimeConfig.get_tag_prefix()}:dr_copy"
+                tag_value = 'true'
+                self.assertTrue(tag_key in drsnapshot_dtags)
+                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+
+                tag_key = f"{RuntimeConfig.get_tag_prefix()}:dr_source_backup"
+                tag_value = f"us-east-1:{snapshot_id}"
+                self.assertTrue(tag_key in drsnapshot_dtags)
+                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+
+                tag_key = f"{RuntimeConfig.get_tag_prefix()}:region"
+                tag_value = 'us-west-2'
+                self.assertTrue(tag_key in drsnapshot_dtags)
+                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+
+                self.regional_snapshots['us-west-2'].append(drsnapshot['SnapshotId'])
                 valid = True
 
         self.assertTrue(valid)

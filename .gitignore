@@ -9,3 +9,5 @@ dist
 shelvery.egg-info
 play.sh
 .serverless
+.noseids
+out.txt
