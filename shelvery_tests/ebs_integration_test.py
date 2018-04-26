@@ -5,6 +5,8 @@ import unittest
 import boto3
 import os
 import time
+import botocore
+from datetime import datetime
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -71,14 +73,23 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         ec2client = boto3.client('ec2')
         ec2client.delete_volume(VolumeId=self.volume['VolumeId'])
         print(f"Deleted volume:\n{self.volume['VolumeId']}\n")
+
+        # snapshot deletion surrounded with try/except in order
+        # for cases when shelvery cleans / does not clean up behind itself
         for snapid in self.created_snapshots:
             print(f"Deleting snapshot {snapid}")
-            ec2client.delete_snapshot(SnapshotId=snapid)
+            try:
+                ec2client.delete_snapshot(SnapshotId=snapid)
+            except Exception as e:
+                print(f"Failed to delete {snapid}:{str(e)}")
 
         for region in self.regional_snapshots:
-            ec2regional = boto3.client('ec2',region_name=region)
+            ec2regional = boto3.client('ec2', region_name=region)
             for snapid in self.regional_snapshots[region]:
-                ec2regional.delete_snapshot(SnapshotId=snapid)
+                try:
+                    ec2regional.delete_snapshot(SnapshotId=snapid)
+                except Exception as e:
+                    print(f"Failed to delete {snapid}:{str(e)}")
 
     def test_CreateBackups(self):
         ebs_backups_engine = ShelveryEBSBackup()
@@ -119,6 +130,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
             print(f"Failed with {e}")
             traceback.print_exc(file=sys.stdout)
             raise e
+        finally:
+            del os.environ["shelvery_share_aws_account_ids"]
 
         ec2 = boto3.resource('ec2')
         valid = False
@@ -147,6 +160,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
             print(f"Failed with {e}")
             traceback.print_exc(file=sys.stdout)
             raise e
+        finally:
+            del os.environ["shelvery_dr_regions"]
 
         ec2dr_region = boto3.client('ec2', region_name='us-west-2')
         valid = False
@@ -179,6 +194,40 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
                 self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
 
                 self.regional_snapshots['us-west-2'].append(drsnapshot['SnapshotId'])
+                valid = True
+
+        self.assertTrue(valid)
+
+    def test_CleanBackups(self):
+        ebs_backups_engine = ShelveryEBSBackup()
+        try:
+            backups = ebs_backups_engine.create_backups()
+        except Exception as e:
+            print(e)
+            print(f"Failed with {e}")
+            traceback.print_exc(file=sys.stdout)
+            raise e
+        ec2client = boto3.client('ec2')
+
+        valid = False
+        # validate there is
+        for backup in backups:
+            if backup.entity_id == self.volume['VolumeId']:
+                snapshot_id = backup.backup_id
+                snapshots = ec2client.describe_snapshots(SnapshotIds=[snapshot_id])['Snapshots']
+                self.assertEqual(len(snapshots), 1)
+                ec2client.create_tags(
+                    Resources=[snapshot_id],
+                    Tags=[{'Key': f"{RuntimeConfig.get_tag_prefix()}:date_created",
+                           'Value': datetime(1990, 1, 1).strftime(BackupResource.TIMESTAMP_FORMAT)
+                           }]
+                )
+                ebs_backups_engine.clean_backups()
+                with self.assertRaises(botocore.exceptions.ClientError) as context:
+                    ec2client.describe_snapshots(SnapshotIds=[snapshot_id])['Snapshots']
+
+                self.assertTrue('does not exist' in context.exception.response['Error']['Message'])
+                self.assertEqual('InvalidSnapshot.NotFound', context.exception.response['Error']['Code'])
                 valid = True
 
         self.assertTrue(valid)
