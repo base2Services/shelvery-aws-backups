@@ -58,9 +58,8 @@ exit 0
                 export AWS_DEFAULT_REGION=us-east-1
                 set +e
                 python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
-                rval=\$?
+                rval=echo \$? > testresults.txt
                 chown -R 1000:1000 .
-                echo \$rval
                 exit 0
                 """, returnStdout: true
 
@@ -68,7 +67,7 @@ exit 0
             junit 'pytest_unit.xml'
 
             //break pipeline if any of the tests failed
-            sh "exit $testsRval"
+            sh "exit \$(cat testresults.txt)"
         }
         //verify cli utility gets installed
         sh """#!/bin/sh
