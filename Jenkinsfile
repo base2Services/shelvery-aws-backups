@@ -58,7 +58,7 @@ exit 0
                 export AWS_DEFAULT_REGION=us-east-1
                 set +e
                 python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
-                rval=$?
+                rval=\$?
                 chown -R 1000:1000 .
                 echo $rval
                 exit 0
