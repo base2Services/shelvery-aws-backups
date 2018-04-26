@@ -52,14 +52,24 @@ exit 0
       steps {
         echo "Shelvery pipeline: Automated tests"
         //run united tests
-        sh """#!/bin/bash
-pip install -r requirements.txt
-export AWS_DEFAULT_REGION=us-east-1
-python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
-"""
-        //report unit tests
-        junit 'pytest_unit.xml'
+        script {
+            def testsRval = sh """#!/bin/bash
+                pip install -r requirements.txt
+                export AWS_DEFAULT_REGION=us-east-1
+                set +e
+                python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
+                rval=$?
+                chown -R 1000:1000 .
+                echo $rval
+                exit 0
+                """, returnStdout: true
 
+            //report unit tests
+            junit 'pytest_unit.xml'
+
+            //break pipeline if any of the tests failed
+            sh "exit $testsRval"
+        }
         //verify cli utility gets installed
         sh """#!/bin/sh
 python setup.py build install
