@@ -55,6 +55,7 @@ exit 0
         sh """#!/bin/sh
 pip install nose
 pip install -r requirements.txt -t lib
+sudo chown -R 1000:1000 .
 export AWS_DEFAULT_REGION=us-east-1
 nosetests --with-xunit
 """
