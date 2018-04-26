@@ -4,6 +4,7 @@ from typing import List
 
 from botocore.exceptions import ClientError
 
+from shelvery.engine import SHELVERY_DO_BACKUP_TAGS
 from shelvery.ec2_backup import ShelveryEC2Backup
 from shelvery.entity_resource import EntityResource
 from shelvery.backup_resource import BackupResource
@@ -32,9 +33,11 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 backup_id=snap['SnapshotId'],
                 tags=dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
             )
-            backup.entity_id = snap['VolumeId']
+            # legacy code - entity id should be picked up from tags
+            if backup.entity_id is None:
+                backup.entity_id = snap['VolumeId']
             backups.append(backup)
-
+        
         self.populate_volume_information(backups)
         
         return backups
@@ -59,7 +62,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         snapshot = ec2.Snapshot(backup_id)
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), snapshot.tags));
         return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
-        
+    
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
         volumes = self.collect_volumes(tag_name)
         return list(
@@ -112,7 +115,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         all_volumes = []
         while load_volumes:
             tagged_volumes = self.ec2client.describe_volumes(
-                Filters=[{'Name': "tag-key", 'Values': [tag_name]}],
+                Filters=[{'Name': f"tag:{tag_name}", 'Values': SHELVERY_DO_BACKUP_TAGS}],
                 NextToken=next_token
             )
             all_volumes = all_volumes + tagged_volumes['Volumes']
@@ -123,7 +126,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 load_volumes = False
         
         return all_volumes
-
+    
     def populate_volume_information(self, backups):
         volume_ids = []
         volumes = {}
@@ -133,7 +136,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         for backup in backups:
             if backup.entity_id not in volume_ids:
                 volume_ids.append(backup.entity_id)
-                
+        
         # populate map volumeid->volume if present
         for volume_id in volume_ids:
             try:
