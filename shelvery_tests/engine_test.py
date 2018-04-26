@@ -18,13 +18,16 @@ print(f"Python lib path:\n{sys.path}")
 
 
 class ShelveryFactoryTestCase(unittest.TestCase):
-    """Shelvery Factory unit tests"""
+    """Shelvery Factory unit shelvery_tests"""
+
+    def id(self):
+        return str(self.__class__)
 
     def setUp(self):
-        print(f"Setting up unit tests")
+        print(f"Setting up unit shelvery_tests")
 
     def tearDown(self):
-        print(f"Tear down unit tests")
+        print(f"Tear down unit shelvery_tests")
 
     def test_getEbsShelvery(self):
         instance = ShelveryFactory.get_shelvery_instance('ebs')

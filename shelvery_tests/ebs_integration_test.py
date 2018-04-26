@@ -23,7 +23,10 @@ print(f"Python lib path:\n{sys.path}")
 
 
 class ShelveryEBSIntegrationTestCase(unittest.TestCase):
-    """Shelvery EBS Backups Integration tests"""
+    """Shelvery EBS Backups Integration shelvery_tests"""
+
+    def id(self):
+        return str(self.__class__)
 
     def setUp(self):
         self.volume = None
@@ -50,7 +53,7 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
                                                   'Tags': [{
                                                       'Key': f"{RuntimeConfig.get_tag_prefix()}:{ShelveryEngine.BACKUP_RESOURCE_TAG}",
                                                       'Value': 'true'
-                                                  }, {'Key': 'Name', 'Value': 'shelvery-automated-tests'}]
+                                                  }, {'Key': 'Name', 'Value': 'shelvery-automated-shelvery_tests'}]
                                               }])
 
         # wait until volume is available

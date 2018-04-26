@@ -23,7 +23,7 @@ pipeline {
     stage('Static Code Analysis') {
       agent {
         docker {
-          image 'python:3-alpine'
+          image 'python:3'
           args '-u 0'
         }
       }
@@ -44,7 +44,7 @@ exit 0
     stage('Automated Tests') {
       agent {
         docker {
-          image 'python:3-alpine'
+          image 'python:3'
           args '-u 0'
         }
       }
@@ -52,12 +52,10 @@ exit 0
       steps {
         echo "Shelvery pipeline: Automated tests"
         //run united tests
-        sh """#!/bin/sh
-pip install nose
-pip install -r requirements.txt -t lib
-chown -R 1000:1000 .
+        sh """#!/bin/bash
+pip install -r requirements.txt
 export AWS_DEFAULT_REGION=us-east-1
-nosetests --with-xunit -v --with-id
+python -m unittest shelvery_tests/*
 """
         //report unit tests
         junit 'nosetests.xml'
