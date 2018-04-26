@@ -53,7 +53,7 @@ exit 0
         echo "Shelvery pipeline: Automated tests"
         //run united tests
         script {
-            def testsRval = sh """#!/bin/bash
+            def testsRval = sh script:"""#!/bin/bash
                 pip install -r requirements.txt
                 export AWS_DEFAULT_REGION=us-east-1
                 set +e
