@@ -55,10 +55,10 @@ exit 0
         sh """#!/bin/bash
 pip install -r requirements.txt
 export AWS_DEFAULT_REGION=us-east-1
-python -m unittest shelvery_tests/*
+python -m pytest --junit-xml=pytest_unit.xml shelvery_tests
 """
         //report unit tests
-        junit 'nosetests.xml'
+        junit 'pytest_unit.xml'
 
         //verify cli utility gets installed
         sh """#!/bin/sh

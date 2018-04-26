@@ -140,7 +140,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             
             # check if marker tag is present
-            if tag_name in d_tags:
+            if tag_name in d_tags and d_tags[tag_name] in SHELVERY_DO_BACKUP_TAGS:
                 resource = EntityResource(instance['DBClusterIdentifier'],
                                           local_region,
                                           instance['ClusterCreateTime'],

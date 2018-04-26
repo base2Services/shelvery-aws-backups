@@ -31,6 +31,8 @@ class RuntimeConfig:
 
     shelvery_share_aws_account_ids - AWS Account Ids to share backups with. Applies to both original and regional
                                     backups
+
+    shelvery_select_entity - Filter which entities get backed up, regardless of tags
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -49,11 +51,12 @@ class RuntimeConfig:
         'shelvery_wait_snapshot_timeout': 1200,
         'shelvery_lambda_max_wait_iterations': 5,
         'shelvery_dr_regions': None,
-        'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT
+        'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT,
+        'shelvery_select_entity': None
     }
 
     @classmethod
-    def get_conf_value(cls, key: str,  resource_tags=None, lambda_payload=None):
+    def get_conf_value(cls, key: str, resource_tags=None, lambda_payload=None):
         # priority 3 are resource tags
         if resource_tags is not None:
             tag_key = f"shelvery:config:{key}"
@@ -88,7 +91,6 @@ class RuntimeConfig:
     def get_keep_monthly(cls, resource_tags=None, engine=None):
         return int(cls.get_conf_value('shelvery_keep_monthly_backups', resource_tags, engine.lambda_payload))
 
-
     @classmethod
     def get_keep_yearly(cls, resource_tags=None, engine=None):
         return int(cls.get_conf_value('shelvery_keep_yearly_backups', resource_tags, engine.lambda_payload))
@@ -105,7 +107,6 @@ class RuntimeConfig:
     def get_dr_regions(cls, resource_tags, engine):
         regions = cls.get_conf_value('shelvery_dr_regions', resource_tags, engine.lambda_payload)
         return [] if regions is None else regions.split(',')
-
 
     @classmethod
     def is_started_internally(cls, engine) -> bool:
@@ -131,7 +132,7 @@ class RuntimeConfig:
     def get_share_with_accounts(cls, shelvery):
         # collect account from env vars
         accounts = cls.get_conf_value('shelvery_share_aws_account_ids', None, shelvery.lambda_payload)
-        
+
         # by default it is empty list
         accounts = accounts.split(',') if accounts is not None else []
 
@@ -147,3 +148,10 @@ class RuntimeConfig:
     @classmethod
     def get_rds_mode(cls, resource_tags, engine):
         return cls.get_conf_value('shelvery_rds_backup_mode', resource_tags, engine.lambda_payload)
+
+    @classmethod
+    def get_shelvery_select_entity(cls, engine):
+        val = cls.get_conf_value('shelvery_select_entity', None, engine.lambda_payload)
+        if val == '':
+            return None
+        return val

@@ -33,7 +33,9 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 backup_id=snap['SnapshotId'],
                 tags=dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
             )
-            backup.entity_id = snap['VolumeId']
+            # legacy code - entity id should be picked up from tags
+            if backup.entity_id is None:
+                backup.entity_id = snap['VolumeId']
             backups.append(backup)
         
         self.populate_volume_information(backups)

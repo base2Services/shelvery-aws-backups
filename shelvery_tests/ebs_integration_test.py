@@ -65,6 +65,7 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         print(f"Created volume: {self.volume}")
         # TODO wait until volume is 'available'
         self.share_with_id = int(self.id['Account']) + 1
+        os.environ['shelvery_select_entity'] = self.volume['VolumeId']
 
     def tearDown(self):
         ec2client = boto3.client('ec2')

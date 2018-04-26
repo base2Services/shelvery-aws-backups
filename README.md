@@ -47,6 +47,12 @@ pip install shelvery
 export shelvery_dr_regions=us-east-2
 export shelvery_keep_daily_backups=7
 
+# create rds cluster backups
+shelvery ec2ami create_backups
+
+# cleanup rds cluster backups
+shelvery ec2ami clean_backups
+
 # create ebs backups
 shelvery ebs create_backups
 
@@ -199,7 +205,9 @@ Simply  add `shelvery:create_backup` tag with any of the following values
 
 to resource that should be backed up.
 
-Resources that are not marked to be manage by shelvery are skipped.
+Resources that are not marked to be manage by shelvery are skipped. 
+Optionally you can export `shelvery_select_entity` environment variable to select single resource, though 
+tagging condition still applies. 
 
 ## Supported services
 
@@ -240,6 +248,9 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
 on Lambda
+
+- `shelvery_select_entity` - select only single resource to be backed up, rather than all tagged with shelvery tags. 
+This resource still needs to have shelvery tag on it to be backed up. 
 
 ### Configuration Priority 0: Sensible defaults
 
