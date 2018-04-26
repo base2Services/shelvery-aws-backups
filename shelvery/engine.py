@@ -14,6 +14,8 @@ from shelvery.entity_resource import EntityResource
 
 LAMBDA_WAIT_ITERATION = 'lambda_wait_iteration'
 
+SHELVERY_DO_BACKUP_TAGS = ['True', 'true', '1', 'TRUE']
+
 
 class ShelveryEngine:
     """Base class for all backup processing, contains logic"""
@@ -46,7 +48,7 @@ class ShelveryEngine:
         if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
             self.lambda_wait_iteration = payload['arguments'][LAMBDA_WAIT_ITERATION]
 
-    def create_backups(self):
+    def create_backups(self) -> List[BackupResource]:
         """Create backups from all collected entities marked for backup by using specific tag"""
 
         # collect resources to be backed up
@@ -54,6 +56,17 @@ class ShelveryEngine:
         self.logger.info(f"Collecting entities of type {resource_type} tagged with "
                          f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
         resources = self.get_entities_to_backup(f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
+
+        # allows user to select single entity to be backed up
+        if RuntimeConfig.get_shelvery_select_entity(self) is not None:
+            entity_id = RuntimeConfig.get_shelvery_select_entity(self)
+            self.logger.info(f"Creating backups only for entity {entity_id}")
+            resources = list(
+                filter(
+                    lambda x: x.resource_id == entity_id,
+                    resources)
+            )
+
         self.logger.info(f"{len(resources)} resources of type {resource_type} collected for backup")
 
         # create and collect backups
@@ -82,9 +95,22 @@ class ShelveryEngine:
             for br in backup_resources:
                 self.share_backup(br, aws_account_id)
 
+        return backup_resources
+
     def clean_backups(self):
         # collect backups
         existing_backups = self.get_existing_backups(RuntimeConfig.get_tag_prefix())
+
+        # allows user to select single entity backups to be cleaned
+        if RuntimeConfig.get_shelvery_select_entity(self) is not None:
+            entity_id = RuntimeConfig.get_shelvery_select_entity(self)
+            self.logger.info(f"Checking only for backups of entity {entity_id}")
+            existing_backups = list(
+                filter(
+                    lambda x: x.entity_id == entity_id,
+                    existing_backups)
+            )
+
         self.logger.info(f"Collected {len(existing_backups)} backups to be checked for expiry date")
         self.logger.info(f"""Using following retention settings from runtime environment (resource overrides enabled):
                             Keeping last {RuntimeConfig.get_keep_daily(None, self)} daily backups

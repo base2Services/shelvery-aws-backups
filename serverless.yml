@@ -92,6 +92,13 @@ functions:
           input:
             backup_type: rds_cluster
             action: create_backups
+      # create ec2 amis
+      - schedule:
+          rate: 'cron(0 1 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ec2ami
+            action: create_backups
       # clean ebs
       - schedule:
           rate: 'cron(0 2 ? * * *)'
@@ -112,6 +119,13 @@ functions:
           enabled: true
           input:
             backup_type: rds_cluster
+            action: clean_backups
+      # clean amis
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ec2ami
             action: clean_backups
     environment:
       shelvery_keep_daily_backups: ${env:shelvery_keep_daily_backups,'14'}

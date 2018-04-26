@@ -1,7 +1,6 @@
 import logging
 from shelvery.factory import ShelveryFactory
 
-import sys
 
 class ShelveryCliMain:
     

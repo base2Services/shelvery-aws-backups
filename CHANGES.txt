@@ -3,3 +3,4 @@ v0.2.0, 14/11/2017 -- Control behaviour via resource tags. Multiple levels of co
 v0.3.0, 20/12/2017 -- RDS Cluster backups added
 v0.3.1, 12/02/2018 -- Fixed bug related to cleanup of yearly backups
 v0.3.2, 12/02/2018 -- Added error handling of cleanup on per-backup basis. Allowing legacy datetime format in backup tags
+v0.4.0, 26/04/2018 -- Support for single resource backup. Support for Ec2 AMIs. Integration testing. Single thread mode.

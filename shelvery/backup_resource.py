@@ -44,7 +44,11 @@ class BackupResource:
         name = entity_resource.tags['Name'] if 'Name' in entity_resource.tags else entity_resource.resource_id
         date_formatted = self.date_created.strftime(self.TIMESTAMP_FORMAT)
         self.name = f"{name}-{date_formatted}-{self.retention_type}"
-        
+
+        self.entity_id = entity_resource.resource_id
+        self.entity_resource = entity_resource
+        self.__region = entity_resource.resource_region
+    
         self.tags = {
             'Name': self.name,
             "shelvery:tag_name": tag_prefix,
@@ -52,14 +56,13 @@ class BackupResource:
             f"{tag_prefix}:name": self.name,
             f"{tag_prefix}:region": entity_resource.resource_region,
             f"{tag_prefix}:retention_type": self.retention_type,
+            f"{tag_prefix}:entity_id": entity_resource.resource_id,
             f"{tag_prefix}:{self.BACKUP_MARKER_TAG}": 'true'
         }
         self.backup_id = None
         self.expire_date = None
         
-        self.entity_id = entity_resource.resource_id
-        self.entity_resource = entity_resource
-        self.__region = entity_resource.resource_region
+
     
     @classmethod
     def construct(cls,
@@ -79,6 +82,10 @@ class BackupResource:
         # read properties from tags
         obj.retention_type = tags[f"{tag_prefix}:retention_type"]
         obj.name = tags[f"{tag_prefix}:name"]
+        
+        if f"{tag_prefix}:entity_id" in tags:
+            obj.entity_id = tags[f"{tag_prefix}:entity_id"]
+            
         try:
             obj.date_created = datetime.strptime(tags[f"{tag_prefix}:date_created"], cls.TIMESTAMP_FORMAT)
         except Exception as e:
