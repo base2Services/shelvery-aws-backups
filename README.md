@@ -136,6 +136,17 @@ Serverless: Removing old service versions...
 
 ```
 
+## Delayed operations
+
+Sharing a backup with another AWS account, or copying backup to another region is considered
+delayed operation that should be executed in separate thread, or in case of running on AWS lambda context, 
+in another Lambda function invocation. This makes shelvery execution non-linear, in order to allow fanning out
+share/copy operations on larger number of backups. 
+
+If you want ot enforce linear execution (only possible when running as CLI), set environment variable `SHELVERY_MONO_THREAD=1`.
+This will ensure all shares / copies are done in single thread, and can prolong backup creation execution, as backup must be 
+in *available* state prior it can be shared or copied. 
+
 ## AWS Credentials configuration
 
 Shelvery uses boto3 as client library to communicate with Amazon Web Services. Use any environment variables that

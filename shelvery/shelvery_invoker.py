@@ -47,6 +47,9 @@ class ShelveryInvoker:
                 method(method_arguments)
                 
             logging.info(f"Start new thread to execute :{method_name}")
-            thread = Thread(target=execute)
-            thread.start()
+            if os.environ["SHELVERY_MONO_THREAD"] == "1":
+                execute()
+            else:
+                thread = Thread(target=execute)
+                thread.start()
             # thread.join()
