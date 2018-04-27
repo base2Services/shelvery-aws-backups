@@ -97,21 +97,24 @@ class BackupResource:
                 
         obj.region = tags[f"{tag_prefix}:region"]
         return obj
-    
+
+    def entity_resource_tags(self):
+        return self.entity_resource.tags if self.entity_resource is not None else {}
+
     def calculate_expire_date(self, engine):
         """Determine expire date, based on 'retention_type' tag"""
         if self.retention_type == BackupResource.RETENTION_DAILY:
             expire_date = self.date_created + timedelta(
-                days=RuntimeConfig.get_keep_daily(self.entity_resource.tags, engine))
+                days=RuntimeConfig.get_keep_daily(self.entity_resource_tags(), engine))
         elif self.retention_type == BackupResource.RETENTION_WEEKLY:
             expire_date = self.date_created + relativedelta(
-                weeks=RuntimeConfig.get_keep_weekly(self.entity_resource.tags, engine))
+                weeks=RuntimeConfig.get_keep_weekly(self.entity_resource_tags(), engine))
         elif self.retention_type == BackupResource.RETENTION_MONTHLY:
             expire_date = self.date_created + relativedelta(
-                months=RuntimeConfig.get_keep_monthly(self.entity_resource.tags, engine))
+                months=RuntimeConfig.get_keep_monthly(self.entity_resource_tags(), engine))
         elif self.retention_type == BackupResource.RETENTION_YEARLY:
             expire_date = self.date_created + relativedelta(
-                years=RuntimeConfig.get_keep_yearly(self.entity_resource.tags, engine))
+                years=RuntimeConfig.get_keep_yearly(self.entity_resource_tags(), engine))
         else:
             # in case there is no retention tag on backup, we want it kept forever
             expire_date = datetime.utcnow() + relativedelta(years=10)

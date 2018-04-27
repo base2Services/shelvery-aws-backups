@@ -85,7 +85,7 @@ class ShelveryEngine:
                                  f"with id {backup_resource.backup_id}")
                 backup_resources.append(backup_resource)
             except Exception as e:
-                self.logger.error(f"Failed to create backup {backup_resource.name}:{e}")
+                self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
 
         # create backups and disaster recovery region
         for br in backup_resources:
@@ -131,7 +131,7 @@ class ShelveryEngine:
                                      f"until {backup.expire_date}, keeping this backup")
             except Exception as ex:
                 # TODO notify via SNS
-                self.logger.error(f"Error checking backup {backup.backup_id} for cleanup: {ex}")
+                self.logger.exception(f"Error checking backup {backup.backup_id} for cleanup: {ex}")
 
     def do_wait_backup_available(self, backup_region: str, backup_id: str, timeout_fn=None):
         """Wait for backup to become available. Additionally pass on timeout function

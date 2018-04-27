@@ -1,6 +1,9 @@
 # Shelvery
 
-Shelvery is a tool for creating backups in Amazon cloud (AWS). It currently supports following reosource types
+Shelvery is a tool for creating backups in Amazon cloud (AWS). It is primarly designed to be run as AWS Lambda
+Function, but can be installed as regular python package as well, and ran as CLI tool. 
+
+It currently supports following resource types
 
 - EBS volumes
 - EC2 Instances (backups as AMIs)
