@@ -7,3 +7,4 @@ v0.4.0, 26/04/2018 -- Support for single resource backup. Support for Ec2 AMIs. 
 v0.4.1, 27/04/2018 -- Updating scm repository information, no source code changes
 v0.4.2, 27/04/2018 -- RDS and Cluster - fallback to regular snapshot if no automated backups. Bugfix - backup cleanup
                       when resource is not available.
+v0.4.3, 27/04/2018 -- Bugfix - unmarking rds snapshots as shelvery managed

@@ -192,7 +192,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
                     backup_resource.entity_resource = snap['EntityResource']
                     backup_resource.entity_id = snap['EntityResource'].resource_id
                 
-                all_backups.append(backup_resource)
+                    all_backups.append(backup_resource)
         
         return all_backups
     
