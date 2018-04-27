@@ -49,6 +49,18 @@ provider:
             - ':'
             - Ref: 'AWS::AccountId'
             - ':function:shelvery'
+    # manage AMIs (limited)
+    - Effect: Allow
+      Action:
+        - ec2:CopyImage
+        - ec2:CreateImage
+        - ec2:DeregisterImage
+        - ec2:DescribeImageAttribute
+        - ec2:DescribeImages
+        - ec2:DescribeInstances
+        - ec2:ModifyImageAttribute
+        - ec2:DeleteSnapshot
+      Resource: '*'
 package:
   include:
     - shelvery/*
