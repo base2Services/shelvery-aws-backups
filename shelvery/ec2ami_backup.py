@@ -33,7 +33,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         backups = []
         instances = dict(map(
             lambda x: (x.resource_id, x),
-            self.get_entities_to_backup(f"{backup_tag_prefix}:{self.BACKUP_RESOURCE_TAG}")
+            self._get_all_entities()
         ))
         for ami in amis:
             backup = BackupResource.construct(backup_tag_prefix,
@@ -65,8 +65,15 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         backup_resource.backup_id = ami['ImageId']
         return backup_resource
 
+    def _get_all_entities(self)-> List[EntityResource]:
+        instances = self.ec2client.describe_instances()
+        while 'NextToken' in instances:
+            instances += self.ec2client.describe_instances(
+                NextToken=instances['NextToken']
+            )
+        return self._convert_instances_to_entities(instances)
+
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
-        local_region = boto3.session.Session().region_name
         instances = self.ec2client.describe_instances(
             Filters=[
                 {
@@ -75,7 +82,22 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
                 }
             ]
         )
+        while 'NextToken' in instances:
+            instances += self.ec2client.describe_instances(
+                Filters=[
+                    {
+                        'Name': f"tag:{tag_name}",
+                        'Values': SHELVERY_DO_BACKUP_TAGS
+                    }
+                ],
+                NextToken=instances['NextToken']
+            )
 
+        return self._convert_instances_to_entities(instances)
+
+    @staticmethod
+    def _convert_instances_to_entities(instances):
+        local_region = boto3.session.Session().region_name
         entities = reduce(
             # reduce function
             lambda x, y: x + list(map(lambda z: EntityResource(
@@ -88,7 +110,6 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
             list(map(lambda x: x, instances['Reservations'])),
             # starting input
             [])
-
         return entities
 
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
