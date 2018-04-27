@@ -112,7 +112,7 @@ python3 setup.py sdist
           sh """
 #!/bin/bash
 printenv
-aws s3 cp dist/${fileName} s3://\$DIST_BUCKET/release/${releaseFileName}
+aws s3 cp dist/${fileName} s3://${params.DIST_BUCKET}/release/${releaseFileName}
 
 """
           if(env.BRANCH_NAME == 'master') {
