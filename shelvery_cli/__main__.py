@@ -23,7 +23,7 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
     if len(args) < 2:
-        print("Usage: shelvery <backup_type> <action>\n\nBackup types: rds ebs rds_cluster ec2ami\nActions: create_backups clean_backups")
+        print("Usage: shelvery <backup_type> <action>\n\nBackup types: rds ebs rds_cluster ec2ami redshift\nActions: create_backups clean_backups")
         exit(-2)
 
     setup_logging()

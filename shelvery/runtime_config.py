@@ -42,6 +42,8 @@ class RuntimeConfig:
 
     RDS_COPY_AUTOMATED_SNAPSHOT = 'RDS_COPY_AUTOMATED_SNAPSHOT'
     RDS_CREATE_SNAPSHOT = 'RDS_CREATE_SNAPSHOT'
+    REDSHIFT_COPY_AUTOMATED_SNAPSHOT = 'REDSHIFT_COPY_AUTOMATED_SNAPSHOT'
+    REDSHIFT_CREATE_SNAPSHOT = 'REDSHIFT_CREATE_SNAPSHOT'
 
     DEFAULTS = {
         'shelvery_keep_daily_backups': 14,
@@ -52,6 +54,7 @@ class RuntimeConfig:
         'shelvery_lambda_max_wait_iterations': 5,
         'shelvery_dr_regions': None,
         'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT,
+        'shelvery_redshift_backup_mode': REDSHIFT_COPY_AUTOMATED_SNAPSHOT,
         'shelvery_select_entity': None
     }
 
@@ -148,6 +151,10 @@ class RuntimeConfig:
     @classmethod
     def get_rds_mode(cls, resource_tags, engine):
         return cls.get_conf_value('shelvery_rds_backup_mode', resource_tags, engine.lambda_payload)
+
+    @classmethod
+    def get_redshift_mode(cls, resource_tags, engine):
+        return cls.get_conf_value('shelvery_redshift_backup_mode', resource_tags, engine.lambda_payload)
 
     @classmethod
     def get_shelvery_select_entity(cls, engine):
