@@ -142,7 +142,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
 
             if 'DBClusterIdentifier' in instance:
-                self.logger.info(f"Skipping RDS Instance {instance['DBInstanceIdentifier']} skipped as it is part"
+                self.logger.info(f"Skipping RDS Instance {instance['DBInstanceIdentifier']} as it is part"
                                  f" of cluster {instance['DBClusterIdentifier']}")
                 continue
 
