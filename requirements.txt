@@ -1,3 +1,4 @@
 python-dateutil
 boto3
 pytest
+pyyaml

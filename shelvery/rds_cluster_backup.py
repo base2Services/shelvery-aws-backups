@@ -114,6 +114,18 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             CopyTags=False
         )
         return backup_id
+
+    def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
+        rds_client = boto3.client('rds')
+        # copying of tags happens outside this method
+        source_arn = f"arn:aws:rds:{source_backup.region}:{source_backup.account_id}:cluster-snapshot:{source_backup.backup_id}"
+        snap = rds_client.copy_db_cluster_snapshot(
+            SourceDBClusterSnapshotIdentifier=source_arn,
+            SourceRegion=source_backup.region,
+            CopyTags=False,
+            TargetDBClusterSnapshotIdentifier=source_backup.backup_id
+        )
+        return snap['DBClusterSnapshot']['DBClusterSnapshotIdentifier']
     
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
         rds_client = boto3.client('rds', region_name=backup_region)

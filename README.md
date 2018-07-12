@@ -246,6 +246,9 @@ Available configuration keys are listed below:
 - `shelvery_wait_snapshot_timeout` - Timeout in seconds to wait for snapshot to become available before copying it
 to another region or sharing with other account. Defaults to 1200 (20 minutes)
 - `shelvery_share_aws_account_ids` -  AWS Account Ids to share backups with. Applies to both original and regional backups                                                                   
+- `shelvery_source_aws_account_ids` - List of AWS Account Ids, comma seperated, that are exposing/sharing their shelvery
+    backups with account where shelvery is running. This can be used for having DR aws account that aggregates backups
+    from other accounts. 
 - `shelvery_rds_backup_mode` - can be either `RDS_COPY_AUTOMATED_SNAPSHOT` or `RDS_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
