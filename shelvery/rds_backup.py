@@ -218,7 +218,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         tmp_snapshots = rds_client.describe_db_snapshots(SnapshotType='manual')
         all_snapshots.extend(tmp_snapshots['DBSnapshots'])
         while 'Marker' in tmp_snapshots:
-            tmp_snapshots = rds_client.describe_db_snapshots(Marker=tmp_snapshots['Marker'])
+            tmp_snapshots = rds_client.describe_db_snapshots()
             all_snapshots.extend(tmp_snapshots['DBSnapshots'])
 
         self.populate_snap_entity_resource(all_snapshots)

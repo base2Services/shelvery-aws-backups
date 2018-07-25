@@ -111,20 +111,19 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
 
     @staticmethod
     def _convert_instances_to_entities(instances):
-        """
-        Params:
-            instances: a list of Reservations (i.e. the response from `aws ec2 describe-instances`)
-        """
         local_region = boto3.session.Session().region_name
-
-        entities = []
-        for reservation in instances['Reservations']:
-            for instance in reservation['Instances']:
-                tags = {}
-                if 'Tags' in instance:
-                    tags = dict(map(lambda tag: (tag['Key'], tag['Value']), instance['Tags']))
-                entities.append(EntityResource(resource_id=instance['InstanceId'], resource_region=local_region, date_created=instance['LaunchTime'], tags=tags))
-
+        entities = reduce(
+            # reduce function
+            lambda x, y: x + list(map(lambda z: EntityResource(
+                resource_id=z['InstanceId'],
+                resource_region=local_region,
+                date_created=z['LaunchTime'],
+                tags=dict(map(lambda x: (x['Key'], x['Value']), z['Tags']))
+            ), y['Instances'])),
+            # input list
+            list(map(lambda x: x, instances['Reservations'])),
+            # starting input
+            [])
         return entities
 
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
