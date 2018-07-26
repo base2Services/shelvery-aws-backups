@@ -216,8 +216,7 @@ tagging condition still applies.
 
 ### EC2
 
-EBS Backups in form of EBS Snapshots is supported. Support for EC2 instances backup in the form
-of AMIs is on the roadmap.
+EBS Backups in form of EBS Snapshots is supported. EC2 Instance backups in form of Amazon Machine Images (AMIs) is supported as well.
 
 ### RDS
 
