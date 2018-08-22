@@ -19,7 +19,7 @@ class ShelveryNotification:
             message['Timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
             message = json.dumps(message)
         
-        if self.topic_arn is not None:
+        if self.topic_arn is not None and self.topic_arn.startswith('arn:aws:sns'):
             try:
                 self.sns.publish(
                     TopicArn=self.topic_arn,

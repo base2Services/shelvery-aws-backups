@@ -60,9 +60,10 @@ class ShelveryEngine:
             self.lambda_wait_iteration = payload['arguments'][LAMBDA_WAIT_ITERATION]
     
     @classmethod
-    def get_local_bucket_name(cls):
+    def get_local_bucket_name(cls, region=None):
         account_id = AwsHelper.local_account_id()
-        region = AwsHelper.local_region()
+        if region is None:
+            region = AwsHelper.local_region()
         bucket_name = f"shelvery.data.{account_id}-{region}.base2tools"
         return bucket_name
     
@@ -73,9 +74,13 @@ class ShelveryEngine:
         bucket_name = f"shelvery.data.{account_id}-{remote_region}.base2tools"
         return bucket_name
     
-    def _get_data_bucket(self):
-        bucket_name = self.get_local_bucket_name()
-        loc_constraint = boto3.session.Session().region_name
+    def _get_data_bucket(self, region=None):
+        bucket_name = self.get_local_bucket_name(region)
+        if region is None:
+            loc_constraint = boto3.session.Session().region_name
+        else:
+            loc_constraint = region
+        
         s3 = boto3.resource('s3')
         try:
             boto3.client('s3').head_bucket(Bucket=bucket_name)
@@ -83,24 +88,27 @@ class ShelveryEngine:
         
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
+                client_region = loc_constraint
+                s3client = boto3.client('s3', region_name=client_region)
                 if loc_constraint == "us-east-1":
-                    bucket = s3.create_bucket(Bucket=bucket_name)
+                    bucket = s3client.create_bucket(Bucket=bucket_name)
                 else:
                     if loc_constraint == "eu-west-1":
                         loc_constraint = "EU"
                     
-                    bucket = s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
+                    bucket = s3client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={
                         'LocationConstraint': loc_constraint
                     })
                 
                 # store the bucket policy, so the bucket can be accessed from other accounts
                 # that backups are shared with
-                boto3.client('s3').put_bucket_policy(Bucket=bucket_name,
-                                                     Policy=AwsHelper.get_shelvery_bucket_policy(
-                                                         self.account_id,
-                                                         RuntimeConfig.get_share_with_accounts(self),
-                                                         bucket_name)
-                                                     )
+                s3client.put_bucket_policy(Bucket=bucket_name,
+                                           Policy=AwsHelper.get_shelvery_bucket_policy(
+                                               self.account_id,
+                                               RuntimeConfig.get_share_with_accounts(self),
+                                               bucket_name)
+                                           )
+                return s3.Bucket(bucket_name)
             else:
                 raise e
         return bucket
@@ -259,7 +267,7 @@ class ShelveryEngine:
         for src_account_id in RuntimeConfig.get_source_backup_accounts(self):
             try:
                 bucket_name = self.get_remote_bucket_name(src_account_id)
-                path = f"backups/shared/{account_id}/{self.get_engine_type()}"
+                path = f"backups/shared/{account_id}/{self.get_engine_type()}/"
                 path_processed = f"backups/shared/{account_id}/{self.get_engine_type()}-processed"
                 path_failed = f"backups/shared/{account_id}/{self.get_engine_type()}-failed"
                 bucket_loc = s3_client.get_bucket_location(Bucket=bucket_name)
@@ -310,7 +318,7 @@ class ShelveryEngine:
                             'Backup': shared_backup.name
                         })
                     except Exception as e:
-                        backup_name = backup_object['Key'].split('/')[-1].replace('.yaml','')
+                        backup_name = backup_object['Key'].split('/')[-1].replace('.yaml', '')
                         self.logger.exception(f"Failed to copy shared backup s3://{bucket_name}/{backup_object['Key']}")
                         self.snspublisher.notify({
                             'Operation': 'PullSharedBackup',
@@ -319,8 +327,8 @@ class ShelveryEngine:
                             'BackupType': self.get_engine_type(),
                             'SourceAccount': src_account_id,
                             'BackupS3Location': backup_object['Key'],
-                            'NewS3Location':f"{path_failed}/{backup_name}.yaml",
-                            'Bucket':bucket_name
+                            'NewS3Location': f"{path_failed}/{backup_name}.yaml",
+                            'Bucket': bucket_name
                         })
                         regional_client.put_object(
                             Bucket=bucket_name,
@@ -340,14 +348,17 @@ class ShelveryEngine:
                 })
                 self.logger.exception("Failed to pull shared backups")
     
-    def put_bucket_policy(self):
-        bucket = self._get_data_bucket()
-        boto3.client('s3').put_bucket_policy(Bucket=bucket.name,
-                                             Policy=AwsHelper.get_shelvery_bucket_policy(
-                                                 self.account_id,
-                                                 RuntimeConfig.get_share_with_accounts(self),
-                                                 bucket.name)
-                                             )
+    def create_data_buckets(self):
+        regions = [self.region]
+        regions.extend(RuntimeConfig.get_dr_regions(None, self))
+        for region in regions:
+            bucket = self._get_data_bucket(region)
+            boto3.client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,
+                                                 Policy=AwsHelper.get_shelvery_bucket_policy(
+                                                     self.account_id,
+                                                     RuntimeConfig.get_share_with_accounts(self),
+                                                     bucket.name)
+                                                 )
     
     ### Helper methods, invoked internally, could be refactored
     def do_wait_backup_available(self, backup_region: str, backup_id: str, timeout_fn=None):
@@ -481,6 +492,7 @@ class ShelveryEngine:
                 'BackupType': self.get_engine_type(),
                 'BackupId': kwargs['BackupId'],
             })
+            self.store_backup_data(resource_copy)
         except Exception as e:
             self.snspublisher.notify({
                 'Operation': 'CopyBackupToRegion',
@@ -518,7 +530,7 @@ class ShelveryEngine:
                     'BackupId': kwargs['BackupId'],
                 })
                 self.logger.exception(f"Error sharing copied backup {kwargs['BackupId']} to {dst_region}")
-
+    
     def do_share_backup(self, map_args={}, **kwargs):
         """Share backup with other AWS account, actual implementation"""
         kwargs.update(map_args)
@@ -540,7 +552,7 @@ class ShelveryEngine:
             backup_resource = self.get_backup_resource(backup_region, backup_id)
             self._write_backup_data(
                 backup_resource,
-                self._get_data_bucket(),
+                self._get_data_bucket(backup_region),
                 destination_account_id
             )
             self.snspublisher.notify({
@@ -548,7 +560,7 @@ class ShelveryEngine:
                 'Status': 'OK',
                 'BackupType': self.get_engine_type(),
                 'BackupName': backup_resource.name,
-                'DestinationAccount':kwargs['AwsAccountId']
+                'DestinationAccount': kwargs['AwsAccountId']
             })
         except Exception as e:
             self.snspublisher.notify({
@@ -557,8 +569,10 @@ class ShelveryEngine:
                 'ExceptionInfo': e.__dict__,
                 'BackupType': self.get_engine_type(),
                 'BackupId': backup_id,
-                'DestinationAccount':kwargs['AwsAccountId']
+                'DestinationAccount': kwargs['AwsAccountId']
             })
+            self.logger.exception(
+                f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
     
     def store_backup_data(self, backup_resource: BackupResource):
         """
@@ -597,8 +611,9 @@ class ShelveryEngine:
             return
         
         backup_resource = self.get_backup_resource(backup_region, backup_id)
-        backup_resource.account_id = self.account_id
-        bucket = self._get_data_bucket()
+        if backup_resource.account_id is None:
+            backup_resource.account_id = self.account_id
+        bucket = self._get_data_bucket(backup_resource.region)
         self._write_backup_data(backup_resource, bucket)
     
     ####

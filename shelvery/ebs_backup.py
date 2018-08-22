@@ -113,7 +113,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             SourceSnapshotId=source_backup.backup_id,
             SourceRegion=source_backup.region
         )
-        return snap['SnapId']
+        return snap['SnapshotId']
     # collect all volumes tagged with given tag, in paginated manner
     def collect_volumes(self, tag_name: str):
         load_volumes = True

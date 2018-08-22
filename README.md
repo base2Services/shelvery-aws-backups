@@ -10,8 +10,10 @@ It currently supports following resource types
 - RDS Instances
 - RDS Clusters
 
+Basic functionality includes
+
 Shelvery tries to make distinction in space of aws backup tools by *unifying backup and retention periods logic*
-within single class called `ShelveryEngine` - `shelvery/engine.py`. Also, most of the tools on the market allow
+within single class called `ShelveryEngine` - `shelvery/engine.py`. It differentiates itself from tooling that only allows 
 linear retention periods (e.g. 28days), whereas shelvery enables father-son-grandson backup strategy, effectively
 enabling it's users to "keep last 7 daily backups, but also last 12 monthly backups, created on 1st of each month"
 Supported levels of retention are - daily, weekly (created on Sundays), monthly (created 1st of each month), and yearly
@@ -27,6 +29,7 @@ Shelvery *does not* cater for backup restore process.
 - Create and clean RDS Cluster backups
 - Create and clean EC2 Instance backups in form of Amazon Machine Images.
 - Share backups with other accounts automatically
+- Copying backups shared by other AWS accounts automatically 
 - Copy backups to disaster recovery AWS regions
 - Multiple levels of configuration, with priorities: Resource tags, Lambda payload, Environment Variables, Config defaults
 
@@ -257,6 +260,10 @@ on Lambda
 - `shelvery_select_entity` - select only single resource to be backed up, rather than all tagged with shelvery tags. 
 This resource still needs to have shelvery tag on it to be backed up. 
 
+- `shelvery_sns_topic` - SNS Topic to publish event messages, including error messages for failed
+backups
+- `shelvery_source_aws_account_ids` - Comma-separated list of AWS account ids to pull backups from
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -301,3 +308,30 @@ will ensure it's daily backups are retained for 30 days, and copied to `us-west-
 `shelvery:config:shelvery_dr_regions=us-west-1,us-west-2`
 
 Generic format for shelvery config tag is `shevlery:config:$configkey=$configvalue`
+
+
+## Multi account setup
+
+Shelvery allows setting up disaster recovery AWS account with 
+all of the backups from organisations AWS accounts copied to 
+'disaster recovery' account. 
+
+1) Sharing backups with other accounts
+
+```bash
+# this runs in every 
+# running in account 222222222222,333333333333
+$ export AWS_DEFAULT_PROFILE=source_account
+$ export shelvery_share_aws_account_ids=111111111111
+$ shelvery ebs create_backups
+```
+
+2) Copying shared backups from other acccount into current account
+
+```bash
+# this is running in destination account, let's say 111111111111
+$ export AWS_DEFAULT_PROFILE=dst_account
+$ export shelvery_source_aws_account_ids=222222222222,333333333333
+# this command will pull backups from both accounts
+$ shelvery ebs pull_shared_backups
+```
