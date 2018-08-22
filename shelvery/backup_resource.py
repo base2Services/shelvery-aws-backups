@@ -1,12 +1,16 @@
+import hashlib
+import re
+import copy
 from datetime import datetime
 from typing import Dict
 
 from dateutil.relativedelta import relativedelta
 from datetime import timedelta
 
+from shelvery.aws_helper import AwsHelper
 from shelvery.entity_resource import EntityResource
 from shelvery.runtime_config import RuntimeConfig
-
+import boto3
 
 class BackupResource:
     """Model representing single backup"""
@@ -28,6 +32,7 @@ class BackupResource:
         
         # current date
         self.date_created = datetime.utcnow()
+        self.account_id = AwsHelper.local_account_id()
         
         # determine retention period
         if self.date_created.day == 1:
@@ -40,8 +45,18 @@ class BackupResource:
         else:
             self.retention_type = self.RETENTION_DAILY
         
-        # determine backup name
-        name = entity_resource.tags['Name'] if 'Name' in entity_resource.tags else entity_resource.resource_id
+        # determine backup name. Hash of resource id is added to support creating backups
+        # with resources having a same name
+        if 'Name' in entity_resource.tags:
+            name = entity_resource.tags['Name']
+            name = name + '-' + hashlib.md5(entity_resource.resource_id.encode('utf-8')).hexdigest()[0:6]
+        else:
+            name = entity_resource.resource_id
+        
+        # replace anything that is not alphanumeric to hyphen
+        # do not allow two hyphens next to each other
+        name = re.sub('[^a-zA-Z0-9\-]', '-', name)
+        name = re.sub('\-+','-',name)
         date_formatted = self.date_created.strftime(self.TIMESTAMP_FORMAT)
         self.name = f"{name}-{date_formatted}-{self.retention_type}"
 
@@ -53,6 +68,7 @@ class BackupResource:
             'Name': self.name,
             "shelvery:tag_name": tag_prefix,
             f"{tag_prefix}:date_created": date_formatted,
+            f"{tag_prefix}:src_account": self.account_id,
             f"{tag_prefix}:name": self.name,
             f"{tag_prefix}:region": entity_resource.resource_region,
             f"{tag_prefix}:retention_type": self.retention_type,
@@ -61,8 +77,28 @@ class BackupResource:
         }
         self.backup_id = None
         self.expire_date = None
+        self.date_deleted = None
         
+    def cross_account_copy(self, new_backup_id):
+        backup = copy.deepcopy(self)
 
+        # backup name and retention type are copied
+        backup.backup_id = new_backup_id
+        backup.region = AwsHelper.local_region()
+        backup.account_id = AwsHelper.local_account_id()
+        
+        tag_prefix = self.tags['shelvery:tag_name']
+        backup.tags[f"{tag_prefix}:region"] = backup.region
+        backup.tags[f"{tag_prefix}:date_copied"] =  datetime.utcnow().strftime(self.TIMESTAMP_FORMAT)
+        backup.tags[f"{tag_prefix}:dst_account"] = backup.account_id
+        backup.tags[f"{tag_prefix}:src_region"] = self.region
+        backup.tags[f"{tag_prefix}:region"] = backup.region
+        backup.tags[f"{tag_prefix}:dr_copy"] = 'false'
+        backup.tags[f"{tag_prefix}:cross_account_copy"] = 'true'
+        backup.tags[f"{tag_prefix}:dr_regions"] = ''
+        backup.tags[f"{tag_prefix}:dr_copies"] = ''
+        return backup
+    
     
     @classmethod
     def construct(cls,
@@ -96,6 +132,11 @@ class BackupResource:
                 
                 
         obj.region = tags[f"{tag_prefix}:region"]
+        if f"{tag_prefix}:src_account" in tags:
+            obj.account_id = tags[f"{tag_prefix}:src_account"]
+        else:
+            obj.account_id = AwsHelper.local_account_id()
+            
         return obj
 
     def entity_resource_tags(self):
