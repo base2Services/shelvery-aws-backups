@@ -60,7 +60,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
     def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:
         ec2 = boto3.session.Session(region_name=region).resource('ec2')
         snapshot = ec2.Snapshot(backup_id)
-        d_tags = dict(map(lambda t: (t['Key'], t['Value']), snapshot.tags));
+        d_tags = dict(map(lambda t: (t['Key'], t['Value']), snapshot.tags))
         return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
     
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
@@ -107,7 +107,13 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                                   },
                                   UserIds=[aws_account_id],
                                   OperationType='add')
-    
+
+    def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
+        snap = self.ec2client.copy_snapshot(
+            SourceSnapshotId=source_backup.backup_id,
+            SourceRegion=source_backup.region
+        )
+        return snap['SnapshotId']
     # collect all volumes tagged with given tag, in paginated manner
     def collect_volumes(self, tag_name: str):
         load_volumes = True

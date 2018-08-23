@@ -8,3 +8,4 @@ v0.4.1, 27/04/2018 -- Updating scm repository information, no source code change
 v0.4.2, 27/04/2018 -- RDS and Cluster - fallback to regular snapshot if no automated backups. Bugfix - backup cleanup
                       when resource is not available.
 v0.4.3, 27/04/2018 -- Bugfix - unmarking rds snapshots as shelvery managed
+v0.5.0, 21/08/2018 -- New features - Pull shared backups
