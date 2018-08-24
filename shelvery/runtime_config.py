@@ -161,6 +161,9 @@ class RuntimeConfig:
     def get_source_backup_accounts(cls, shelvery):
         # collect account from env vars
         accounts = cls.get_conf_value('shelvery_source_aws_account_ids', None, shelvery.lambda_payload)
+
+        if accounts is not None and accounts.strip() == "":
+            return []
         
         # by default it is empty list
         accounts = accounts.split(',') if accounts is not None else []
