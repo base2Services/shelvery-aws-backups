@@ -140,14 +140,19 @@ class RuntimeConfig:
         # collect account from env vars
         accounts = cls.get_conf_value('shelvery_share_aws_account_ids', None, shelvery.lambda_payload)
         
+        if accounts is not None and accounts.strip() == "":
+            return []
+        
         # by default it is empty list
         accounts = accounts.split(',') if accounts is not None else []
         
         # validate account format
+        rval = []
         for acc in accounts:
             if re.match('^[0-9]{12}$', acc) is None:
                 shelvery.logger.warn(f"Account id {acc} is not 12-digit number, skipping for share")
             else:
+                rval.append(acc)
                 shelvery.logger.info(f"Collected account {acc} to share backups with")
         
         return accounts
