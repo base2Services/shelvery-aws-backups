@@ -24,23 +24,24 @@ class AwsHelper:
                 f"arn:aws:s3:::{bucket_name}/*",
             ]
         }]
-        for shared_account_id in share_account_ids:
-            policy_stmt.append({
-                'Effect': 'Allow',
-                'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
-                'Action': ['s3:Get*', 's3:List*'],
-                'Resource': [
-                    f"arn:aws:s3:::{bucket_name}",
-                ]
-            })
-            policy_stmt.append({
-                'Effect': 'Allow',
-                'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
-                'Action': ['s3:*'],
-                'Resource': [
-                    f"arn:aws:s3:::{bucket_name}/{S3_DATA_PREFIX}/shared/{shared_account_id}*",
-                ]
-            })
+        if share_account_ids is not None:
+            for shared_account_id in share_account_ids:
+                policy_stmt.append({
+                    'Effect': 'Allow',
+                    'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
+                    'Action': ['s3:Get*', 's3:List*'],
+                    'Resource': [
+                        f"arn:aws:s3:::{bucket_name}",
+                    ]
+                })
+                policy_stmt.append({
+                    'Effect': 'Allow',
+                    'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
+                    'Action': ['s3:*'],
+                    'Resource': [
+                        f"arn:aws:s3:::{bucket_name}/{S3_DATA_PREFIX}/shared/{shared_account_id}*",
+                    ]
+                })
         return json.dumps({'Version': '2012-10-17', 'Id': 'shelvery-generated', 'Statement': policy_stmt})
 
     @staticmethod
