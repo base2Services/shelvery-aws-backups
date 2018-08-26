@@ -606,7 +606,7 @@ class ShelveryEngine:
         # in non lambda mode this should never happen
         if not self.wait_backup_available(backup_region=backup_region,
                                           backup_id=backup_id,
-                                          lambda_method='do_write_backup_metadata',
+                                          lambda_method='do_store_backup_data',
                                           lambda_args=kwargs):
             return
         
