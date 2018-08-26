@@ -61,6 +61,20 @@ provider:
         - ec2:ModifyImageAttribute
         - ec2:DeleteSnapshot
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:Get*
+        - s3:List*
+        - s3:CreateBucket
+        - s3:PutBucketPolicy
+        - s3:PutBucketAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:DeleteObject
+    - Effect: Allow
+      Action:
+        - sns:Publish*
+
 package:
   include:
     - shelvery/*
@@ -83,6 +97,13 @@ functions:
     runtime: python3.6
     timeout: 300
     events:
+      # create buckets
+      - schedule:
+          rate: 'cron(0 0 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ebs
+            action: create_data_buckets
       # create ebs
       - schedule:
           rate: 'cron(0 1 ? * * *)'
@@ -132,13 +153,41 @@ functions:
           input:
             backup_type: rds_cluster
             action: clean_backups
-      # clean amis
+      # pull amis
       - schedule:
           rate: 'cron(0 2 ? * * *)'
           enabled: true
           input:
             backup_type: ec2ami
             action: clean_backups
+      # pull ebs
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ebs
+            action: pull_shared_backups
+      # pull rds
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: rds
+            action: pull_shared_backups
+      # pull rds cluster
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: rds_cluster
+            action: pull_shared_backups
+      # pull amis
+      - schedule:
+          rate: 'cron(0 2 ? * * *)'
+          enabled: true
+          input:
+            backup_type: ec2ami
+            action: pull_shared_backups
     environment:
       shelvery_keep_daily_backups: ${env:shelvery_keep_daily_backups,'14'}
       shelvery_keep_weekly_backups: ${env:shelvery_keep_weekly_backups,'8'}
