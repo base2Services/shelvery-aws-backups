@@ -27,7 +27,7 @@ def main(args=None):
     if len(args) == 1 and args[0] == 'create_data_buckets':
         args.insert(0, 'ebs')
     if len(args) < 2:
-        print("""Usage: shelvery <backup_type> <action>\n\nBackup types: rds ebs rds_cluster ec2ami
+        print("""Usage: shelvery <backup_type> <action>\n\nBackup types: rds ebs rds_cluster ec2ami redshift
 Actions:\n\tcreate_backups\n\tclean_backups\n\tcreate_data_buckets\n\tpull_shared_backups""")
         exit(-2)
 
