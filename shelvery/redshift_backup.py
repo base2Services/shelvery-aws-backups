@@ -177,7 +177,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		self.logger.warning("Redshift does not support copy of a snapshot as such to another region, "
 							"but rather allows automatic copying of automated backups to another region"
-							"using EnableSnapshotCopy API Call")
+							"using EnableSnapshotCopy API Call.")
 		pass
 
 	def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
@@ -226,4 +226,15 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		d_tags = BackupResource.dict_from_boto3_tags(snapshot['Tags'])
 		return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
 
-
+	def copy_shared_backup(self, source_account: str, source_backup: BackupResource) -> str:
+		"""
+		Copy Shelvery backup that has been shared from another account to account where
+		shelvery is currently running
+		:param source_account:
+		:param source_backup:
+		:return:
+		"""
+		self.logger.warning("Redshift does not support cross account copy of snapshots as such. "
+							"Alternate way of creating snapshot copy is creating cluster out of"
+							"shared snapshot, and then creating snapshot out of that cluster.")
+		return source_backup.backup_id
