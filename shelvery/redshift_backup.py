@@ -34,10 +34,19 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
 		cluster_id = backup_resource.backup_id.split(":")[-1].split("/")[0]
 		snapshot_id = backup_resource.backup_id.split(":")[-1].split("/")[1]
-		redshift_client.delete_cluster_snapshot(
-			SnapshotIdentifier=snapshot_id,
-			SnapshotClusterIdentifier=cluster_id
-		)
+		try:
+			redshift_client.delete_cluster_snapshot(
+				SnapshotIdentifier=snapshot_id,
+				SnapshotClusterIdentifier=cluster_id
+			)
+		except ClientError as ex:
+			if 'other accounts still have access to it' in ex.response['Error']['Message']:
+				self.logger.exception(f"Could not delete {backup_resource.backup_id} as"
+				f"other accounts still have access to this snapshot")
+				return
+			else:
+				self.logger.error(ex.response)
+				self.logger.exception(f"Could not delete {backup_resource.backup_id}")
 
 	def get_existing_backups(self, backup_tag_prefix: str) -> List[BackupResource]:
 		"""
@@ -45,20 +54,30 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		local_region = boto3.session.Session().region_name
 		marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
-		response = self.redshift_client.describe_cluster_snapshots(SnapshotType='manual', TagKeys=[marker_tag], TagValues=SHELVERY_DO_BACKUP_TAGS)
+		response = self.redshift_client.describe_cluster_snapshots(
+            SnapshotType='manual',
+            TagKeys=[marker_tag],
+            TagValues=SHELVERY_DO_BACKUP_TAGS
+        )
 
 		snapshots = response['Snapshots']
 		backups = []
 
 		for snap in snapshots:
 			cluster_id = snap['ClusterIdentifier']
-			d_tags = dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
+			d_tags = BackupResource.dict_from_boto3_tags(snap['Tags'])
 			create_time = snap['ClusterCreateTime']
 			redshift_entity = EntityResource(cluster_id,
 											local_region,
 											create_time,
 											d_tags)
-			backup_resource = BackupResource.construct(backup_tag_prefix, snap['SnapshotIdentifier'], d_tags)
+			backup_id = f"arn:aws:redshift:{local_region}:{snap['OwnerAccount']}"
+			backup_id = f"{backup_id}:{snap['ClusterIdentifier']}/{snap['SnapshotIdentifier']}"
+			backup_resource = BackupResource.construct(
+                backup_tag_prefix,
+				backup_id,
+                d_tags
+            )
 			backup_resource.entity_resource = redshift_entity
 			backup_resource.entity_id = redshift_entity.resource_id
 

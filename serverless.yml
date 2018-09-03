@@ -71,9 +71,11 @@ provider:
         - s3:PutObject
         - s3:PutObjectAcl
         - s3:DeleteObject
+      Resource: '*'
     - Effect: Allow
       Action:
         - sns:Publish*
+      Resource: '*'
 
 package:
   include:
@@ -102,35 +104,35 @@ functions:
 
       # create buckets
       - schedule:
-          rate: ${env:shelvery_create_buckets,'cron(0 0 ? * * *)'}
+          rate: "cron(0 0 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: create_data_buckets
       # create ebs
       - schedule:
-          rate: ${env:shelvery_create_cron,'cron(0 1 ? * * *)'}
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: create_backups
       # create rds
       - schedule:
-          rate: ${env:shelvery_create_cron,'cron(0 1 ? * * *)'}
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: create_backups
       # create rds cluster
       - schedule:
-          rate: ${env:shelvery_create_cron,'cron(0 1 ? * * *)'}
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: create_backups
       # create ec2 amis
       - schedule:
-          rate: ${env:shelvery_create_cron,'cron(0 1 ? * * *)'}
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
@@ -140,28 +142,28 @@ functions:
 
       # clean ebs
       - schedule:
-          rate: ${env:shelvery_clean_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: clean_backups
       # clean rds
       - schedule:
-          rate: ${env:shelvery_clean_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: clean_backups
       # clean rds cluster
       - schedule:
-          rate: ${env:shelvery_clean_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: clean_backups
       # clean amis
       - schedule:
-          rate: ${env:shelvery_clean_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
@@ -171,28 +173,28 @@ functions:
 
       # pull ebs
       - schedule:
-          rate: ${env:shelvery_pull_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: pull_shared_backups
       # pull rds
       - schedule:
-          rate: ${env:shelvery_pull_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: pull_shared_backups
       # pull rds cluster
       - schedule:
-          rate: ${env:shelvery_pull_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: pull_shared_backups
       # pull amis
       - schedule:
-          rate: ${env:shelvery_pull_cron,'cron(0 2 ? * * *)'}
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
