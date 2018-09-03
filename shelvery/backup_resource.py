@@ -174,3 +174,12 @@ class BackupResource:
     @region.setter
     def region(self, region: str):
         self.__region = region
+
+    @property
+    def boto3_tags(self):
+        tags = self.tags
+        return list(map(lambda k: {'Key': k, 'Value': tags[k]}, tags))
+    
+    @staticmethod
+    def dict_from_boto3_tags(boot3_tags):
+        return dict(map(lambda t: (t['Key'], t['Value']), boot3_tags))
