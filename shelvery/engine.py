@@ -122,7 +122,7 @@ class ShelveryEngine:
         )
         bucket.Object(s3key).delete()
         
-        self.logger.info(f"Moved meta for backup {backup.name} of type {self.get_engine_type()} to" +
+        self.logger.info(f"Wrote data for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3archive_key}")
     
     def _write_backup_data(self, backup, bucket, shared_account_id=None):
