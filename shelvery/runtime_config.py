@@ -62,7 +62,8 @@ class RuntimeConfig:
         'shelvery_lambda_max_wait_iterations': 5,
         'shelvery_dr_regions': None,
         'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT,
-        'shelvery_source_aws_account_ids': None
+        'shelvery_source_aws_account_ids': None,
+        'shelvery_share_aws_account_ids': None,
         'shelvery_redshift_backup_mode': REDSHIFT_COPY_AUTOMATED_SNAPSHOT,
         'shelvery_select_entity': None
     }
@@ -160,7 +161,7 @@ class RuntimeConfig:
                 rval.append(acc)
                 shelvery.logger.info(f"Collected account {acc} to share backups with")
 
-        return accounts
+        return rval
 
     @classmethod
     def get_source_backup_accounts(cls, shelvery):
@@ -174,13 +175,15 @@ class RuntimeConfig:
         accounts = accounts.split(',') if accounts is not None else []
 
         # validate account format
+        rval = []
         for acc in accounts:
             if re.match('^[0-9]{12}$', acc) is None:
                 shelvery.logger.warn(f"Account id {acc} is not 12-digit number, skipping for share")
             else:
+                rval.append(acc)
                 shelvery.logger.info(f"Collected account {acc} to share backups with")
 
-        return accounts
+        return rval
 
     @classmethod
     def get_rds_mode(cls, resource_tags, engine):

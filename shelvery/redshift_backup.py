@@ -1,4 +1,5 @@
 import boto3, datetime
+from botocore.exceptions import ClientError
 
 from typing import List
 
@@ -30,7 +31,13 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		Remove given backup from system
 		"""
-		self.redshift_client.delete_cluster_snapshot(SnapshotIdentifier=backup_resource.backup_id)
+		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
+		cluster_id = backup_resource.backup_id.split(":")[-1].split("/")[0]
+		snapshot_id = backup_resource.backup_id.split(":")[-1].split("/")[1]
+		redshift_client.delete_cluster_snapshot(
+			SnapshotIdentifier=snapshot_id,
+			SnapshotClusterIdentifier=cluster_id
+		)
 
 	def get_existing_backups(self, backup_tag_prefix: str) -> List[BackupResource]:
 		"""
@@ -72,8 +79,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 				self.logger.info(f"Skipping cluster '{cluster['ClusterIdentifier']}' as its status is '{cluster['ClusterStatus']}'.")
 				continue
 
-			tags = cluster['Tags']
-			d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+			d_tags = BackupResource.dict_from_boto3_tags(cluster['Tags'])
 
 			entity = EntityResource(
 				resource_id=cluster['ClusterIdentifier'],
@@ -115,14 +121,13 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 						f"modes supported - set redshift backup mode using redshift_backup_mode configuration option ")
 
 	def backup_from_cluster(self, backup_resource: BackupResource):
-		tags = list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k].replace(',', ' ')}, backup_resource.tags))
-
-		self.redshift_client.create_cluster_snapshot(
+		snapshot = self.redshift_client.create_cluster_snapshot(
 			SnapshotIdentifier=backup_resource.name,
 			ClusterIdentifier=backup_resource.entity_id,
-			Tags=tags
-		)
-		backup_resource.backup_id = backup_resource.name
+			Tags=backup_resource.boto3_tags
+		)['Snapshot']
+		backup_resource.backup_id = f"arn:aws:redshift:{backup_resource.region}:{backup_resource.account_id}"
+		backup_resource.backup_id = f"{backup_resource.backup_id}:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
 		return backup_resource
 
 	def backup_from_latest_automated(self, backup_resource: BackupResource):
@@ -141,12 +146,13 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 			return self.backup_from_cluster(backup_resource)
 
 		# TODO handle case when there are no latest automated backups
-		automated_snapshot_id = auto_snapshots[0]['SnapshotIdentifier']
-		self.redshift_client.copy_cluster_snapshot(
-			SourceSnapshotIdentifier=automated_snapshot_id,
+		snapshot = self.redshift_client.copy_cluster_snapshot(
+			SourceSnapshotIdentifier=auto_snapshots[0]['SnapshotIdentifier'],
+			SourceSnapshotClusterIdentifier=auto_snapshots[0]['ClusterIdentifier'],
 			TargetSnapshotIdentifier=backup_resource.name
-		)
-		backup_resource.backup_id = backup_resource.name
+		)['Snapshot']
+		backup_resource.backup_id = f"arn:aws:redshift:{backup_resource.region}:{backup_resource.account_id}"
+		backup_resource.backup_id = f"{backup_resource.backup_id}:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
 		return backup_resource
 
 	def tag_backup_resource(self, backup_resource: BackupResource):
@@ -154,7 +160,14 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		Create backup resource tags.
 		"""
 		# This is unnecessary for Redshift as the tags are included when calling `backup_resource()`.
-		pass
+		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
+		try:
+			redshift_client.create_tags(
+				ResourceName=backup_resource.backup_id,
+				Tags=backup_resource.boto3_tags
+			)
+		except:
+			self.logger.exception(f"Failed to create tags on redshift backup {backup_resource.backup_id}")
 
 	def copy_backup_to_region(self, backup_id: str, region: str) -> str:
 		"""
@@ -162,12 +175,10 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		This enables cross-region automated backups for the Redshift cluster, so future automated backups
 		will be replicated to `region`.
 		"""
-		redshift_client = boto3.client('redshift')
-		snapshot = redshift_client.describe_cluster_snapshots(SnapshotIdentifier=backup_id)
-		cluster = snapshots['Snapshots'][0]['ClusterIdentifier']
-
-		redshift_client.enable_snapshot_copy(ClusterIdentifier=cluster, DestinationRegion=region)
-		return backup_id
+		self.logger.warning("Redshift does not support copy of a snapshot as such to another region, "
+							"but rather allows automatic copying of automated backups to another region"
+							"using EnableSnapshotCopy API Call")
+		pass
 
 	def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
 		"""
@@ -175,7 +186,20 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		to other regions and shared with other AWS accounts
 		"""
 		redshift_client = boto3.client('redshift', region_name=backup_region)
-		snapshots = redshift_client.describe_cluster_snapshots(SnapshotIdentifier=backup_id)
+		snapshot_id = backup_id.split(":")[-1].split("/")[1]
+		snapshots = None
+		try:
+			snapshots = redshift_client.describe_cluster_snapshots(
+				SnapshotIdentifier=snapshot_id
+			)
+		except ClientError as e:
+			self.logger.warning(f"Backup {backup_id} not found")
+			print(e.response)
+			if e.response['Error']['Code'] == '404':
+				return False
+			else:
+				self.logger.exception(f"Problem waiting for {backup_id} availability")
+				raise e
 		return snapshots['Snapshots'][0]['Status'] == 'available'
 
 
@@ -184,7 +208,11 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		Share backup with another AWS Account
 		"""
 		redshift_client = boto3.client('redshift', region_name=backup_region)
-		redshift_client.authorize_snapshot_access(SnapshotIdentifier=backup_id, AccountWithRestoreAccess=aws_account_id)
+		snapshot_id = backup_id.split(":")[-1].split("/")[1]
+		redshift_client.authorize_snapshot_access(
+			SnapshotIdentifier=snapshot_id,
+			AccountWithRestoreAccess=aws_account_id
+		)
 
 
 	def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
@@ -192,10 +220,10 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		Get Backup Resource within region, identified by its backup_id
 		"""
 		redshift_client = boto3.client('redshift', region_name=backup_region)
-		snapshots = redshift_client.describe_cluster_snapshots(SnapshotIdentifier=backup_id)
+		snapshot_id = backup_id.split(":")[-1].split("/")[1]
+		snapshots = redshift_client.describe_cluster_snapshots(SnapshotIdentifier=snapshot_id)
 		snapshot = snapshots['Snapshots'][0]
-		tags = snapshot['Tags']
-		d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+		d_tags = BackupResource.dict_from_boto3_tags(snapshot['Tags'])
 		return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
 
 
