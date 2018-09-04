@@ -9,6 +9,7 @@ It currently supports following resource types
 - EC2 Instances (backups as AMIs)
 - RDS Instances
 - RDS Clusters
+- Redshift Clusters (limited support)
 
 Basic functionality includes
 
@@ -28,6 +29,7 @@ Shelvery *does not* cater for backup restore process.
 - Create and clean RDS Instance backups
 - Create and clean RDS Cluster backups
 - Create and clean EC2 Instance backups in form of Amazon Machine Images.
+- Get notified about all operations performed by Shelvery via SNS Topic
 - Share backups with other accounts automatically
 - Copying backups shared by other AWS accounts automatically 
 - Copy backups to disaster recovery AWS regions
@@ -77,6 +79,11 @@ shelvery rds_cluster create_backups
 # cleanup rds cluster backups
 shelvery rds_cluster clean_backups
 
+# create redshift backups
+shelvery redshift create_backups
+
+# cleanup redshift cluster backups
+shelvery redshift clean_backups
 ```
 
 ### Deploy as lambda
@@ -215,6 +222,13 @@ Resources that are not marked to be manage by shelvery are skipped.
 Optionally you can export `shelvery_select_entity` environment variable to select single resource, though 
 tagging condition still applies. 
 
+## Notifications
+
+All shelvery operations are being pushed to SNS topic, if configured (see `shelvery_sns_topic` key in
+RuntimeConfiguration section below), whether success or failure. From SNS topic you send emails, 
+subscribe custom Lambda functions, send payload to HTTP(S) endpoints etc. This allows monitoring systems
+to hook into shelvery, and possibly alert on any errors occurred. 
+
 ## Supported services
 
 ### EC2
@@ -230,6 +244,14 @@ if you wish to directly create snapshot. Note that this may fail if RDS instance
 ### RDS Clusters
 
 RDS Cluster backups behave same as RDS instance backups, just on RDS Clusters (Aurora). Value of `shelvery_rds_backup_mode` has the same effect as for RDS instance backups.
+
+### Redshift clusters
+
+Redshift cluster snapshots are supported to an extent. Creating and cleaning backups is fully supported,
+whereas copying snapshot to DR region (or pulling shared snapshot from DR account) is not
+supported natively through API, but can be achieved using data transfer through S3 buckets, 
+`UNLOAD/COPY` statements, and `EnableSnapshotCopy` API call. This operations however are currenlty outside
+of Shelvery scope 
 
 ## Runtime Configuration
 

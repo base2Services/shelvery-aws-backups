@@ -71,9 +71,11 @@ provider:
         - s3:PutObject
         - s3:PutObjectAcl
         - s3:DeleteObject
+      Resource: '*'
     - Effect: Allow
       Action:
         - sns:Publish*
+      Resource: '*'
 
 package:
   include:
@@ -97,93 +99,102 @@ functions:
     runtime: python3.6
     timeout: 300
     events:
+
+      ## Create backups schedule
+
       # create buckets
       - schedule:
-          rate: 'cron(0 0 ? * * *)'
+          rate: "cron(0 0 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: create_data_buckets
       # create ebs
       - schedule:
-          rate: 'cron(0 1 ? * * *)'
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: create_backups
       # create rds
       - schedule:
-          rate: 'cron(0 1 ? * * *)'
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: create_backups
       # create rds cluster
       - schedule:
-          rate: 'cron(0 1 ? * * *)'
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: create_backups
       # create ec2 amis
       - schedule:
-          rate: 'cron(0 1 ? * * *)'
+          rate: "cron(0 1 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
             action: create_backups
+
+      ## Clean backups schedule ##
+
       # clean ebs
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: clean_backups
       # clean rds
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: clean_backups
       # clean rds cluster
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: clean_backups
-      # pull amis
+      # clean amis
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
             action: clean_backups
+
+      ### Pull shared backups ####
+
       # pull ebs
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ebs
             action: pull_shared_backups
       # pull rds
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds
             action: pull_shared_backups
       # pull rds cluster
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: rds_cluster
             action: pull_shared_backups
       # pull amis
       - schedule:
-          rate: 'cron(0 2 ? * * *)'
+          rate: "cron(0 2 ? * * *)"
           enabled: true
           input:
             backup_type: ec2ami
@@ -195,4 +206,5 @@ functions:
       shelvery_keep_yearly_backups: ${env:shelvery_keep_yearly_backups,'10'}
       shelvery_dr_regions: ${env:shelvery_dr_regions,''}
       shelvery_share_aws_account_ids: ${env:shelvery_share_aws_account_ids,''}
+      shelvery_source_aws_account_ids: ${env:shelvery_source_aws_account_ids,''}
       shelvery_rds_backup_mode: ${env:shelvery_rds_backup_mode,'RDS_COPY_AUTOMATED_SNAPSHOT'}
