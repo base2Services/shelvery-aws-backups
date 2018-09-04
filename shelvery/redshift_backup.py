@@ -72,7 +72,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 											create_time,
 											d_tags)
 			backup_id = f"arn:aws:redshift:{local_region}:{snap['OwnerAccount']}"
-			backup_id = f"{backup_id}:{snap['ClusterIdentifier']}/{snap['SnapshotIdentifier']}"
+			backup_id = f"{backup_id}:snapshot:{snap['ClusterIdentifier']}/{snap['SnapshotIdentifier']}"
 			backup_resource = BackupResource.construct(
                 backup_tag_prefix,
 				backup_id,
@@ -143,10 +143,9 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		snapshot = self.redshift_client.create_cluster_snapshot(
 			SnapshotIdentifier=backup_resource.name,
 			ClusterIdentifier=backup_resource.entity_id,
-			Tags=backup_resource.boto3_tags
 		)['Snapshot']
 		backup_resource.backup_id = f"arn:aws:redshift:{backup_resource.region}:{backup_resource.account_id}"
-		backup_resource.backup_id = f"{backup_resource.backup_id}:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
+		backup_resource.backup_id = f"{backup_resource.backup_id}:snapshot:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
 		return backup_resource
 
 	def backup_from_latest_automated(self, backup_resource: BackupResource):
@@ -171,7 +170,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 			TargetSnapshotIdentifier=backup_resource.name
 		)['Snapshot']
 		backup_resource.backup_id = f"arn:aws:redshift:{backup_resource.region}:{backup_resource.account_id}"
-		backup_resource.backup_id = f"{backup_resource.backup_id}:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
+		backup_resource.backup_id = f"{backup_resource.backup_id}:snapshot:{snapshot['ClusterIdentifier']}/{snapshot['SnapshotIdentifier']}"
 		return backup_resource
 
 	def tag_backup_resource(self, backup_resource: BackupResource):
@@ -180,13 +179,10 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		# This is unnecessary for Redshift as the tags are included when calling `backup_resource()`.
 		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
-		try:
-			redshift_client.create_tags(
-				ResourceName=backup_resource.backup_id,
-				Tags=backup_resource.boto3_tags
-			)
-		except:
-			self.logger.exception(f"Failed to create tags on redshift backup {backup_resource.backup_id}")
+		redshift_client.create_tags(
+			ResourceName=backup_resource.backup_id,
+			Tags=backup_resource.boto3_tags
+		)
 
 	def copy_backup_to_region(self, backup_id: str, region: str) -> str:
 		"""
