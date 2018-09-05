@@ -29,6 +29,7 @@ Shelvery *does not* cater for backup restore process.
 - Create and clean RDS Instance backups
 - Create and clean RDS Cluster backups
 - Create and clean EC2 Instance backups in form of Amazon Machine Images.
+- Create and clean Redshift manual backups
 - Get notified about all operations performed by Shelvery via SNS Topic
 - Share backups with other accounts automatically
 - Copying backups shared by other AWS accounts automatically 
