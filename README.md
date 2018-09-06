@@ -278,6 +278,7 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
     backups with account where shelvery is running. This can be used for having DR aws account that aggregates backups
     from other accounts. 
 - `shelvery_rds_backup_mode` - can be either `RDS_COPY_AUTOMATED_SNAPSHOT` or `RDS_CREATE_SNAPSHOT`. Values are self-explanatory
+- `shelvery_redshift_backup_mode` - can be either `REDSHIFT_COPY_AUTOMATED_SNAPSHOT` or `REDSHIFT_CREATE_SNAPSHOT`. Values are self-explanatory 
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
 on Lambda
