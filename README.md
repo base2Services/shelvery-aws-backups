@@ -11,7 +11,7 @@ Shelvery currently supports the following resource types
 - RDS Clusters
 - Redshift Clusters (limited support)
 
-##The Shelvery strategy
+## The Shelvery strategy
 
 Shelvery makes a distinction in the space of aws backup tools by *unifying backup and retention periods logic*
 within single class called `ShelveryEngine` - `shelvery/engine.py`. It differentiates itself from tooling that only allows 
