@@ -1,9 +1,9 @@
 # Shelvery
 
-Shelvery is a tool for creating backups in Amazon cloud (AWS). It is primarly designed to be run as AWS Lambda
-Function, but can be installed as regular python package as well, and ran as CLI tool. 
+Shelvery creates backups in Amazon Web Services(AWS). It is primarly designed to be run as an AWS Lambda
+Function, but can be installed as a regular python package, and run as a CLI tool. 
 
-It currently supports following resource types
+Shelvery currently supports the following resource types
 
 - EBS volumes
 - EC2 Instances (backups as AMIs)
@@ -11,15 +11,17 @@ It currently supports following resource types
 - RDS Clusters
 - Redshift Clusters (limited support)
 
-Basic functionality includes
+##The Shelvery strategy
 
-Shelvery tries to make distinction in space of aws backup tools by *unifying backup and retention periods logic*
+Shelvery makes a distinction in the space of aws backup tools by *unifying backup and retention periods logic*
 within single class called `ShelveryEngine` - `shelvery/engine.py`. It differentiates itself from tooling that only allows 
-linear retention periods (e.g. 28days), whereas shelvery enables father-son-grandson backup strategy, effectively
-enabling it's users to "keep last 7 daily backups, but also last 12 monthly backups, created on 1st of each month"
+linear retention periods (e.g. 28days). Shelvery enables father-son-grandson backup strategies, effectively
+enabling administrators to "keep the last 7 daily backups, but also the last 12 monthly backups, created on 1st of each month"
 Supported levels of retention are - daily, weekly (created on Sundays), monthly (created 1st of each month), and yearly
 backups (created on 1st of January). A general idea is that the more you walk back in past on the timeline, 
 less dense backups are. 
+
+Shelvery also supports backups across multiple accounts without the need to have implemented Organizations.
 
 Shelvery *does not* cater for backup restore process. 
 
