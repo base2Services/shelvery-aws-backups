@@ -39,6 +39,8 @@ class RuntimeConfig:
     shelvery_select_entity - Filter which entities get backed up, regardless of tags
 
     shelvery_sns_topic - SNS Topics for shelvery notifications
+
+    shelvery_error_sns_topic - SNS Topics for just error messages
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -206,3 +208,10 @@ class RuntimeConfig:
     @classmethod
     def get_sns_topic(cls, engine):
         return cls.get_conf_value('shelvery_sns_topic', None, engine.lambda_payload)
+
+    @classmethod
+    def get_error_sns_topic(cls, engine):
+        topic = cls.get_conf_value('shelvery_error_sns_topic', None, engine.lambda_payload)
+        if topic is None:
+            topic = cls.get_conf_value('shelvery_sns_topic', None, engine.lambda_payload)
+        return topic
