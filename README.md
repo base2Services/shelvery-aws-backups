@@ -1,9 +1,9 @@
 # Shelvery
 
-Shelvery is a tool for creating backups in Amazon cloud (AWS). It is primarly designed to be run as AWS Lambda
-Function, but can be installed as regular python package as well, and ran as CLI tool. 
+Shelvery creates backups in Amazon Web Services(AWS). It is primarly designed to be run as an AWS Lambda
+Function, but can be installed as a regular python package, and run as a CLI tool.
 
-It currently supports following resource types
+Shelvery currently supports the following resource types
 
 - EBS volumes
 - EC2 Instances (backups as AMIs)
@@ -11,17 +11,19 @@ It currently supports following resource types
 - RDS Clusters
 - Redshift Clusters (limited support)
 
-Basic functionality includes
+## The Shelvery strategy
 
-Shelvery tries to make distinction in space of aws backup tools by *unifying backup and retention periods logic*
-within single class called `ShelveryEngine` - `shelvery/engine.py`. It differentiates itself from tooling that only allows 
-linear retention periods (e.g. 28days), whereas shelvery enables father-son-grandson backup strategy, effectively
-enabling it's users to "keep last 7 daily backups, but also last 12 monthly backups, created on 1st of each month"
+Shelvery makes a distinction in the space of aws backup tools by *unifying backup and retention periods logic*
+within single class called `ShelveryEngine` - `shelvery/engine.py`. It differentiates itself from tooling that only allows
+linear retention periods (e.g. 28days). Shelvery enables father-son-grandson backup strategies, effectively
+enabling administrators to "keep the last 7 daily backups, but also the last 12 monthly backups, created on 1st of each month"
 Supported levels of retention are - daily, weekly (created on Sundays), monthly (created 1st of each month), and yearly
-backups (created on 1st of January). A general idea is that the more you walk back in past on the timeline, 
-less dense backups are. 
+backups (created on 1st of January). A general idea is that the more you walk back in past on the timeline,
+less dense backups are.
 
-Shelvery *does not* cater for backup restore process. 
+Shelvery also supports backups across multiple accounts without the need to have implemented Organizations.
+
+Shelvery *does not* cater for backup restore process.
 
 ## Features
 
@@ -29,9 +31,10 @@ Shelvery *does not* cater for backup restore process.
 - Create and clean RDS Instance backups
 - Create and clean RDS Cluster backups
 - Create and clean EC2 Instance backups in form of Amazon Machine Images.
+- Create and clean Redshift manual backups
 - Get notified about all operations performed by Shelvery via SNS Topic
 - Share backups with other accounts automatically
-- Copying backups shared by other AWS accounts automatically 
+- Copying backups shared by other AWS accounts automatically
 - Copy backups to disaster recovery AWS regions
 - Multiple levels of configuration, with priorities: Resource tags, Lambda payload, Environment Variables, Config defaults
 
@@ -39,8 +42,8 @@ Shelvery *does not* cater for backup restore process.
 
 ### As Cli
 
-Shelvery is published to PyPI as python package, and can be obtained from there. Additionally, you can 
-clone this repository and deploy it as lambda. 
+Shelvery is published to PyPI as python package, and can be obtained from there. Additionally, you can
+clone this repository and deploy it as lambda.
 
 Below is an example for installing shelvery within docker `python:3` image, and doing some configuration steps.
 
@@ -158,13 +161,13 @@ Serverless: Removing old service versions...
 ## Delayed operations
 
 Sharing a backup with another AWS account, or copying backup to another region is considered
-delayed operation that should be executed in separate thread, or in case of running on AWS lambda context, 
+delayed operation that should be executed in separate thread, or in case of running on AWS lambda context,
 in another Lambda function invocation. This makes shelvery execution non-linear, in order to allow fanning out
-share/copy operations on larger number of backups. 
+share/copy operations on larger number of backups.
 
 If you want ot enforce linear execution (only possible when running as CLI), set environment variable `SHELVERY_MONO_THREAD=1`.
-This will ensure all shares / copies are done in single thread, and can prolong backup creation execution, as backup must be 
-in *available* state prior it can be shared or copied. 
+This will ensure all shares / copies are done in single thread, and can prolong backup creation execution, as backup must be
+in *available* state prior it can be shared or copied.
 
 ## AWS Credentials configuration
 
@@ -218,16 +221,16 @@ Simply  add `shelvery:create_backup` tag with any of the following values
 
 to resource that should be backed up.
 
-Resources that are not marked to be manage by shelvery are skipped. 
-Optionally you can export `shelvery_select_entity` environment variable to select single resource, though 
-tagging condition still applies. 
+Resources that are not marked to be manage by shelvery are skipped.
+Optionally you can export `shelvery_select_entity` environment variable to select single resource, though
+tagging condition still applies.
 
 ## Notifications
 
-All shelvery operations are being pushed to SNS topic, if configured (see `shelvery_sns_topic` key in
-RuntimeConfiguration section below), whether success or failure. From SNS topic you send emails, 
+All shelvery operations are being pushed to SNS topics, if configured (see `shelvery_sns_topic` and `shelvery_error_sns_topic` key in
+RuntimeConfiguration section below), whether success or failure. From SNS topic you send emails,
 subscribe custom Lambda functions, send payload to HTTP(S) endpoints etc. This allows monitoring systems
-to hook into shelvery, and possibly alert on any errors occurred. 
+to hook into shelvery, and possibly alert on any errors occurred.
 
 ## Supported services
 
@@ -249,9 +252,9 @@ RDS Cluster backups behave same as RDS instance backups, just on RDS Clusters (A
 
 Redshift cluster snapshots are supported to an extent. Creating and cleaning backups is fully supported,
 whereas copying snapshot to DR region (or pulling shared snapshot from DR account) is not
-supported natively through API, but can be achieved using data transfer through S3 buckets, 
+supported natively through API, but can be achieved using data transfer through S3 buckets,
 `UNLOAD/COPY` statements, and `EnableSnapshotCopy` API call. This operations however are currenlty outside
-of Shelvery scope 
+of Shelvery scope
 
 ## Runtime Configuration
 
@@ -273,17 +276,19 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
 - `shelvery_share_aws_account_ids` -  AWS Account Ids to share backups with. Applies to both original and regional backups                                                                   
 - `shelvery_source_aws_account_ids` - List of AWS Account Ids, comma seperated, that are exposing/sharing their shelvery
     backups with account where shelvery is running. This can be used for having DR aws account that aggregates backups
-    from other accounts. 
+    from other accounts.
 - `shelvery_rds_backup_mode` - can be either `RDS_COPY_AUTOMATED_SNAPSHOT` or `RDS_CREATE_SNAPSHOT`. Values are self-explanatory
+- `shelvery_redshift_backup_mode` - can be either `REDSHIFT_COPY_AUTOMATED_SNAPSHOT` or `REDSHIFT_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
 on Lambda
 
-- `shelvery_select_entity` - select only single resource to be backed up, rather than all tagged with shelvery tags. 
-This resource still needs to have shelvery tag on it to be backed up. 
+- `shelvery_select_entity` - select only single resource to be backed up, rather than all tagged with shelvery tags.
+This resource still needs to have shelvery tag on it to be backed up.
 
 - `shelvery_sns_topic` - SNS Topic to publish event messages, including error messages for failed
 backups
+- `shelvery_error_sns_topic` - SNS Topic for receiving just errors. If not set all messages will be sent through `shelvery_sns_topic` topic
 - `shelvery_source_aws_account_ids` - Comma-separated list of AWS account ids to pull backups from
 
 ### Configuration Priority 0: Sensible defaults
@@ -334,14 +339,14 @@ Generic format for shelvery config tag is `shevlery:config:$configkey=$configval
 
 ## Multi account setup
 
-Shelvery allows setting up disaster recovery AWS account with 
-all of the backups from organisations AWS accounts copied to 
-'disaster recovery' account. 
+Shelvery allows setting up disaster recovery AWS account with
+all of the backups from organisations AWS accounts copied to
+'disaster recovery' account.
 
 1) Sharing backups with other accounts
 
 ```bash
-# this runs in every 
+# this runs in every
 # running in account 222222222222,333333333333
 $ export AWS_DEFAULT_PROFILE=source_account
 $ export shelvery_share_aws_account_ids=111111111111
