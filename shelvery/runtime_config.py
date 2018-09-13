@@ -13,6 +13,8 @@ class RuntimeConfig:
     shelvery_keep_monthly_backups - daily backups to keep, defaults to 12 months
     shelvery_keep_yearly_backups - daily backups to keep, defaults to 10 years
 
+    shelvery_custom_retention_types - custom retention periods in name:seconds format, comma separated, empty (disabled) by default
+    shelvery_current_retention_type - custom retention period applied to current create backup process
     shelvery_dr_regions - disaster recovery regions, comma separated, empty (disabled) by default
 
     shelvery_keep_daily_backups_dr - daily backups to keep in disaster recover region
@@ -58,6 +60,8 @@ class RuntimeConfig:
         'shelvery_keep_weekly_backups': 8,
         'shelvery_keep_monthly_backups': 12,
         'shelvery_keep_yearly_backups': 10,
+        'shelvery_custom_retention_types': None,
+        'shelvery_current_retention_type': None,
         'shelvery_wait_snapshot_timeout': 1200,
         'shelvery_lambda_max_wait_iterations': 5,
         'shelvery_dr_regions': None,
@@ -107,6 +111,27 @@ class RuntimeConfig:
     @classmethod
     def get_keep_yearly(cls, resource_tags=None, engine=None):
         return int(cls.get_conf_value('shelvery_keep_yearly_backups', resource_tags, engine.lambda_payload))
+
+    @classmethod
+    def get_custom_retention_types(cls, engine=None):
+        custom_retention = cls.get_conf_value('shelvery_custom_retention_types', None, engine.lambda_payload)
+        if custom_retention is None or custom_retention.strip() == '':
+            return {}
+
+        retentions = custom_retention.split(',')
+        rval = {}
+        for retention in retentions:
+            parts = retention.split(':')
+            if len(parts) == 2:
+                rval[parts[0]] = int(parts[1])
+        return rval
+
+    @classmethod
+    def get_current_retention_type(cls, engine=None):
+        current_retention_type = cls.get_conf_value('shelvery_current_retention_type', None, engine.lambda_payload)
+        if current_retention_type is None or current_retention_type.strip() == '':
+            return None
+        return current_retention_type
 
     @classmethod
     def get_envvalue(cls, key: str, default_value):
