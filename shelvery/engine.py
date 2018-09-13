@@ -167,11 +167,16 @@ class ShelveryEngine:
 
         # create and collect backups
         backup_resources = []
+        current_retention_type = RuntimeConfig.get_current_retention_type(self)
         for r in resources:
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
                 entity_resource=r
             )
+            # if retention is explicitly given by runtime environment
+            if current_retention_type is not None:
+                backup_resource.set_retention_type(current_retention_type)
+
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
             self.logger.info(f"Processing {resource_type} with id {r.resource_id}")
@@ -236,7 +241,7 @@ class ShelveryEngine:
         for backup in existing_backups:
             self.logger.info(f"Checking backup {backup.backup_id}")
             try:
-                if backup.is_stale(self):
+                if backup.is_stale(self, RuntimeConfig.get_custom_retention_types(self)):
                     self.logger.info(
                         f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
                     self.delete_backup(backup)

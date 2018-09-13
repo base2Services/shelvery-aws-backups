@@ -270,6 +270,10 @@ Available configuration keys are listed below:
 - `shelvery_keep_weekly_backups` - Number of weeks to retain weekly backups
 - `shelvery_keep_monthly_backups` - Number of months to keep monthly backups
 - `shelvery_keep_yearly_backups` - Number of years to keep yearly backups
+
+- `shelvery_custom_retention_types` - custom retention periods in name:seconds (quarterHourly:86400) format, comma separated, empty (disabled) by default
+- `shelvery_current_retention_type` - custom retention period applied to current create backup process
+
 - `shelvery_dr_regions` - List of disaster recovery regions, comma separated
 - `shelvery_wait_snapshot_timeout` - Timeout in seconds to wait for snapshot to become available before copying it
 to another region or sharing with other account. Defaults to 1200 (20 minutes)
@@ -336,6 +340,20 @@ will ensure it's daily backups are retained for 30 days, and copied to `us-west-
 
 Generic format for shelvery config tag is `shevlery:config:$configkey=$configvalue`
 
+### Custom retention periods
+
+Custom retention periods can be set using `shelvery_custom_retention_types` formatted as `[name:retention period]` where retention period defined in seconds.
+Multiple periods can be set using a comma separated list.
+
+```text
+shelvery_custom_retention_types=quarterHourly:86400,hourly:172800
+```
+
+When triggering shelvery on the desired schedule, specify the retention type using `shelvery_current_retention_type` tag with the desired retention type
+
+```text
+shelvery_current_retention_type=quarterHourly
+```
 
 ## Multi account setup
 
