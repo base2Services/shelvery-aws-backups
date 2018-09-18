@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Shelvery
+Parameters:
+  CreateBucketsSchedule:
+    Type: String
+    Default: "0 0 ? * * *"
+  CreateBackupSchedule:
+    Type: String
+    Default: "0 1 ? * * *"
+  CleanBackupsSchedule:
+    Type: String
+    Default: "0 2 ? * * *"
+  PullSharedBackupsSchedule:
+    Type: String
+    Default: "0 2 ? * * *"
+  S3BackupSchedule:
+    Type: String
+    Default: "0 1 ? * * *"
+  ShelveryKeepDailyBackups:
+    Type: String
+    Default: '14'
+  ShelveryKeepWeeklyBackups:
+    Type: String
+    Default: '8'
+  ShelveryKeepMonthlyBackups:
+    Type: String
+    Default: '12'
+  ShelveryKeepYearlyBackups:
+    Type: String
+    Default: '10'
+  ShelverySourceAwsAccountIds:
+    Type: String
+    Default: ''
+  ShelveryShareAwsAccountIds:
+    Type: String
+    Default: ''
+  ShelveryRdsBackupMode:
+    Type: String
+    Default: 'RDS_COPY_AUTOMATED_SNAPSHOT'
+
+Resources:
+
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: Shelvery-Notifications
+
+  SnsTopicErrors:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: Shelvery-Errors
+
+  Shelvery:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: shelvery_lambda/lambda_handler.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./lib/shelvery.zip
+      Timeout: 300
+
+      Environment:
+        Variables:
+          shelvery_keep_daily_backups: !Ref ShelveryKeepDailyBackups
+          shelvery_keep_weekly_backups: !Ref ShelveryKeepWeeklyBackups
+          shelvery_keep_monthly_backups: !Ref ShelveryKeepMonthlyBackups
+          shelvery_keep_yearly_backups: !Ref ShelveryKeepYearlyBackups
+          shelvery_source_aws_account_ids: !Ref ShelverySourceAwsAccountIds
+          shelvery_share_aws_account_ids: !Ref ShelveryShareAwsAccountIds
+          shelvery_rds_backup_mode: !Ref ShelveryRdsBackupMode
+          shelvery_sns_topic: !Ref SnsTopic
+          shelvery_error_sns_topic: !Ref SnsTopicErrors
+          shelvery_custom_retention_types: quarterHourly:86400
+
+      Events:
+
+        CreateDataBucket:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBucketsSchedule})
+            Input: '{"backup_type":"ebs","action":"create_data_buckets"}'
+
+        CreateEbs:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBackupSchedule})
+            Input: '{"backup_type":"ebs","action":"create_backups"}'
+        CreateRds:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBackupSchedule})
+            Input: '{"backup_type":"rds","action":"create_backups"}'
+        CreateRdsCluster:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBackupSchedule})
+            Input: '{"backup_type":"rds_cluster","action":"create_backups"}'
+        CreateAmi:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBackupSchedule})
+            Input: '{"backup_type":"ec2ami","action":"create_backups"}'
+
+        CleanEbs:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CleanBackupsSchedule})
+            Input: '{"backup_type":"ebs","action":"clean_backups"}'
+        CleanRds:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CleanBackupsSchedule})
+            Input: '{"backup_type":"rds","action":"clean_backups"}'
+        CleanRdsCluster:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CleanBackupsSchedule})
+            Input: '{"backup_type":"rds_cluster","action":"clean_backups"}'
+        CleanEC2:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CleanBackupsSchedule})
+            Input: '{"backup_type":"ec2ami","action":"clean_backups"}'
+
+        PullEbs:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${PullSharedBackupsSchedule})
+            Input: '{"backup_type":"ebs","action":"pull_shared_backups"}'
+        PullRds:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${PullSharedBackupsSchedule})
+            Input: '{"backup_type":"rds","action":"pull_shared_backups"}'
+        PullRdsCluster:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${PullSharedBackupsSchedule})
+            Input: '{"backup_type":"rds_cluster","action":"pull_shared_backups"}'
+        PullEC2:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${PullSharedBackupsSchedule})
+            Input: '{"backup_type":"ec2ami","action":"pull_shared_backups"}'
+
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            # read only ec2, rds
+            - Effect: Allow
+              Action:
+                - 'ec2:Describe*'
+                - 'rds:Describe*'
+                - 'rds:ListTagsForResource'
+              Resource: '*'
+            # manage ebs snapshots and tags
+            - Effect: Allow
+              Action:
+                - ec2:CreateSnapshot
+                - ec2:ModifySnapshotAttribute
+                - ec2:ResetSnapshotAttribute
+                - ec2:DeleteSnapshot
+                - ec2:DescribeTags
+                - ec2:CreateTags
+                - ec2:DeleteTags
+                - ec2:CopySnapshot
+              Resource: '*'
+            # manage rds snaphosts and tags
+            - Effect: Allow
+              Action:
+                - rds:ModifyDBSnapshotAttribute
+                - rds:ModifyDBClusterSnapshotAttribute
+                - rds:CopyDBSnapshot
+                - rds:CopyDBClusterSnapshot
+                - rds:DeleteDBSnapshot
+                - rds:DeleteDBClusterSnapshot
+                - rds:CreateDBSnapshot
+                - rds:CreateDBClusterSnapshot
+                - rds:AddTagsToResource
+                - rds:RemoveTagsFromResource
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - 'lambda:Invoke*'
+              Resource:
+                - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:shelvery"
+            # manage AMIs (limited)
+            - Effect: Allow
+              Action:
+                - ec2:CopyImage
+                - ec2:CreateImage
+                - ec2:DeregisterImage
+                - ec2:DescribeImageAttribute
+                - ec2:DescribeImages
+                - ec2:DescribeInstances
+                - ec2:ModifyImageAttribute
+                - ec2:DeleteSnapshot
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:Get*
+                - s3:List*
+                - s3:CreateBucket
+                - s3:PutBucketPolicy
+                - s3:PutBucketAcl
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:DeleteObject
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - sns:Publish*
+              Resource:
+                - !Ref SnsTopic
