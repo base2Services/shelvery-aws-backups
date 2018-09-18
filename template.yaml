@@ -38,6 +38,9 @@ Parameters:
   ShelveryRdsBackupMode:
     Type: String
     Default: 'RDS_COPY_AUTOMATED_SNAPSHOT'
+  ShelveryCustomRetentionTypes:
+    Type: String
+    Default: 'quarterHourly:86400,halfHourly:86400,hourly:86400'
 
 Resources:
 
@@ -70,7 +73,7 @@ Resources:
           shelvery_rds_backup_mode: !Ref ShelveryRdsBackupMode
           shelvery_sns_topic: !Ref SnsTopic
           shelvery_error_sns_topic: !Ref SnsTopicErrors
-          shelvery_custom_retention_types: quarterHourly:86400
+          shelvery_custom_retention_types: !Ref ShelveryCustomRetentionTypes
 
       Events:
 
