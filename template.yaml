@@ -149,6 +149,10 @@ Resources:
       Policies:
         - Version: "2012-10-17"
           Statement:
+            - Effect: Allow
+              Action:
+              - lambda:Invoke*
+              Resource: '*'
             # read only ec2, rds
             - Effect: Allow
               Action:
