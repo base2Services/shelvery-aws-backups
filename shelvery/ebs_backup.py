@@ -3,7 +3,7 @@ import boto3
 from typing import List
 
 from botocore.exceptions import ClientError
-
+from shelvery.aws_helper import AwsHelper
 from shelvery.engine import SHELVERY_DO_BACKUP_TAGS
 from shelvery.ec2_backup import ShelveryEC2Backup
 from shelvery.entity_resource import EntityResource
@@ -79,7 +79,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
     
     def is_backup_available(self, region: str, backup_id: str) -> bool:
         try:
-            regional_client = boto3.client('ec2', region_name=region)
+            regional_client = AwsHelper.boto3_client('ec2', region_name=region)
             snapshot = regional_client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
             complete = snapshot['State'] == 'completed'
             self.logger.info(f"{backup_id} is {snapshot['Progress']} complete")
@@ -89,7 +89,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
     
     def copy_backup_to_region(self, backup_id: str, region: str):
         snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
-        regional_client = boto3.client('ec2', region_name=region)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=region)
         copy_snapshot_response = regional_client.copy_snapshot(SourceSnapshotId=backup_id,
                                                                SourceRegion=self.ec2client._client_config.region_name,
                                                                DestinationRegion=region,

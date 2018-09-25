@@ -2,6 +2,8 @@ import re
 import os
 import boto3
 
+from shelvery.aws_helper import AwsHelper
+
 
 class RuntimeConfig:
     """
@@ -69,7 +71,8 @@ class RuntimeConfig:
         'shelvery_source_aws_account_ids': None,
         'shelvery_share_aws_account_ids': None,
         'shelvery_redshift_backup_mode': REDSHIFT_COPY_AUTOMATED_SNAPSHOT,
-        'shelvery_select_entity': None
+        'shelvery_select_entity': None,
+        'boto3_retries': 10
     }
 
     @classmethod
@@ -228,11 +231,15 @@ class RuntimeConfig:
     @classmethod
     def get_aws_account_id(cls):
         # TODO cache
-        return boto3.client('sts').get_caller_identity()['Account']
+        return AwsHelper.boto3_client('sts').get_caller_identity()['Account']
 
     @classmethod
     def get_sns_topic(cls, engine):
         return cls.get_conf_value('shelvery_sns_topic', None, engine.lambda_payload)
+
+    @classmethod
+    def boto3_retry_times(cls):
+        return cls.get_conf_value('boto3_retries', None, None)
 
     @classmethod
     def get_error_sns_topic(cls, engine):

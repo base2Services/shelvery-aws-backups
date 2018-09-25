@@ -1,5 +1,8 @@
 import json
 import boto3
+from botocore.config import Config
+
+from shelvery.runtime_config import RuntimeConfig
 from shelvery import S3_DATA_PREFIX
 
 
@@ -46,8 +49,22 @@ class AwsHelper:
 
     @staticmethod
     def local_account_id():
-        return boto3.client('sts').get_caller_identity()['Account']
+        return AwsHelper.boto3_client('sts').get_caller_identity()['Account']
 
     @staticmethod
     def local_region():
         return boto3.session.Session().region_name
+    
+    @staticmethod
+    def boto3_retry_config():
+        return RuntimeConfig.boto3_retry_times()
+        
+    @staticmethod
+    def boto3_client(service_name, region_name = None):
+        if region_name is None:
+            region_name = AwsHelper.local_region()
+            
+        return boto3.client(service_name,
+                            region_name=region_name,
+                            config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
+    

@@ -3,7 +3,7 @@ import boto3
 from shelvery.backup_resource import BackupResource
 from shelvery.engine import ShelveryEngine
 from shelvery.entity_resource import EntityResource
-
+from shelvery.aws_helper import AwsHelper
 from typing import Dict, List
 
 
@@ -12,12 +12,12 @@ class ShelveryEC2Backup(ShelveryEngine):
     
     def __init__(self):
         ShelveryEngine.__init__(self)
-        self.ec2client = boto3.client('ec2')
-        # default region will be picked up in boto3.client call
+        self.ec2client = AwsHelper.boto3_client('ec2')
+        # default region will be picked up in AwsHelper.boto3_client call
         self.region = boto3.session.Session().region_name
 
     def tag_backup_resource(self, backup_resource: BackupResource):
-        regional_client = boto3.client('ec2', region_name=backup_resource.region)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region)
         regional_client.create_tags(
             Resources=[backup_resource.backup_id],
             Tags=list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k]}, backup_resource.tags))
