@@ -137,11 +137,6 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
-    def _get_shelvery_shared_backups(self):
-        account_id = RuntimeConfig.get_aws_account_id()
-        for account_id in RuntimeConfig.get_source_backup_accounts(self):
-            bucket = self._get_data_bucket(account_id)
-            path = f"{S3_DATA_PREFIX}/{self.get_engine_type()}/shared/{account_id}"
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:

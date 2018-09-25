@@ -2,7 +2,6 @@ import re
 import os
 import boto3
 
-from shelvery.aws_helper import AwsHelper
 
 
 class RuntimeConfig:
@@ -228,10 +227,6 @@ class RuntimeConfig:
             return None
         return val
 
-    @classmethod
-    def get_aws_account_id(cls):
-        # TODO cache
-        return AwsHelper.boto3_client('sts').get_caller_identity()['Account']
 
     @classmethod
     def get_sns_topic(cls, engine):
