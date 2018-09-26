@@ -1,7 +1,7 @@
 import boto3
 import json
 import logging
-
+from shelvery.aws_helper import AwsHelper
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ class ShelveryNotification:
     def __init__(self, topic_arn):
         self.topic_arn = topic_arn
         logger.info("Initialized notification service")
-        self.sns = boto3.client('sns')
+        self.sns = AwsHelper.boto3_client('sns')
     
     def notify(self, message):
         if isinstance(message, dict):
