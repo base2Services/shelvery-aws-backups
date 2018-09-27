@@ -9,12 +9,13 @@ from shelvery.engine import ShelveryEngine
 from shelvery.entity_resource import EntityResource
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
+from shelvery.aws_helper import AwsHelper
 
 class ShelveryRedshiftBackup(ShelveryEngine):
 	def __init__(self):
 		ShelveryEngine.__init__(self)
-		self.redshift_client = boto3.client('redshift')
-		# default region will be picked up in boto3.client call
+		self.redshift_client = AwsHelper.boto3_client('redshift')
+		# default region will be picked up in AwsHelper.boto3_client call
 		self.region = boto3.session.Session().region_name
 
 	def get_resource_type(self) -> str:
@@ -31,7 +32,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		Remove given backup from system
 		"""
-		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
+		redshift_client = AwsHelper.boto3_client('redshift', region_name = backup_resource.region)
 		cluster_id = backup_resource.backup_id.split(":")[-1].split("/")[0]
 		snapshot_id = backup_resource.backup_id.split(":")[-1].split("/")[1]
 		try:
@@ -178,7 +179,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		Create backup resource tags.
 		"""
 		# This is unnecessary for Redshift as the tags are included when calling `backup_resource()`.
-		redshift_client = boto3.client('redshift', region_name = backup_resource.region)
+		redshift_client = AwsHelper.boto3_client('redshift', region_name = backup_resource.region)
 		redshift_client.create_tags(
 			ResourceName=backup_resource.backup_id,
 			Tags=backup_resource.boto3_tags
@@ -200,7 +201,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		Determine whether backup has completed and is available to be copied
 		to other regions and shared with other AWS accounts
 		"""
-		redshift_client = boto3.client('redshift', region_name=backup_region)
+		redshift_client = AwsHelper.boto3_client('redshift', region_name=backup_region)
 		snapshot_id = backup_id.split(":")[-1].split("/")[1]
 		snapshots = None
 		try:
@@ -222,7 +223,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		Share backup with another AWS Account
 		"""
-		redshift_client = boto3.client('redshift', region_name=backup_region)
+		redshift_client = AwsHelper.boto3_client('redshift', region_name=backup_region)
 		snapshot_id = backup_id.split(":")[-1].split("/")[1]
 		redshift_client.authorize_snapshot_access(
 			SnapshotIdentifier=snapshot_id,
@@ -234,7 +235,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		Get Backup Resource within region, identified by its backup_id
 		"""
-		redshift_client = boto3.client('redshift', region_name=backup_region)
+		redshift_client = AwsHelper.boto3_client('redshift', region_name=backup_region)
 		snapshot_id = backup_id.split(":")[-1].split("/")[1]
 		snapshots = redshift_client.describe_cluster_snapshots(SnapshotIdentifier=snapshot_id)
 		snapshot = snapshots['Snapshots'][0]

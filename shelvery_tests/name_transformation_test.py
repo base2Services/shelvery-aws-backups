@@ -21,6 +21,7 @@ from shelvery.engine import ShelveryEngine
 from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
+from shelvery.aws_helper import AwsHelper
 
 print(f"Python lib path:\n{sys.path}")
 
@@ -45,8 +46,8 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
         print("Create EBS Volume of 1G")
         os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
         os.environ['SHELVERY_MONO_THREAD'] = '1'
-        ec2client = boto3.client('ec2')
-        sts = boto3.client('sts')
+        ec2client = AwsHelper.boto3_client('ec2')
+        sts = AwsHelper.boto3_client('sts')
         self.id = sts.get_caller_identity()
         print(f"Running as user:\n{self.id}\n")
         self.volume = ec2client.create_volume(AvailabilityZone='us-east-1a',
@@ -73,7 +74,7 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
         os.environ['shelvery_select_entity'] = self.volume['VolumeId']
     
     def tearDown(self):
-        ec2client = boto3.client('ec2')
+        ec2client = AwsHelper.boto3_client('ec2')
         ec2client.delete_volume(VolumeId=self.volume['VolumeId'])
         print(f"Deleted volume:\n{self.volume['VolumeId']}\n")
         
@@ -87,7 +88,7 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
                 print(f"Failed to delete {snapid}:{str(e)}")
         
         for region in self.regional_snapshots:
-            ec2regional = boto3.client('ec2', region_name=region)
+            ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
             for snapid in self.regional_snapshots[region]:
                 try:
                     ec2regional.delete_snapshot(SnapshotId=snapid)
@@ -103,7 +104,7 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
             print(f"Failed with {e}")
             traceback.print_exc(file=sys.stdout)
             raise e
-        ec2client = boto3.client('ec2')
+        ec2client = AwsHelper.boto3_client('ec2')
         
         valid = False
         # validate there is

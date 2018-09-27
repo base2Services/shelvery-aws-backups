@@ -84,13 +84,13 @@ class ShelveryEngine:
 
         s3 = boto3.resource('s3')
         try:
-            boto3.client('s3').head_bucket(Bucket=bucket_name)
+            AwsHelper.boto3_client('s3').head_bucket(Bucket=bucket_name)
             bucket = s3.Bucket(bucket_name)
 
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
                 client_region = loc_constraint
-                s3client = boto3.client('s3', region_name=client_region)
+                s3client = AwsHelper.boto3_client('s3', region_name=client_region)
                 if loc_constraint == "us-east-1":
                     bucket = s3client.create_bucket(Bucket=bucket_name)
                 else:
@@ -137,11 +137,6 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
-    def _get_shelvery_shared_backups(self):
-        account_id = RuntimeConfig.get_aws_account_id()
-        for account_id in RuntimeConfig.get_source_backup_accounts(self):
-            bucket = self._get_data_bucket(account_id)
-            path = f"{S3_DATA_PREFIX}/{self.get_engine_type()}/shared/{account_id}"
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:
@@ -269,7 +264,7 @@ class ShelveryEngine:
     def pull_shared_backups(self):
 
         account_id = self.account_id
-        s3_client = boto3.client('s3')
+        s3_client = AwsHelper.boto3_client('s3')
         for src_account_id in RuntimeConfig.get_source_backup_accounts(self):
             try:
                 bucket_name = self.get_remote_bucket_name(src_account_id)
@@ -282,8 +277,8 @@ class ShelveryEngine:
                     bucket_region = 'eu-west-1'
                 elif bucket_region is None:
                     bucket_region = 'us-east-1'
-                regional_client = boto3.client('s3', region_name=bucket_region)
-
+                regional_client = AwsHelper.boto3_client('s3', region_name=bucket_region)
+                
                 shared_backups = regional_client.list_objects_v2(Bucket=bucket_name, Prefix=path)
                 if 'Contents' in shared_backups:
                     all_backups = shared_backups['Contents']
@@ -359,7 +354,7 @@ class ShelveryEngine:
         regions.extend(RuntimeConfig.get_dr_regions(None, self))
         for region in regions:
             bucket = self._get_data_bucket(region)
-            boto3.client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,
+            AwsHelper.boto3_client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,
                                                  Policy=AwsHelper.get_shelvery_bucket_policy(
                                                      self.account_id,
                                                      RuntimeConfig.get_share_with_accounts(self),

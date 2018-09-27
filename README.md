@@ -380,3 +380,17 @@ $ export shelvery_source_aws_account_ids=222222222222,333333333333
 # this command will pull backups from both accounts
 $ shelvery ebs pull_shared_backups
 ```
+
+## Deploying with SAM template
+
+1. Setup you aws credentials and set the region
+
+    ```bash
+    export AWS_PROFILE=profile
+    export AWS_DEFAULT_REGION=ap-southeast-2
+    ```
+
+2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
+
+    - `-b` [required] source bucket to deploy the sam package to
+    - `-v` [optional] shelvery version to deploy, defaults to `0.7.1`

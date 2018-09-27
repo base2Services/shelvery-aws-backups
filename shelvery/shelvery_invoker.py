@@ -7,13 +7,13 @@ from typing import Dict
 from threading import Thread
 
 from shelvery.runtime_config import RuntimeConfig
-
+from shelvery.aws_helper import AwsHelper
 
 class ShelveryInvoker:
     """Helper to orchestrate execution of shelvery operations on AWS Lambda platform"""
     
     def __init__(self):
-        self.lambda_client = boto3.client('lambda')
+        self.lambda_client = AwsHelper.boto3_client('lambda')
     
     def invoke_shelvery_operation(self, engine, method_name: str, method_arguments: Dict):
         """
