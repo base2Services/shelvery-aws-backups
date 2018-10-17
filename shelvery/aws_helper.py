@@ -5,9 +5,8 @@ from botocore.config import Config
 from shelvery.runtime_config import RuntimeConfig
 from shelvery import S3_DATA_PREFIX
 
-
 class AwsHelper:
-    
+
 
     @staticmethod
     def get_shelvery_bucket_policy(owner_id, share_account_ids, bucket_name):
@@ -54,17 +53,36 @@ class AwsHelper:
     @staticmethod
     def local_region():
         return boto3.session.Session().region_name
-    
+
     @staticmethod
     def boto3_retry_config():
         return RuntimeConfig.boto3_retry_times()
-        
+
     @staticmethod
-    def boto3_client(service_name, region_name = None):
+    def boto3_sts(arn):
+        sts_client = boto3.client('sts',config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
+        assumedRoleObject = sts_client.assume_role(
+            RoleArn=arn,
+            RoleSessionName="shelvery"
+        )
+        return assumedRoleObject['Credentials']
+
+    @staticmethod
+    def boto3_client(service_name, region_name = None, arn = None):
         if region_name is None:
             region_name = AwsHelper.local_region()
-            
-        return boto3.client(service_name,
+
+        if arn is not None:
+            credentials = boto3_sts(arn)
+            client = boto3.client(service_name,
+                            aws_access_key_id=credentials['AccessKeyId'],
+                            aws_secret_access_key=credentials['SecretAccessKey'],
+                            aws_session_token=credentials['SessionToken'],
                             region_name=region_name,
                             config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
-    
+        else:
+            client = boto3.client(service_name,
+                            region_name=region_name,
+                            config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
+
+        return client

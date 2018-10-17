@@ -48,6 +48,7 @@ class ShelveryEngine:
         self.lambda_wait_iteration = 0
         self.lambda_payload = None
         self.lambda_context = None
+        self.role_arn = RuntimeConfig.get_role_arn(self)
         self.account_id = AwsHelper.local_account_id()
         self.region = AwsHelper.local_region()
         self.snspublisher = ShelveryNotification(RuntimeConfig.get_sns_topic(self))
@@ -278,7 +279,7 @@ class ShelveryEngine:
                 elif bucket_region is None:
                     bucket_region = 'us-east-1'
                 regional_client = AwsHelper.boto3_client('s3', region_name=bucket_region)
-                
+
                 shared_backups = regional_client.list_objects_v2(Bucket=bucket_name, Prefix=path)
                 if 'Contents' in shared_backups:
                     all_backups = shared_backups['Contents']
