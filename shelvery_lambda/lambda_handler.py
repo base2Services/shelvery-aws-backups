@@ -11,7 +11,7 @@ def lambda_handler(event, context):
 
     # handle both sns and cloudwatch secheduled events
     if 'Records' in event:
-        payload = event['Records'][0]['Sns']['Message']
+        payload = json.loads(event['Records'][0]['Sns']['Message'])
     else:
         payload = event
 

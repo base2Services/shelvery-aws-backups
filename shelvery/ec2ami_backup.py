@@ -28,7 +28,8 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
             regional_client.delete_snapshot(SnapshotId=snapshot)
 
     def get_existing_backups(self, backup_tag_prefix: str) -> List[BackupResource]:
-        amis = self.ec2client.describe_images(Filters=[
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        amis = ec2client.describe_images(Filters=[
             {'Name': f"tag:{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}", 'Values': ['true']}
         ])['Images']
         backups = []
@@ -55,7 +56,8 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return 'ec2ami'
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
-        ami = self.ec2client.copy_image(
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        ami = ec2client.copy_image(
             ClientToken=f"{AwsHelper.local_account_id()}{source_account}{source_backup.backup_id}",
             SourceImageId=source_backup.backup_id,
             SourceRegion=source_backup.region,
@@ -76,15 +78,17 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return backup_resource
 
     def _get_all_entities(self) -> List[EntityResource]:
-        instances = self.ec2client.describe_instances()
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        instances = ec2client.describe_instances()
         while 'NextToken' in instances:
-            instances += self.ec2client.describe_instances(
+            instances += ec2client.describe_instances(
                 NextToken=instances['NextToken']
             )
         return self._convert_instances_to_entities(instances)
 
     def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
-        instances = self.ec2client.describe_instances(
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        instances = ec2client.describe_instances(
             Filters=[
                 {
                     'Name': f"tag:{tag_name}",
@@ -93,7 +97,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
             ]
         )
         while 'NextToken' in instances:
-            instances += self.ec2client.describe_instances(
+            instances += ec2client.describe_instances(
                 Filters=[
                     {
                         'Name': f"tag:{tag_name}",
@@ -145,7 +149,8 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
                                           )['ImageId']
 
     def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:
-        ami = self.ec2client.describe_images(ImageIds=[backup_id])['Images'][0]
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        ami = ec2client.describe_images(ImageIds=[backup_id])['Images'][0]
 
         d_tags = dict(map(lambda x: (x['Key'], x['Value']), ami['Tags']))
         backup_tag_prefix = d_tags['shelvery:tag_name']
@@ -154,7 +159,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return backup
 
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
-        ec2 = boto3.session.Session(region_name=backup_region).resource('ec2')
+        ec2 = AwsHelper.boto3_session('ec2', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         image = ec2.Image(backup_id)
         image.modify_attribute(Attribute='launchPermission',
                                LaunchPermission={

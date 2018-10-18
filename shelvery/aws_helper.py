@@ -81,7 +81,7 @@ class AwsHelper:
             region_name = AwsHelper.local_region()
 
         if arn is not None:
-            credentials = boto3_sts(arn,external_id)
+            credentials = AwsHelper.boto3_sts(arn,external_id)
             client = boto3.client(service_name,
                             aws_access_key_id=credentials['AccessKeyId'],
                             aws_secret_access_key=credentials['SecretAccessKey'],
@@ -94,3 +94,16 @@ class AwsHelper:
                             config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
 
         return client
+
+    def boto3_session(service_name, region_name = None, arn = None, external_id = None):
+        if arn is not None:
+            credentials = AwsHelper.boto3_sts(arn,external_id)
+            session = boto3.session.Session(region_name=region_name,
+                                            aws_access_key_id=credentials['AccessKeyId'],
+                                            aws_secret_access_key=credentials['SecretAccessKey'],
+                                            aws_session_token=credentials['SessionToken'],
+                                            ).resource(service_name)
+        else:
+            session = boto3.session.Session(region_name=region_name).resource(service_name)
+
+        return session

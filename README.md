@@ -212,6 +212,7 @@ For following resource types:
 - EC2 Instances
 - RDS Instances
 - RDS Clusters
+- Redshift Clusters
 
 Simply  add `shelvery:create_backup` tag with any of the following values
 
