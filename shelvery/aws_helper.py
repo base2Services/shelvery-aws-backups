@@ -59,21 +59,29 @@ class AwsHelper:
         return RuntimeConfig.boto3_retry_times()
 
     @staticmethod
-    def boto3_sts(arn):
+    def boto3_sts(arn,external_id):
         sts_client = boto3.client('sts',config=Config(retries={'max_attempts':AwsHelper.boto3_retry_config()}))
-        assumedRoleObject = sts_client.assume_role(
-            RoleArn=arn,
-            RoleSessionName="shelvery"
-        )
+        if external_id is not None:
+            assumedRoleObject = sts_client.assume_role(
+                RoleArn=arn,
+                RoleSessionName="shelvery-runtime",
+                ExternalId=external_id
+            )
+        else:
+            assumedRoleObject = sts_client.assume_role(
+                RoleArn=arn,
+                RoleSessionName="shelvery-runtime"
+            )
+
         return assumedRoleObject['Credentials']
 
     @staticmethod
-    def boto3_client(service_name, region_name = None, arn = None):
+    def boto3_client(service_name, region_name = None, arn = None, external_id = None):
         if region_name is None:
             region_name = AwsHelper.local_region()
 
         if arn is not None:
-            credentials = boto3_sts(arn)
+            credentials = boto3_sts(arn,external_id)
             client = boto3.client(service_name,
                             aws_access_key_id=credentials['AccessKeyId'],
                             aws_secret_access_key=credentials['SecretAccessKey'],

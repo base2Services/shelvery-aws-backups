@@ -13,7 +13,7 @@ from shelvery.engine import SHELVERY_DO_BACKUP_TAGS
 
 class ShelveryEC2AMIBackup(ShelveryEC2Backup):
     def delete_backup(self, backup_resource: BackupResource):
-        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
         ami = regional_client.describe_images(ImageIds=[backup_resource.backup_id])['Images'][0]
 
         # delete image
@@ -64,7 +64,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return ami['ImageId']
 
     def backup_resource(self, backup_resource: BackupResource):
-        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
         ami = regional_client.create_image(
             NoReboot=True,
             Name=backup_resource.name,
@@ -124,7 +124,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return entities
 
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
-        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_region, arn=self.role_arn)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         ami = regional_client.describe_images(ImageIds=[backup_id])
         if len(ami['Images']) > 0:
             return ami['Images'][0]['State'] == 'available'
@@ -133,8 +133,8 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
-        local_client = AwsHelper.boto3_client('ec2', region_name=local_region, arn=self.role_arn)
-        regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn)
+        local_client = AwsHelper.boto3_client('ec2', region_name=local_region, arn=self.role_arn, external_id=self.role_external_id)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         ami = local_client.describe_images(ImageIds=[backup_id])['Images'][0]
         idempotency_token = f"shelverycopy{backup_id.replace('-','')}to{region.replace('-','')}"
         return regional_client.copy_image(Name=ami['Name'],

@@ -49,6 +49,7 @@ class ShelveryEngine:
         self.lambda_payload = None
         self.lambda_context = None
         self.role_arn = RuntimeConfig.get_role_arn(self)
+        self.role_external_id = RuntimeConfig.get_role_external_id(self)
         self.account_id = AwsHelper.local_account_id()
         self.region = AwsHelper.local_region()
         self.snspublisher = ShelveryNotification(RuntimeConfig.get_sns_topic(self))

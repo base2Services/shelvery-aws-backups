@@ -72,7 +72,8 @@ class RuntimeConfig:
         'shelvery_redshift_backup_mode': REDSHIFT_COPY_AUTOMATED_SNAPSHOT,
         'shelvery_select_entity': None,
         'boto3_retries': 10,
-        'role_arn': None
+        'role_arn': None,
+        'role_external_id': None
     }
 
     @classmethod
@@ -246,4 +247,8 @@ class RuntimeConfig:
 
     @classmethod
     def get_role_arn(cls, engine):
-        return cls.get_conf_value('role_arn', None, None)
+        return cls.get_conf_value('role_arn', None, engine.lambda_payload)
+
+    @classmethod
+    def get_role_external_id(cls, engine):
+        return cls.get_conf_value('role_external_id', None, engine.lambda_payload)

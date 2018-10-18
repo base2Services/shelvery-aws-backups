@@ -79,7 +79,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
 
     def is_backup_available(self, region: str, backup_id: str) -> bool:
         try:
-            regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn)
+            regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
             snapshot = regional_client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
             complete = snapshot['State'] == 'completed'
             self.logger.info(f"{backup_id} is {snapshot['Progress']} complete")
@@ -89,7 +89,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
 
     def copy_backup_to_region(self, backup_id: str, region: str):
         snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
-        regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn)
+        regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         copy_snapshot_response = regional_client.copy_snapshot(SourceSnapshotId=backup_id,
                                                                SourceRegion=self.ec2client._client_config.region_name,
                                                                DestinationRegion=region,
