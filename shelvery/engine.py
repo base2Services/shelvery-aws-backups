@@ -64,20 +64,19 @@ class ShelveryEngine:
         if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
             self.lambda_wait_iteration = payload['arguments'][LAMBDA_WAIT_ITERATION]
 
-    @classmethod
-    def get_local_bucket_name(cls, region=None):
-        account_id = AwsHelper.local_account_id()
+    def get_bucket_name(self, account_id=None, region=None):
+        if account_id is None:
+            account_id = self.account_id
         if region is None:
-            region = AwsHelper.local_region()
-        bucket_name = f"shelvery.data.{account_id}-{region}.base2tools"
-        return bucket_name
+            region = self.region
+        template = RuntimeConfig.get_bucket_name_template(self)
+        return template.format(account_id=account_id, region=region)
 
-    @classmethod
-    def get_remote_bucket_name(cls, account_id, remote_region=None):
-        if remote_region is None:
-            remote_region = AwsHelper.local_region()
-        bucket_name = f"shelvery.data.{account_id}-{remote_region}.base2tools"
-        return bucket_name
+    def get_local_bucket_name(self, region=None):
+        return self.get_bucket_name(region=region)
+
+    def get_remote_bucket_name(self, account_id, remote_region=None):
+        return self.get_bucket_name(account_id=account_id, region=remote_region)
 
     def _get_data_bucket(self, region=None):
         bucket_name = self.get_local_bucket_name(region)
