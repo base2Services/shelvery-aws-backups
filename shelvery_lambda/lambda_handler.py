@@ -9,9 +9,13 @@ def lambda_handler(event, context):
     logger.setLevel(logging.INFO)
     logger.info(f"Received event\n{json.dumps(event,indent=2)}")
 
-    # handle both sns and cloudwatch secheduled events
+    # handle messages from sns, sqs, cloudwatch secheduled events
     if 'Records' in event:
-        payload = json.loads(event['Records'][0]['Sns']['Message'])
+        for record in event['Records']:
+            if 'Sns' in record:
+                payload = json.loads(record['Sns']['Message'])
+            elif 'body' in record:
+                payload = json.loads(record['body'])
     else:
         payload = event
 
