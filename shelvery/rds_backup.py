@@ -40,7 +40,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         auto_snapshots = sorted(auto_snapshots['DBSnapshots'], key=lambda k: k['SnapshotCreateTime'], reverse=True)
 
         if len(auto_snapshots) == 0:
-            self.logger.error(f"There is no latest automated backup for cluster {backup_resource.entity_id},"
+            self.logger.info(f"There is no latest automated backup for cluster {backup_resource.entity_id},"
                               f" fallback to RDS_CREATE_SNAPSHOT mode. Creating snapshot directly on cluster...")
             return self.backup_from_instance(backup_resource)
 
