@@ -282,6 +282,7 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
 - `shelvery_source_aws_account_ids` - List of AWS Account Ids, comma seperated, that are exposing/sharing their shelvery
     backups with account where shelvery is running. This can be used for having DR aws account that aggregates backups
     from other accounts.
+- `shelvery_bucket_name_template` - Template used to create bucket name. Available keys: `{account_id}`, `{region}`. Defaults to `shelvery.data.{account_id}-{region}.base2tools`
 - `shelvery_rds_backup_mode` - can be either `RDS_COPY_AUTOMATED_SNAPSHOT` or `RDS_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_redshift_backup_mode` - can be either `REDSHIFT_COPY_AUTOMATED_SNAPSHOT` or `REDSHIFT_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
