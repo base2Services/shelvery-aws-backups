@@ -48,15 +48,19 @@ class ShelveryEngine:
         self.lambda_wait_iteration = 0
         self.lambda_payload = None
         self.lambda_context = None
+        self.role_arn = None
+        self.role_external_id = None
         self.account_id = AwsHelper.local_account_id()
         self.region = AwsHelper.local_region()
         self.snspublisher = ShelveryNotification(RuntimeConfig.get_sns_topic(self))
         self.snspublisher_error = ShelveryNotification(RuntimeConfig.get_error_sns_topic(self))
 
     def set_lambda_environment(self, payload, context):
-        self.lambda_payload = payload
-        self.lambda_context = context
-        self.aws_request_id = context.aws_request_id
+        self.lambda_payload   = payload
+        self.lambda_context   = context
+        self.aws_request_id   = context.aws_request_id
+        self.role_arn         = RuntimeConfig.get_role_arn(self)
+        self.role_external_id = RuntimeConfig.get_role_external_id(self)
         if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
             self.lambda_wait_iteration = payload['arguments'][LAMBDA_WAIT_ITERATION]
 
@@ -278,7 +282,7 @@ class ShelveryEngine:
                 elif bucket_region is None:
                     bucket_region = 'us-east-1'
                 regional_client = AwsHelper.boto3_client('s3', region_name=bucket_region)
-                
+
                 shared_backups = regional_client.list_objects_v2(Bucket=bucket_name, Prefix=path)
                 if 'Contents' in shared_backups:
                     all_backups = shared_backups['Contents']
