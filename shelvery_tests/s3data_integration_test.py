@@ -123,7 +123,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 # verify the s3 data
                 account_id = ebs_backups_engine.account_id
                 s3path = f"{S3_DATA_PREFIX}/{ebs_backups_engine.get_engine_type()}/{engine_backup.name}.yaml"
-                s3bucket = self.get_local_bucket_name()
+                s3bucket = ShelveryEngine.get_local_bucket_name()
                 print(f"Usingbucket {s3bucket}")
                 print(f"Using path {s3path}")
                 bucket = boto3.resource('s3').Bucket(s3bucket)
@@ -163,7 +163,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
             if backup.entity_id == self.volume['VolumeId']:
                 account_id = ebs_backups_engine.account_id
                 s3path = f"{S3_DATA_PREFIX}/shared/{self.share_with_id}/{ebs_backups_engine.get_engine_type()}/{backup.name}.yaml"
-                s3bucket = self.get_local_bucket_name()
+                s3bucket = ShelveryEngine.get_local_bucket_name()
                 bucket = boto3.resource('s3').Bucket(s3bucket)
                 object = bucket.Object(s3path)
                 content = object.get()['Body'].read()
@@ -214,7 +214,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 
                 account_id = ebs_backups_engine.account_id
                 s3path = f"{S3_DATA_PREFIX}/{ebs_backups_engine.get_engine_type()}/removed/{backup.name}.yaml"
-                s3bucket = self.get_local_bucket_name()
+                s3bucket = ShelveryEngine.get_local_bucket_name()
                 bucket = boto3.resource('s3').Bucket(s3bucket)
                 object = bucket.Object(s3path)
                 content = object.get()['Body'].read()
