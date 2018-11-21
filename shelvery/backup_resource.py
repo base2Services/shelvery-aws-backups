@@ -24,7 +24,7 @@ class BackupResource:
     RETENTION_MONTHLY = 'monthly'
     RETENTION_YEARLY = 'yearly'
 
-    def __init__(self, tag_prefix, entity_resource: EntityResource, construct=False):
+    def __init__(self, tag_prefix, entity_resource: EntityResource, construct=False, copy_resource_tags=True, exluded_resource_tag_keys=[]):
         """Construct new backup resource out of entity resource (e.g. ebs volume)."""
         # if object manually created
         if construct:
@@ -75,6 +75,14 @@ class BackupResource:
             f"{tag_prefix}:entity_id": entity_resource.resource_id,
             f"{tag_prefix}:{self.BACKUP_MARKER_TAG}": 'true'
         }
+
+        if copy_resource_tags:
+            for key, value in self.entity_resource_tags().items():
+                if key == 'Name':
+                    self.tags["ResourceName"] = value
+                elif not any(exc_tag in key for exc_tag in exluded_resource_tag_keys):
+                    self.tags[key] = value
+
         self.backup_id = None
         self.expire_date = None
         self.date_deleted = None
