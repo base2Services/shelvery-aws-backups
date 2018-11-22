@@ -47,6 +47,9 @@ class RuntimeConfig:
     shelvery_sns_topic - SNS Topics for shelvery notifications
 
     shelvery_error_sns_topic - SNS Topics for just error messages
+
+    shelvery_copy_resource_tags - Copy tags from original resource
+    shelvery_exluded_resource_tag_keys - Comma separated list of tag keys to exclude from copying from original
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -77,7 +80,9 @@ class RuntimeConfig:
         'shelvery_bucket_name_template': 'shelvery.data.{account_id}-{region}.base2tools',
         'boto3_retries': 10,
         'role_arn': None,
-        'role_external_id': None
+        'role_external_id': None,
+        'shelvery_copy_resource_tags': True,
+        'shelvery_exluded_resource_tag_keys': None
     }
 
     @classmethod
@@ -260,3 +265,18 @@ class RuntimeConfig:
     @classmethod
     def get_bucket_name_template(cls, engine):
         return cls.get_conf_value('shelvery_bucket_name_template', None, engine.lambda_payload)
+
+    @classmethod
+    def copy_resource_tags(cls, engine) -> bool:
+        copy_tags = cls.get_conf_value('shelvery_copy_resource_tags', None, engine.lambda_payload)
+        if copy_tags or copy_tags.lower() == 'true' or copy_tags == 0:
+            return True
+        else:
+            return False
+    @classmethod
+    def get_exluded_resource_tag_keys(cls, engine):
+        keys = [cls.get_tag_prefix()]
+        exclude = cls.get_conf_value('shelvery_exluded_resource_tag_keys', None, engine.lambda_payload)
+        if exclude is not None:
+            keys += exclude.split(',')
+        return keys

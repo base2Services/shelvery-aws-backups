@@ -169,7 +169,9 @@ class ShelveryEngine:
         for r in resources:
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
-                entity_resource=r
+                entity_resource=r,
+                copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
+                exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:

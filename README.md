@@ -297,6 +297,9 @@ backups
 - `shelvery_error_sns_topic` - SNS Topic for receiving just errors. If not set all messages will be sent through `shelvery_sns_topic` topic
 - `shelvery_source_aws_account_ids` - Comma-separated list of AWS account ids to pull backups from
 
+- `shelvery_copy_resource_tags` - Copy tags from original resource [boolean]
+- `shelvery_exluded_resource_tag_keys` - Comma separated list of tag keys to exclude from copying from original
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
