@@ -275,7 +275,9 @@ class RuntimeConfig:
             return False
     @classmethod
     def get_exluded_resource_tag_keys(cls, engine):
-        keys = [cls.get_tag_prefix()]
+        # Exluding the tag_pefix as sthey are not necessary
+        # and aws tags as aws is a tag reserved namespace
+        keys = [cls.get_tag_prefix(),'aws:']
         exclude = cls.get_conf_value('shelvery_exluded_resource_tag_keys', None, engine.lambda_payload)
         if exclude is not None:
             keys += exclude.split(',')
