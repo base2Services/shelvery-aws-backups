@@ -35,7 +35,7 @@ def lambda_handler(event, context):
     method = backup_engine.__getattribute__(action)
 
     if 'arguments' in payload:
-        method(event['arguments'])
+        method(payload['arguments'])
     else:
         method()
 

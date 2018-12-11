@@ -8,6 +8,7 @@ from threading import Thread
 
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.aws_helper import AwsHelper
+from shelvery.queue import ShelveryQueue
 
 class ShelveryInvoker:
     """Helper to orchestrate execution of shelvery operations on AWS Lambda platform"""
@@ -20,7 +21,7 @@ class ShelveryInvoker:
         Function invoke must accept arguments in form of map
         """
         is_lambda_context = RuntimeConfig.is_lambda_runtime(engine)
-        is_queueing = RuntimeConfig.is_offload_queueing(engine)
+        is_offload_queueing = RuntimeConfig.is_offload_queueing(engine)
         parameters = {
             'backup_type': engine.get_engine_type(),
             'action': method_name,
@@ -31,7 +32,7 @@ class ShelveryInvoker:
                 parameters['config'] = engine.lambda_payload['config']
 
             if is_offload_queueing:
-                sqs = ShelveryQueue(RuntimeConfig.get_sqs_queue_url(self),RuntimeConfig.get_sqs_queue_wait_period(self))
+                sqs = ShelveryQueue(RuntimeConfig.get_sqs_queue_url(engine),RuntimeConfig.get_sqs_queue_wait_period(engine))
                 sqs.send(parameters)
             else:
                 parameters['is_started_internally'] = True

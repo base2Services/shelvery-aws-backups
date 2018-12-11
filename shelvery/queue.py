@@ -23,7 +23,7 @@ class ShelveryQueue:
 
         if self.queue_url is not None:
             try:
-                response = sqs.send_message(
+                response = self.sqs.send_message(
                     QueueUrl=self.queue_url,
                     DelaySeconds=self.wait_period,
                     MessageBody=message

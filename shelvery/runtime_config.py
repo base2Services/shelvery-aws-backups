@@ -115,8 +115,9 @@ class RuntimeConfig:
     def is_lambda_runtime(cls, engine) -> bool:
         return engine.aws_request_id != 0 and engine.lambda_payload is not None
 
+    @classmethod
     def is_offload_queueing(cls, engine) -> bool:
-        return cls.get_sqs_queue(engine) is not None
+        return cls.get_sqs_queue_url(engine) is not None
 
     @classmethod
     def get_keep_daily(cls, resource_tags=None, engine=None):
@@ -293,7 +294,7 @@ class RuntimeConfig:
         return keys
 
     @classmethod
-    def get_sqs_queue(cls, engine):
+    def get_sqs_queue_url(cls, engine):
         return cls.get_conf_value('shelvery_sqs_queue_url', None, engine.lambda_payload)
 
     @classmethod

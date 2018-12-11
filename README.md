@@ -300,6 +300,9 @@ backups
 - `shelvery_copy_resource_tags` - Copy tags from original resource [boolean]
 - `shelvery_exluded_resource_tag_keys` - Comma separated list of tag keys to exclude from copying from original
 
+- `shelvery_sqs_queue_url` - SQS queue url
+- `shelvery_sqs_queue_wait_period` - sqs waiting period in seconds. [int] 0-900
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -384,6 +387,19 @@ $ export AWS_DEFAULT_PROFILE=dst_account
 $ export shelvery_source_aws_account_ids=222222222222,333333333333
 # this command will pull backups from both accounts
 $ shelvery ebs pull_shared_backups
+```
+
+## Waiting on backups to complete
+
+By default shelvery will wait by sleeping and then querying the aws api for a complete status. 
+If this is not your preferred method you can offload the sleep to SQS to save costs on lambda compute.
+
+You can set the sqs url and the wait period (seconds) before lambda is invoked to check on the status of the backup. 
+If the backup is not complete it will be passed back to sqs to wait for the same period.
+
+```text
+shelvery_sqs_queue_url=https://sqs.us-east-1.amazonaws.com/111111111111/shelvery
+shelvery_sqs_queue_wait_period=300
 ```
 
 ## Deploying with SAM template
