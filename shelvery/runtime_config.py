@@ -50,6 +50,10 @@ class RuntimeConfig:
 
     shelvery_copy_resource_tags - Copy tags from original resource
     shelvery_exluded_resource_tag_keys - Comma separated list of tag keys to exclude from copying from original
+
+    shelvery_sqs_queue_url - re invoke shelvery through a sqs queue
+
+    shelvery_sqs_queue_wait_period - wait time in seconds before re invoking shelvery [0-900]
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -82,7 +86,9 @@ class RuntimeConfig:
         'role_arn': None,
         'role_external_id': None,
         'shelvery_copy_resource_tags': True,
-        'shelvery_exluded_resource_tag_keys': None
+        'shelvery_exluded_resource_tag_keys': None,
+        'shelvery_sqs_queue_url': None,
+        'shelvery_sqs_queue_wait_period': 0
     }
 
     @classmethod
@@ -108,6 +114,10 @@ class RuntimeConfig:
     @classmethod
     def is_lambda_runtime(cls, engine) -> bool:
         return engine.aws_request_id != 0 and engine.lambda_payload is not None
+
+    @classmethod
+    def is_offload_queueing(cls, engine) -> bool:
+        return cls.get_sqs_queue_url(engine) is not None
 
     @classmethod
     def get_keep_daily(cls, resource_tags=None, engine=None):
@@ -282,3 +292,11 @@ class RuntimeConfig:
         if exclude is not None:
             keys += exclude.split(',')
         return keys
+
+    @classmethod
+    def get_sqs_queue_url(cls, engine):
+        return cls.get_conf_value('shelvery_sqs_queue_url', None, engine.lambda_payload)
+
+    @classmethod
+    def get_sqs_queue_wait_period(cls, engine):
+        return cls.get_conf_value('shelvery_sqs_queue_wait_period', None, engine.lambda_payload)
