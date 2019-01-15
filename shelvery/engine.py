@@ -452,15 +452,16 @@ class ShelveryEngine:
         """
 
         kwargs.update(map_args)
-
+        backup_id = kwargs['BackupId']
+        origin_region = kwargs['OriginRegion']
         # if backup is not available, exit and rely on recursive lambda call copy backup
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
-            if not self.is_backup_available(backup_region, backup_id):
-                self.store_backup_data(self.get_backup_resource(backup_region, backup_id))
+            if not self.is_backup_available(origin_region,backup_id):
+                self.copy_backup(self.get_backup_resource(origin_region, backup_id))
         else:
-            if not self.wait_backup_available(backup_region=kwargs['OriginRegion'],
-                                              backup_id=kwargs['BackupId'],
+            if not self.wait_backup_available(backup_region=origin_region,
+                                              backup_id=backup_id,
                                               lambda_method='do_copy_backup',
                                               lambda_args=kwargs):
                 return
@@ -544,21 +545,21 @@ class ShelveryEngine:
     def do_share_backup(self, map_args={}, **kwargs):
         """Share backup with other AWS account, actual implementation"""
         kwargs.update(map_args)
-
+        backup_id = kwargs['BackupId']
+        backup_region = kwargs['Region']
+        backup_resource = self.get_backup_resource(backup_region, backup_id)
         # if backup is not available, exit and rely on recursive lambda call do share backup
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
             if not self.is_backup_available(backup_region, backup_id):
-                self.store_backup_data(self.get_backup_resource(backup_region, backup_id))
+                self.share_backup(self.get_backup_resource(backup_region, backup_id))
         else:
-            if not self.wait_backup_available(backup_region=kwargs['Region'],
-                                              backup_id=kwargs['BackupId'],
+            if not self.wait_backup_available(backup_region=backup_region,
+                                              backup_id=backup_id,
                                               lambda_method='do_share_backup',
                                               lambda_args=kwargs):
                 return
 
-        backup_region = kwargs['Region']
-        backup_id = kwargs['BackupId']
         destination_account_id = kwargs['AwsAccountId']
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
@@ -615,12 +616,12 @@ class ShelveryEngine:
         kwargs.update(map_args)
         backup_id = kwargs['BackupId']
         backup_region = kwargs['BackupRegion']
-
+        backup_resource = self.get_backup_resource(backup_region, backup_id)
         # if backup is not available, exit and rely on recursive lambda call write metadata
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
             if not self.is_backup_available(backup_region, backup_id):
-                self.store_backup_data(self.get_backup_resource(backup_region, backup_id))
+                self.store_backup_data(backup_resource)
         else:
             if not self.wait_backup_available(backup_region=backup_region,
                                               backup_id=backup_id,
@@ -628,7 +629,6 @@ class ShelveryEngine:
                                               lambda_args=kwargs):
                 return
 
-        backup_resource = self.get_backup_resource(backup_region, backup_id)
         if backup_resource.account_id is None:
             backup_resource.account_id = self.account_id
         bucket = self._get_data_bucket(backup_resource.region)

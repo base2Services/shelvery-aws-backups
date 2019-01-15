@@ -391,10 +391,10 @@ $ shelvery ebs pull_shared_backups
 
 ## Waiting on backups to complete
 
-By default shelvery will wait by sleeping and then querying the aws api for a complete status. 
+By default shelvery will wait by sleeping and then querying the aws api for a complete status.
 If this is not your preferred method you can offload the sleep to SQS to save costs on lambda compute.
 
-You can set the sqs url and the wait period (seconds) before lambda is invoked to check on the status of the backup. 
+You can set the sqs url and the wait period (seconds) before lambda is invoked to check on the status of the backup.
 If the backup is not complete it will be passed back to sqs to wait for the same period.
 
 ```text
@@ -414,4 +414,4 @@ shelvery_sqs_queue_wait_period=300
 2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
 
     - `-b` [required] source bucket to deploy the sam package to
-    - `-v` [optional] shelvery version to deploy, defaults to `0.8.0`
+    - `-v` [optional] shelvery version to deploy, defaults to `0.8.1`
