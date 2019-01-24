@@ -454,11 +454,12 @@ class ShelveryEngine:
         kwargs.update(map_args)
         backup_id = kwargs['BackupId']
         origin_region = kwargs['OriginRegion']
+        backup_resource = self.get_backup_resource(origin_region, backup_id)
         # if backup is not available, exit and rely on recursive lambda call copy backup
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
             if not self.is_backup_available(origin_region,backup_id):
-                self.copy_backup(self.get_backup_resource(origin_region, backup_id))
+                self.copy_backup(self.get_backup_resource(backup_resource, RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)))
         else:
             if not self.wait_backup_available(backup_region=origin_region,
                                               backup_id=backup_id,
@@ -547,12 +548,13 @@ class ShelveryEngine:
         kwargs.update(map_args)
         backup_id = kwargs['BackupId']
         backup_region = kwargs['Region']
+        destination_account_id = kwargs['AwsAccountId']
         backup_resource = self.get_backup_resource(backup_region, backup_id)
         # if backup is not available, exit and rely on recursive lambda call do share backup
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
             if not self.is_backup_available(backup_region, backup_id):
-                self.share_backup(self.get_backup_resource(backup_region, backup_id))
+                self.share_backup(self.get_backup_resource(backup_resource, destination_account_id))
         else:
             if not self.wait_backup_available(backup_region=backup_region,
                                               backup_id=backup_id,
@@ -560,7 +562,6 @@ class ShelveryEngine:
                                               lambda_args=kwargs):
                 return
 
-        destination_account_id = kwargs['AwsAccountId']
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
             self.share_backup_with_account(backup_region, backup_id, destination_account_id)
