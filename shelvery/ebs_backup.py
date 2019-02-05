@@ -160,6 +160,8 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                 if 'InvalidVolume.NotFound' in str(e):
                     volumes[volume_id] = EntityResource.empty()
                     volumes[volume_id].resource_id = volume_id
+                elif 'InvalidParameterValue' in str(e):
+                    self.logger.info(f"Entity id {volume_id} is not a volume id. Skipping resource...")
                 else:
                     raise e
 
