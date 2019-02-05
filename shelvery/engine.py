@@ -554,7 +554,7 @@ class ShelveryEngine:
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
             if not self.is_backup_available(backup_region, backup_id):
-                self.share_backup(self.get_backup_resource(backup_resource, destination_account_id))
+                self.share_backup(backup_resource, destination_account_id)
         else:
             if not self.wait_backup_available(backup_region=backup_region,
                                               backup_id=backup_id,
