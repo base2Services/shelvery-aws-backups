@@ -117,7 +117,7 @@ class ShelveryEngine:
                 raise e
         return bucket
 
-    def _archive_backup_metadata(self, backup, bucket):
+    def _archive_backup_metadata(self, backup, bucket, shared_accounts=[]):
         s3key = f"{S3_DATA_PREFIX}/{self.get_engine_type()}/{backup.name}.yaml"
         s3archive_key = f"{S3_DATA_PREFIX}/{self.get_engine_type()}/removed/{backup.name}.yaml"
         bucket.put_object(
@@ -125,8 +125,15 @@ class ShelveryEngine:
             Body=yaml.dump(backup, default_flow_style=False)
         )
         bucket.Object(s3key).delete()
+        self.logger.info(f"Deleted data for backup {backup.name} from s3://{bucket.name}/{s3key}")
 
-        self.logger.info(f"Wrote data for backup {backup.name} of type {self.get_engine_type()} to" +
+        for shared_account_id in shared_accounts:
+            s3shared_key = f"{S3_DATA_PREFIX}/shared/{shared_account_id}/{self.get_engine_type()}/{backup.name}.yaml"
+            bucket.Object(s3shared_key).delete()
+            self.logger.info(f"Deleted data for shared backup {backup.name} from s3://{bucket.name}/{s3shared_key}")
+
+
+        self.logger.info(f"Archived data for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3archive_key}")
 
     def _write_backup_data(self, backup, bucket, shared_account_id=None):
@@ -246,7 +253,7 @@ class ShelveryEngine:
                         f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
                     self.delete_backup(backup)
                     backup.date_deleted = datetime.utcnow()
-                    self._archive_backup_metadata(backup, self._get_data_bucket())
+                    self._archive_backup_metadata(backup, self._get_data_bucket(), RuntimeConfig.get_share_with_accounts(self))
                     self.snspublisher.notify({
                         'Operation': 'DeleteBackup',
                         'Status': 'OK',
