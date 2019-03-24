@@ -585,17 +585,22 @@ class ShelveryEngine:
                 'BackupName': backup_resource.name,
                 'DestinationAccount': kwargs['AwsAccountId']
             })
-        except Exception as e:
-            self.snspublisher_error.notify({
-                'Operation': 'ShareBackup',
-                'Status': 'ERROR',
-                'ExceptionInfo': e.__dict__,
-                'BackupType': self.get_engine_type(),
-                'BackupId': backup_id,
-                'DestinationAccount': kwargs['AwsAccountId']
-            })
-            self.logger.exception(
-                f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidDBSnapshotState':
+                # This will occasionally happen due to AWS eventual consistency model
+                self.logger.warn(f"Retrying to share backup {backup_id} ({backup_region}) with account {destination_account_id} due to exception InvalidDBSnapshotState")
+                self.share_backup(backup_resource, destination_account_id)
+            else:
+                self.snspublisher_error.notify({
+                    'Operation': 'ShareBackup',
+                    'Status': 'ERROR',
+                    'ExceptionInfo': e.__dict__,
+                    'BackupType': self.get_engine_type(),
+                    'BackupId': backup_id,
+                    'DestinationAccount': kwargs['AwsAccountId']
+                })
+                self.logger.exception(
+                    f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
 
     def store_backup_data(self, backup_resource: BackupResource):
         """
