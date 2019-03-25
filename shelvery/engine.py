@@ -202,16 +202,30 @@ class ShelveryEngine:
                     'BackupName': backup_resource.name,
                     'EntityId': backup_resource.entity_id
                 })
-            except Exception as e:
-                self.snspublisher_error.notify({
-                    'Operation': 'CreateBackup',
-                    'Status': 'ERROR',
-                    'ExceptionInfo': e.__dict__,
-                    'BackupType': self.get_engine_type(),
-                    'BackupName': backup_resource.name,
-                    'EntityId': backup_resource.entity_id
-                })
-                self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'InvalidDBInstanceState':
+                    if RuntimeConfig.ignore_invalid_resource_state():
+                        self.logger.warn(f"{backup_resource.name} of type {resource_type} is not in a state a backup can be taken")
+                    else:
+                        self.snspublisher_error.notify({
+                            'Operation': 'CreateBackup',
+                            'Status': 'ERROR',
+                            'ExceptionInfo': e.__dict__,
+                            'BackupType': self.get_engine_type(),
+                            'BackupName': backup_resource.name,
+                            'EntityId': backup_resource.entity_id
+                        })
+                        self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
+                else:
+                    self.snspublisher_error.notify({
+                        'Operation': 'CreateBackup',
+                        'Status': 'ERROR',
+                        'ExceptionInfo': e.__dict__,
+                        'BackupType': self.get_engine_type(),
+                        'BackupName': backup_resource.name,
+                        'EntityId': backup_resource.entity_id
+                    })
+                    self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
 
         # create backups and disaster recovery region
         for br in backup_resources:
@@ -585,17 +599,22 @@ class ShelveryEngine:
                 'BackupName': backup_resource.name,
                 'DestinationAccount': kwargs['AwsAccountId']
             })
-        except Exception as e:
-            self.snspublisher_error.notify({
-                'Operation': 'ShareBackup',
-                'Status': 'ERROR',
-                'ExceptionInfo': e.__dict__,
-                'BackupType': self.get_engine_type(),
-                'BackupId': backup_id,
-                'DestinationAccount': kwargs['AwsAccountId']
-            })
-            self.logger.exception(
-                f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidDBSnapshotState':
+                # This will occasionally happen due to AWS eventual consistency model
+                self.logger.warn(f"Retrying to share backup {backup_id} ({backup_region}) with account {destination_account_id} due to exception InvalidDBSnapshotState")
+                self.share_backup(backup_resource, destination_account_id)
+            else:
+                self.snspublisher_error.notify({
+                    'Operation': 'ShareBackup',
+                    'Status': 'ERROR',
+                    'ExceptionInfo': e.__dict__,
+                    'BackupType': self.get_engine_type(),
+                    'BackupId': backup_id,
+                    'DestinationAccount': kwargs['AwsAccountId']
+                })
+                self.logger.exception(
+                    f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
 
     def store_backup_data(self, backup_resource: BackupResource):
         """

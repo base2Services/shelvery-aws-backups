@@ -54,13 +54,45 @@ Resources:
     Properties:
       TopicName: Shelvery-Errors
 
+  ShelveryWaitQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: Shelvery-Wait-Queue
+      MessageRetentionPeriod: 3600
+      VisibilityTimeout: 900 # must match function timeout
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ShelveryWaitDLQ.Arn
+        maxReceiveCount: 10
+      Tags:
+        - Key: Name
+          Value: Shelvery-Wait
+        - Key: CreatedBy
+          Value: Shelvery
+
+  ShelveryWaitDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: Shelvery-Wait-dlq
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Name
+          Value: Shelvery-Wait-dlq
+        - Key: CreatedBy
+          Value: Shelvery
+
   Shelvery:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: ShelveryBackups
       Handler: shelvery_lambda/lambda_handler.lambda_handler
       Runtime: python3.6
       CodeUri: ./lib/shelvery.zip
-      Timeout: 300
+      Timeout: 900
+
+      Tags:
+        Name: Shelvery
+        CreatedBy: Shelvery
+        ShelveryVersion: 0.8.4
 
       Environment:
         Variables:
@@ -74,8 +106,16 @@ Resources:
           shelvery_sns_topic: !Ref SnsTopic
           shelvery_error_sns_topic: !Ref SnsTopicErrors
           shelvery_custom_retention_types: !Ref ShelveryCustomRetentionTypes
+          shelvery_sqs_queue_url: !Ref ShelveryWaitQueue
+          shelvery_sqs_queue_wait_period: 300
 
       Events:
+
+        WaitTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ShelveryWaitQueue.Arn
+            BatchSize: 1
 
         CreateDataBucket:
           Type: Schedule
@@ -219,3 +259,32 @@ Resources:
                 - sns:Publish*
               Resource:
                 - !Ref SnsTopic
+            - Effect: Allow
+              Action:
+                - sqs:ChangeMessageVisibility
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt ShelveryWaitQueue.Arn
+
+  ShelveryErrors:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: If Shelvery errors is equal to 1 for 5 minutes
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      AlarmActions:
+        - !Ref SnsTopicErrors
+      OKActions:
+        - !Ref SnsTopicErrors
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 1
+      Period: 300
+      Statistic: Maximum
+      Threshold: 0
+      TreatMissingData: ignore
+      Dimensions:
+        - Name: FunctionName
+          Value: ShelveryBackups

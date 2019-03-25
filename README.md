@@ -303,6 +303,8 @@ backups
 - `shelvery_sqs_queue_url` - SQS queue url
 - `shelvery_sqs_queue_wait_period` - sqs waiting period in seconds. [int] 0-900
 
+- `shelvery_ignore_invalid_resource_state` - ignore exceptions due to the resource being in a unavailable state, such as shutdown, rebooting. Default value is `False`. [boolean]
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -414,4 +416,4 @@ shelvery_sqs_queue_wait_period=300
 2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
 
     - `-b` [required] source bucket to deploy the sam package to
-    - `-v` [optional] shelvery version to deploy, defaults to `0.8.3`
+    - `-v` [optional] shelvery version to deploy, defaults to `0.8.4`

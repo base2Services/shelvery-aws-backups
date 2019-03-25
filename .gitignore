@@ -12,3 +12,5 @@ play.sh
 .noseids
 out.txt
 .pytest_cache
+
+packaged-template.yaml

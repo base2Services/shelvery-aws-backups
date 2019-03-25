@@ -54,6 +54,9 @@ class RuntimeConfig:
     shelvery_sqs_queue_url - re invoke shelvery through a sqs queue
 
     shelvery_sqs_queue_wait_period - wait time in seconds before re invoking shelvery [0-900]
+
+    shelvery_ignore_invalid_resource_state - ignore exceptions due to the resource being in a unavailable state,
+                                             such as shutdown, rebooting.
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -88,7 +91,8 @@ class RuntimeConfig:
         'shelvery_copy_resource_tags': True,
         'shelvery_exluded_resource_tag_keys': None,
         'shelvery_sqs_queue_url': None,
-        'shelvery_sqs_queue_wait_period': 0
+        'shelvery_sqs_queue_wait_period': 0,
+        'shelvery_ignore_invalid_resource_state': False
     }
 
     @classmethod
@@ -283,6 +287,15 @@ class RuntimeConfig:
             return True
         else:
             return False
+
+    @classmethod
+    def ignore_invalid_resource_state(cls, engine) -> bool:
+        ignore_state = cls.get_conf_value('shelvery_ignore_invalid_resource_state', None, engine.lambda_payload)
+        if ignore_state or ignore_state.lower() == 'true' or ignore_state == 0:
+            return True
+        else:
+            return False
+
     @classmethod
     def get_exluded_resource_tag_keys(cls, engine):
         # Exluding the tag_pefix as sthey are not necessary
