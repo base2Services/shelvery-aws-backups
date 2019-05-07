@@ -214,27 +214,35 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         :return: All snapshots within region for rds_client
         """
         all_snapshots = []
+
+        self.logger.info("Collecting DB cluster snapshots...")
         tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual')
         all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
+
         while 'Marker' in tmp_snapshots:
-            tmp_snapshots = rds_client.describe_db_cluster_snapshots()
+            self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
+            tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
 
+        self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
         self.populate_snap_entity_resource(all_snapshots)
 
         return all_snapshots
 
     def populate_snap_entity_resource(self, all_snapshots):
         cluster_ids = []
+
         for snap in all_snapshots:
             if snap['DBClusterIdentifier'] not in cluster_ids:
                 cluster_ids.append(snap['DBClusterIdentifier'])
+
         entities = {}
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         local_region = boto3.session.Session().region_name
 
         for cluster_id in cluster_ids:
             try:
+                self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
                 rds_instance = rds_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
                 tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBClusterArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
