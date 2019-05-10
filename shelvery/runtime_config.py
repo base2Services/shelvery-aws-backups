@@ -233,7 +233,7 @@ class RuntimeConfig:
                 shelvery.logger.warn(f"Account id {acc} is not 12-digit number, skipping for share")
             else:
                 rval.append(acc)
-                shelvery.logger.info(f"Collected account {acc} to share backups with")
+                shelvery.logger.info(f"Collected account {acc} to collect backups from")
 
         return rval
 

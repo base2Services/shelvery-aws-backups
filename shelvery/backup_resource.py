@@ -24,7 +24,7 @@ class BackupResource:
     RETENTION_MONTHLY = 'monthly'
     RETENTION_YEARLY = 'yearly'
 
-    def __init__(self, tag_prefix, entity_resource: EntityResource, construct=False, copy_resource_tags=True, exluded_resource_tag_keys=[]):
+    def __init__(self, tag_prefix, entity_resource: EntityResource, construct=False, copy_resource_tags=True, exluded_resource_tag_keys=[], resource_properties={}):
         """Construct new backup resource out of entity resource (e.g. ebs volume)."""
         # if object manually created
         if construct:
@@ -86,6 +86,7 @@ class BackupResource:
         self.backup_id = None
         self.expire_date = None
         self.date_deleted = None
+        self.resource_properties = resource_properties
 
     def cross_account_copy(self, new_backup_id):
         backup = copy.deepcopy(self)

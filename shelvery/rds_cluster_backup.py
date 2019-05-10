@@ -47,20 +47,22 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
         # TODO handle case when there are no latest automated backups
         automated_snapshot_id = auto_snapshots[0]['DBClusterSnapshotIdentifier']
-        rds_client.copy_db_cluster_snapshot(
+        response = rds_client.copy_db_cluster_snapshot(
             SourceDBClusterSnapshotIdentifier=automated_snapshot_id,
             TargetDBClusterSnapshotIdentifier=backup_resource.name,
             CopyTags=False
         )
+        backup_resource.resource_properties = response['DBClusterSnapshot']
         backup_resource.backup_id = backup_resource.name
         return backup_resource
 
     def backup_from_cluster(self, backup_resource):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        rds_client.create_db_cluster_snapshot(
+        response = rds_client.create_db_cluster_snapshot(
             DBClusterSnapshotIdentifier=backup_resource.name,
             DBClusterIdentifier=backup_resource.entity_id
         )
+        backup_resource.resource_properties = response['DBClusterSnapshot']
         backup_resource.backup_id = backup_resource.name
         return backup_resource
 
@@ -119,12 +121,21 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         # copying of tags happens outside this method
         source_arn = f"arn:aws:rds:{source_backup.region}:{source_backup.account_id}:cluster-snapshot:{source_backup.backup_id}"
-        snap = rds_client.copy_db_cluster_snapshot(
-            SourceDBClusterSnapshotIdentifier=source_arn,
-            SourceRegion=source_backup.region,
-            CopyTags=False,
-            TargetDBClusterSnapshotIdentifier=source_backup.backup_id
-        )
+
+        params = {
+            'SourceDBClusterSnapshotIdentifier': source_arn,
+            'SourceRegion': source_backup.region,
+            'CopyTags': False,
+            'TargetDBClusterSnapshotIdentifier': source_backup.backup_id
+        }
+
+        # If the backup is encrypted, include the KMS key ID in the request.
+        if source_backup.resource_properties['StorageEncrypted']:
+          kms_key = source_backup.resource_properties['KmsKeyId']
+          self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted. Copying backup with KMS key {kms_key} ...")
+          params['KmsKeyId'] = kms_key
+
+        snap = rds_client.copy_db_cluster_snapshot(**params)
         return snap['DBClusterSnapshot']['DBClusterSnapshotIdentifier']
 
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
@@ -133,7 +144,9 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         snapshot = snapshots['DBClusterSnapshots'][0]
         tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-        return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
+        resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
+        resource.resource_properties = snapshot
+        return resource
 
     def get_engine_type(self) -> str:
         return 'rds_cluster'
