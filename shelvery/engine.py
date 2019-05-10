@@ -188,6 +188,7 @@ class ShelveryEngine:
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
             self.logger.info(f"Processing {resource_type} with id {r.resource_id}")
             self.logger.info(f"Creating backup {backup_resource.name}")
+
             try:
                 self.backup_resource(backup_resource)
                 self.tag_backup_resource(backup_resource)
@@ -297,12 +298,18 @@ class ShelveryEngine:
                 self.logger.exception(f"Error checking backup {backup.backup_id} for cleanup: {e}")
 
     def pull_shared_backups(self):
-
         account_id = self.account_id
         s3_client = AwsHelper.boto3_client('s3')
-        for src_account_id in RuntimeConfig.get_source_backup_accounts(self):
+        accounts = RuntimeConfig.get_source_backup_accounts(self)
+
+        if not accounts:
+          self.logger.info("No shared backups will be pulled as no account IDs were specified to pull from.")
+          return
+
+        for src_account_id in accounts:
             try:
                 bucket_name = self.get_remote_bucket_name(src_account_id)
+                self.logger.info(f"Pulling shared backup data from S3 bucket: {bucket_name}")
                 path = f"backups/shared/{account_id}/{self.get_engine_type()}/"
                 path_processed = f"backups/shared/{account_id}/{self.get_engine_type()}-processed"
                 path_failed = f"backups/shared/{account_id}/{self.get_engine_type()}-failed"
@@ -355,7 +362,7 @@ class ShelveryEngine:
                         })
                     except Exception as e:
                         backup_name = backup_object['Key'].split('/')[-1].replace('.yaml', '')
-                        self.logger.exception(f"Failed to copy shared backup s3://{bucket_name}/{backup_object['Key']}")
+                        self.logger.exception(f"Failed to copy shared backup '{backup_name}' specified in s3://{bucket_name}/{backup_object['Key']}")
                         self.snspublisher_error.notify({
                             'Operation': 'PullSharedBackup',
                             'Status': 'ERROR',
