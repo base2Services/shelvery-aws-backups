@@ -34,7 +34,7 @@ Shelvery *does not* cater for backup restore process.
 - Create and clean Redshift manual backups
 - Get notified about all operations performed by Shelvery via SNS Topic
 - Share backups with other accounts automatically
-- Copying backups shared by other AWS accounts automatically
+- Copying backups shared by other AWS accounts automatically, enabling a *data bunker* setup
 - Copy backups to disaster recovery AWS regions
 - Multiple levels of configuration, with priorities: Resource tags, Lambda payload, Environment Variables, Config defaults
 
@@ -278,7 +278,7 @@ Available configuration keys are listed below:
 - `shelvery_dr_regions` - List of disaster recovery regions, comma separated
 - `shelvery_wait_snapshot_timeout` - Timeout in seconds to wait for snapshot to become available before copying it
 to another region or sharing with other account. Defaults to 1200 (20 minutes)
-- `shelvery_share_aws_account_ids` -  AWS Account Ids to share backups with. Applies to both original and regional backups                                                                   
+- `shelvery_share_aws_account_ids` -  AWS Account Ids to share backups with. Applies to both original and regional backups
 - `shelvery_source_aws_account_ids` - List of AWS Account Ids, comma seperated, that are exposing/sharing their shelvery
     backups with account where shelvery is running. This can be used for having DR aws account that aggregates backups
     from other accounts.
@@ -390,6 +390,14 @@ $ export shelvery_source_aws_account_ids=222222222222,333333333333
 # this command will pull backups from both accounts
 $ shelvery ebs pull_shared_backups
 ```
+
+## Cross-account copying of encrypted backups
+
+Shelvery enables the sharing and copying of encrypted backups between accounts. In order to configure this, you must share the backup's KMS key and follow the instructions in step #2 above.
+For instructions on how to share the KMS key, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ShareSnapshot.html
+
+This is currently only supported for:
+  - RDS clusters
 
 ## Waiting on backups to complete
 
