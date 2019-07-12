@@ -213,8 +213,9 @@ class ShelveryRDSBackup(ShelveryEngine):
             'TargetDBSnapshotIdentifier': source_backup.backup_id
         }
 
-         # If the backup is encrypted, include the KMS key ID in the request.
-        if source_backup.resource_properties['StorageEncrypted']:
+        # If the backup is encrypted, include the KMS key ID in the request.
+        # We have to check the attribute to support our previous YAML file format for backup data stored in S3
+        if hasattr(source_backup, 'resource_properties') and source_backup.resource_properties['StorageEncrypted']:
           kms_key = source_backup.resource_properties['KmsKeyId']
           self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted. Copying backup with KMS key {kms_key} ...")
           params['KmsKeyId'] = kms_key
