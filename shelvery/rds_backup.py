@@ -123,18 +123,19 @@ class ShelveryRDSBackup(ShelveryEngine):
     def get_engine_type(self) -> str:
         return 'rds'
 
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
-        # region and api client
+    def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
         local_region = boto3.session.Session().region_name
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
 
-        # list of models returned from api
         db_entities = []
 
-        db_instances = self.get_all_instances(rds_client)
+        if selected_entity:
+            self.logger.info(f"Creating backups only for selected entity '{entity_id}' ...")
+            db_instances = rds_client.describe_db_instances(DBInstanceIdentifier=selected_entity)['DBInstances']
+        else:
+            db_instances = self.get_all_instances(rds_client)
 
-        # collect tags in check if instance tagged with marker tag
-
+        # Check the resource's tags to see if it is marked for backup
         for instance in db_instances:
             tags = rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
 
@@ -159,18 +160,21 @@ class ShelveryRDSBackup(ShelveryEngine):
     def get_all_instances(self, rds_client):
         """
         Get all RDS instances within region for given boto3 client
+
         :param rds_client: boto3 rds service
         :return: all RDS instances within region for given boto3 client
         """
-        # list of resource models
         db_instances = []
-        # temporary list of api models, as calls are batched
+        self.logger.info("Collecting all RDS DB instances...")
+
         temp_instances = rds_client.describe_db_instances()
         db_instances.extend(temp_instances['DBInstances'])
-        # collect database instances
+
         while 'Marker' in temp_instances:
             temp_instances = rds_client.describe_db_instances(Marker=temp_instances['Marker'])
             db_instances.extend(temp_instances['DBInstances'])
+
+        self.logger.info(f"Collected {len(db_instances)} instances.")
 
         return db_instances
 

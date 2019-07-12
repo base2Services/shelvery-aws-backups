@@ -153,21 +153,12 @@ class ShelveryEngine:
         """Create backups from all collected entities marked for backup by using specific tag"""
 
         # collect resources to be backed up
+        selected_entity = RuntimeConfig.get_shelvery_select_entity(self)
+        resource_tag = f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}"
         resource_type = self.get_resource_type()
-        self.logger.info(f"Collecting entities of type {resource_type} tagged with "
-                         f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
-        resources = self.get_entities_to_backup(f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
+        self.logger.info(f"Collecting entities of type '{resource_type}' tagged with '{resource_tag}'")
 
-        # allows user to select single entity to be backed up
-        if RuntimeConfig.get_shelvery_select_entity(self) is not None:
-            entity_id = RuntimeConfig.get_shelvery_select_entity(self)
-            self.logger.info(f"Creating backups only for entity {entity_id}")
-            resources = list(
-                filter(
-                    lambda x: x.resource_id == entity_id,
-                    resources)
-            )
-
+        resources = self.get_entities_to_backup(resource_tag, selected_entity)
         self.logger.info(f"{len(resources)} resources of type {resource_type} collected for backup")
 
         # create and collect backups
