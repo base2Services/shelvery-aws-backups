@@ -45,20 +45,22 @@ class ShelveryRDSBackup(ShelveryEngine):
             return self.backup_from_instance(backup_resource)
 
         automated_snapshot_id = auto_snapshots[0]['DBSnapshotIdentifier']
-        rds_client.copy_db_snapshot(
+        response = rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=automated_snapshot_id,
             TargetDBSnapshotIdentifier=backup_resource.name,
             CopyTags=False
         )
+        backup_resource.resource_properties = response['DBSnapshot']
         backup_resource.backup_id = backup_resource.name
         return backup_resource
 
     def backup_from_instance(self, backup_resource):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        rds_client.create_db_snapshot(
+        response = rds_client.create_db_snapshot(
             DBSnapshotIdentifier=backup_resource.name,
             DBInstanceIdentifier=backup_resource.entity_id
         )
+        backup_resource.resource_properties = response['DBSnapshot']
         backup_resource.backup_id = backup_resource.name
         return backup_resource
 
@@ -118,7 +120,9 @@ class ShelveryRDSBackup(ShelveryEngine):
         snapshot = snapshots['DBSnapshots'][0]
         tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBSnapshotArn'])['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-        return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
+        resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
+        resource.resource_properties = snapshot
+        return resource
 
     def get_engine_type(self) -> str:
         return 'rds'
@@ -201,12 +205,21 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         # copying of tags happens outside this method
         source_arn = f"arn:aws:rds:{source_backup.region}:{source_backup.account_id}:snapshot:{source_backup.backup_id}"
-        snap = rds_client.copy_db_snapshot(
-            SourceDBSnapshotIdentifier=source_arn,
-            SourceRegion=source_backup.region,
-            CopyTags=False,
-            TargetDBSnapshotIdentifier=source_backup.backup_id
-        )
+
+        params = {
+            'SourceDBSnapshotIdentifier': source_arn,
+            'SourceRegion': source_backup.region,
+            'CopyTags': False,
+            'TargetDBSnapshotIdentifier': source_backup.backup_id
+        }
+
+         # If the backup is encrypted, include the KMS key ID in the request.
+        if source_backup.resource_properties['StorageEncrypted']:
+          kms_key = source_backup.resource_properties['KmsKeyId']
+          self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted. Copying backup with KMS key {kms_key} ...")
+          params['KmsKeyId'] = kms_key
+
+        snap = rds_client.copy_db_snapshot(**params)
         return snap['DBSnapshot']['DBSnapshotIdentifier']
 
     def collect_all_snapshots(self, rds_client):
