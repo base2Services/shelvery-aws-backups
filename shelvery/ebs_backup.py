@@ -146,7 +146,6 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
     def populate_volume_information(self, backups):
         volume_ids = []
         volumes = {}
-        local_region = boto3.session.Session().region_name
 
         # create list of all volume ids
         for backup in backups:
@@ -158,7 +157,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             try:
                 volume = self.ec2client.describe_volumes(VolumeIds=[volume_id])['Volumes'][0]
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), volume['Tags']))
-                volumes[volume_id] = EntityResource(volume_id, local_region, volume['CreateTime'], d_tags)
+                volumes[volume_id] = EntityResource(volume_id, self.region, volume['CreateTime'], d_tags)
             except ClientError as e:
                 if 'InvalidVolume.NotFound' in str(e):
                     volumes[volume_id] = EntityResource.empty()

@@ -15,8 +15,6 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 	def __init__(self):
 		ShelveryEngine.__init__(self)
 		self.redshift_client = AwsHelper.boto3_client('redshift', arn=self.role_arn, external_id=self.role_external_id)
-		# default region will be picked up in AwsHelper.boto3_client call
-		self.region = boto3.session.Session().region_name
 
 	def get_resource_type(self) -> str:
 		"""Returns entity type that's about to be backed up"""
@@ -53,7 +51,6 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		"""
 		Collect existing backups on system of given type, marked with given tag
 		"""
-		local_region = boto3.session.Session().region_name
 		marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
 		response = self.redshift_client.describe_cluster_snapshots(
             SnapshotType='manual',
@@ -69,10 +66,10 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 			d_tags = BackupResource.dict_from_boto3_tags(snap['Tags'])
 			create_time = snap['ClusterCreateTime']
 			redshift_entity = EntityResource(cluster_id,
-											local_region,
+											self.region,
 											create_time,
 											d_tags)
-			backup_id = f"arn:aws:redshift:{local_region}:{snap['OwnerAccount']}"
+			backup_id = f"arn:aws:redshift:{self.region}:{snap['OwnerAccount']}"
 			backup_id = f"{backup_id}:snapshot:{snap['ClusterIdentifier']}/{snap['SnapshotIdentifier']}"
 			backup_resource = BackupResource.construct(
                 backup_tag_prefix,

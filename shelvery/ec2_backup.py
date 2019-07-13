@@ -12,8 +12,6 @@ class ShelveryEC2Backup(ShelveryEngine):
 
     def __init__(self):
         ShelveryEngine.__init__(self)
-        # default region will be picked up in AwsHelper.boto3_client call
-        self.region = boto3.session.Session().region_name
 
     def tag_backup_resource(self, backup_resource: BackupResource):
         regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)

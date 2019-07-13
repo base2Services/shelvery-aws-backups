@@ -12,6 +12,9 @@ from shelvery.engine import SHELVERY_DO_BACKUP_TAGS
 
 
 class ShelveryEC2AMIBackup(ShelveryEC2Backup):
+    def __init__(self):
+        ShelveryEC2Backup.__init__(self)
+
     def delete_backup(self, backup_resource: BackupResource):
         regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
         ami = regional_client.describe_images(ImageIds=[backup_resource.backup_id])['Images'][0]
@@ -115,15 +118,13 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         Params:
             instances: a list of Reservations (i.e. the response from `aws ec2 describe-instances`)
         """
-        local_region = boto3.session.Session().region_name
-
         entities = []
         for reservation in instances['Reservations']:
             for instance in reservation['Instances']:
                 tags = {}
                 if 'Tags' in instance:
                     tags = dict(map(lambda tag: (tag['Key'], tag['Value']), instance['Tags']))
-                entities.append(EntityResource(resource_id=instance['InstanceId'], resource_region=local_region, date_created=instance['LaunchTime'], tags=tags))
+                entities.append(EntityResource(resource_id=instance['InstanceId'], resource_region=self.region, date_created=instance['LaunchTime'], tags=tags))
 
         return entities
 
@@ -136,16 +137,15 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         return False
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
-        local_region = boto3.session.Session().region_name
-        local_client = AwsHelper.boto3_client('ec2', region_name=local_region, arn=self.role_arn, external_id=self.role_external_id)
+        local_client = AwsHelper.boto3_client('ec2', region_name=self.region, arn=self.role_arn, external_id=self.role_external_id)
         regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         ami = local_client.describe_images(ImageIds=[backup_id])['Images'][0]
         idempotency_token = f"shelverycopy{backup_id.replace('-','')}to{region.replace('-','')}"
         return regional_client.copy_image(Name=ami['Name'],
                                           ClientToken=idempotency_token,
-                                          Description=f"Shelvery copy of {backup_id} to {region} from {local_region}",
+                                          Description=f"Shelvery copy of {backup_id} to {region} from {self.region}",
                                           SourceImageId=backup_id,
-                                          SourceRegion=local_region
+                                          SourceRegion=self.region
                                           )['ImageId']
 
     def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:

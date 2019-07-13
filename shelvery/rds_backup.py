@@ -11,6 +11,7 @@ from shelvery.aws_helper import AwsHelper
 
 class ShelveryRDSBackup(ShelveryEngine):
     def __init__(self):
+        ShelveryEngine.__init__(self)
         self.rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
 
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
@@ -98,14 +99,13 @@ class ShelveryRDSBackup(ShelveryEngine):
         )
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
-        local_region = boto3.session.Session().region_name
         rds_client = AwsHelper.boto3_client('rds', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
         rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=snapshot['DBSnapshotArn'],
             TargetDBSnapshotIdentifier=backup_id,
-            SourceRegion=local_region,
+            SourceRegion=self.region,
             # tags are created explicitly
             CopyTags=False
         )
@@ -123,8 +123,6 @@ class ShelveryRDSBackup(ShelveryEngine):
         return 'rds'
 
     def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
-        local_region = boto3.session.Session().region_name
-
         db_entities = []
 
         if selected_entity:
@@ -148,7 +146,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             # check if marker tag is present
             if tag_name in d_tags and d_tags[tag_name] in SHELVERY_DO_BACKUP_TAGS:
                 resource = EntityResource(instance['DBInstanceIdentifier'],
-                                          local_region,
+                                          self.region,
                                           instance['InstanceCreateTime'],
                                           d_tags)
                 db_entities.append(resource)
@@ -231,7 +229,6 @@ class ShelveryRDSBackup(ShelveryEngine):
             if snap['DBInstanceIdentifier'] not in instance_ids:
                 instance_ids.append(snap['DBInstanceIdentifier'])
         entities = {}
-        local_region = boto3.session.Session().region_name
 
         for instance_id in instance_ids:
             try:
@@ -239,7 +236,7 @@ class ShelveryRDSBackup(ShelveryEngine):
                 tags = self.rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(instance_id,
-                                            local_region,
+                                            self.region,
                                             rds_instance['InstanceCreateTime'],
                                             d_tags)
                 entities[instance_id] = rds_entity

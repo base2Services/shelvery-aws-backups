@@ -102,14 +102,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         )
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
-        local_region = boto3.session.Session().region_name
         rds_client = AwsHelper.boto3_client('rds', region_name=region)
         snapshots = self.rds_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
         rds_client.copy_db_cluster_snapshot(
             SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotArn'],
             TargetDBClusterSnapshotIdentifier=backup_id,
-            SourceRegion=local_region,
+            SourceRegion=self.region,
             # tags are created explicitly
             CopyTags=False
         )
@@ -163,7 +162,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             # check if marker tag is present
             if tag_name in d_tags and d_tags[tag_name] in SHELVERY_DO_BACKUP_TAGS:
                 resource = EntityResource(instance['DBClusterIdentifier'],
-                                          local_region,
+                                          self.region,
                                           instance['ClusterCreateTime'],
                                           d_tags)
                 db_cluster_entities.append(resource)
@@ -233,13 +232,11 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
     def populate_snap_entity_resource(self, all_snapshots):
         cluster_ids = []
+        entities = {}
 
         for snap in all_snapshots:
             if snap['DBClusterIdentifier'] not in cluster_ids:
                 cluster_ids.append(snap['DBClusterIdentifier'])
-
-        entities = {}
-        local_region = boto3.session.Session().region_name
 
         for cluster_id in cluster_ids:
             try:
@@ -248,7 +245,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
                 tags = self.rds_client.list_tags_for_resource(ResourceName=rds_instance['DBClusterArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(cluster_id,
-                                            local_region,
+                                            self.region,
                                             rds_instance['ClusterCreateTime'],
                                             d_tags)
                 entities[cluster_id] = rds_entity
