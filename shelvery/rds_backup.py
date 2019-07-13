@@ -100,7 +100,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         rds_client = AwsHelper.boto3_client('rds', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
-        snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
+        snapshots = self.rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
         rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=snapshot['DBSnapshotArn'],

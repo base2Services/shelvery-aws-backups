@@ -15,7 +15,6 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
 
     def __init__(self):
         ShelveryEC2Backup.__init__(self)
-        self.ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
 
     def delete_backup(self, backup_resource: BackupResource):
         self.ec2client.delete_snapshot(SnapshotId=backup_resource.backup_id)

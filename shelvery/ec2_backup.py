@@ -12,6 +12,7 @@ class ShelveryEC2Backup(ShelveryEngine):
 
     def __init__(self):
         ShelveryEngine.__init__(self)
+        self.ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
 
     def tag_backup_resource(self, backup_resource: BackupResource):
         regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
