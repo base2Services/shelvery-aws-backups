@@ -10,6 +10,10 @@ from botocore.errorfactory import ClientError
 from shelvery.aws_helper import AwsHelper
 
 class ShelveryRDSClusterBackup(ShelveryEngine):
+    def __init__(self):
+        ShelveryEngine.__init__(self)
+        self.rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
+
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
@@ -30,8 +34,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
                         f"modes supported - set rds backup mode using rds_backup_mode configuration option ")
 
     def backup_from_latest_automated(self, backup_resource: BackupResource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        auto_snapshots = rds_client.describe_db_cluster_snapshots(
+        auto_snapshots = self.rds_client.describe_db_cluster_snapshots(
             DBClusterIdentifier=backup_resource.entity_id,
             SnapshotType='automated',
             # API always returns in date descending order, and we only need last one
@@ -47,7 +50,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
         # TODO handle case when there are no latest automated backups
         automated_snapshot_id = auto_snapshots[0]['DBClusterSnapshotIdentifier']
-        response = rds_client.copy_db_cluster_snapshot(
+        response = self.rds_client.copy_db_cluster_snapshot(
             SourceDBClusterSnapshotIdentifier=automated_snapshot_id,
             TargetDBClusterSnapshotIdentifier=backup_resource.name,
             CopyTags=False
@@ -57,8 +60,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         return backup_resource
 
     def backup_from_cluster(self, backup_resource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        response = rds_client.create_db_cluster_snapshot(
+        response = self.rds_client.create_db_cluster_snapshot(
             DBClusterSnapshotIdentifier=backup_resource.name,
             DBClusterIdentifier=backup_resource.entity_id
         )
@@ -67,8 +69,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         return backup_resource
 
     def delete_backup(self, backup_resource: BackupResource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        rds_client.delete_db_cluster_snapshot(
+        self.rds_client.delete_db_cluster_snapshot(
             DBClusterSnapshotIdentifier=backup_resource.backup_id
         )
 
@@ -84,13 +85,11 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         )
 
     def get_existing_backups(self, backup_tag_prefix: str) -> List[BackupResource]:
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-
         # collect all snapshots
-        all_snapshots = self.collect_all_snapshots(rds_client)
+        all_snapshots = self.collect_all_snapshots()
 
         # filter ones backed up with shelvery
-        all_backups = self.get_shelvery_backups_only(all_snapshots, backup_tag_prefix, rds_client)
+        all_backups = self.get_shelvery_backups_only(all_snapshots, backup_tag_prefix)
 
         return all_backups
 
@@ -104,9 +103,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
-        client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         rds_client = AwsHelper.boto3_client('rds', region_name=region)
-        snapshots = client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
+        snapshots = self.rds_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
         rds_client.copy_db_cluster_snapshot(
             SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotArn'],
@@ -118,7 +116,6 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         return backup_id
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         # copying of tags happens outside this method
         source_arn = f"arn:aws:rds:{source_backup.region}:{source_backup.account_id}:cluster-snapshot:{source_backup.backup_id}"
 
@@ -135,7 +132,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
           self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted. Copying backup with KMS key {kms_key} ...")
           params['KmsKeyId'] = kms_key
 
-        snap = rds_client.copy_db_cluster_snapshot(**params)
+        snap = self.rds_client.copy_db_cluster_snapshot(**params)
         return snap['DBClusterSnapshot']['DBClusterSnapshotIdentifier']
 
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
@@ -152,19 +149,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         return 'rds_cluster'
 
     def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
-        # region and api client
-        local_region = boto3.session.Session().region_name
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-
         # list of models returned from api
         db_cluster_entities = []
-
-        db_clusters = self.get_all_clusters(rds_client)
+        db_clusters = self.get_all_clusters()
 
         # collect tags in check if instance tagged with marker tag
-
         for instance in db_clusters:
-            tags = rds_client.list_tags_for_resource(ResourceName=instance['DBClusterArn'])['TagList']
+            tags = self.rds_client.list_tags_for_resource(ResourceName=instance['DBClusterArn'])['TagList']
 
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
@@ -179,35 +170,34 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
         return db_cluster_entities
 
-    def get_all_clusters(self, rds_client):
+    def get_all_clusters(self):
         """
         Get all RDS clusters within region for given boto3 client
-        :param rds_client: boto3 rds service
+
         :return: all RDS instances within region for given boto3 client
         """
         # list of resource models
         db_clusters = []
         # temporary list of api models, as calls are batched
-        temp_clusters = rds_client.describe_db_clusters()
+        temp_clusters = self.rds_client.describe_db_clusters()
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
-            temp_clusters = rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
+            temp_clusters = self.rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
 
         return db_clusters
 
-    def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, rds_client):
+    def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix):
         """
         :param all_snapshots: all snapshots within region
         :param backup_tag_prefix:  prefix of shelvery backup system
-        :param rds_client:  amazon boto3 rds client
         :return: snapshots created using shelvery
         """
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = rds_client.list_tags_for_resource(ResourceName=snap['DBClusterSnapshotArn'])['TagList']
+            tags = self.rds_client.list_tags_for_resource(ResourceName=snap['DBClusterSnapshotArn'])['TagList']
             self.logger.info(f"Checking RDS Snap {snap['DBClusterSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
@@ -221,20 +211,19 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
         return all_backups
 
-    def collect_all_snapshots(self, rds_client):
+    def collect_all_snapshots(self):
         """
-        :param rds_client:
-        :return: All snapshots within region for rds_client
+        :return: All snapshots within a region
         """
         all_snapshots = []
 
         self.logger.info("Collecting DB cluster snapshots...")
-        tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual')
+        tmp_snapshots = self.rds_client.describe_db_cluster_snapshots(SnapshotType='manual')
         all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
 
         while 'Marker' in tmp_snapshots:
             self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
-            tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
+            tmp_snapshots = self.rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
 
         self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
@@ -250,14 +239,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
                 cluster_ids.append(snap['DBClusterIdentifier'])
 
         entities = {}
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         local_region = boto3.session.Session().region_name
 
         for cluster_id in cluster_ids:
             try:
                 self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
-                rds_instance = rds_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
-                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBClusterArn'])['TagList']
+                rds_instance = self.rds_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
+                tags = self.rds_client.list_tags_for_resource(ResourceName=rds_instance['DBClusterArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(cluster_id,
                                             local_region,
