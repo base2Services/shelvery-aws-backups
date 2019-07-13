@@ -15,15 +15,15 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
 
     def __init__(self):
         ShelveryEC2Backup.__init__(self)
+        self.ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
 
     def delete_backup(self, backup_resource: BackupResource):
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
-        ec2client.delete_snapshot(SnapshotId=backup_resource.backup_id)
+        self.ec2client.delete_snapshot(SnapshotId=backup_resource.backup_id)
 
     def get_existing_backups(self, tag_prefix: str) -> List[BackupResource]:
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+
         # lookup snapshots by tags
-        snapshots = ec2client.describe_snapshots(Filters=[
+        snapshots = self.ec2client.describe_snapshots(Filters=[
             {'Name': f"tag:{tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}", 'Values': ['true']}
         ])
         backups = []
@@ -51,9 +51,8 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         return 'ec2 volume'
 
     def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
         # create snapshot
-        snap = ec2client.create_snapshot(
+        snap = self.ec2client.create_snapshot(
             VolumeId=backup_resource.entity_id,
             Description=backup_resource.name
         )
@@ -101,11 +100,10 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             self.logger.warn(f"Problem getting status of ec2 snapshot status for snapshot {backup_id}:{e}")
 
     def copy_backup_to_region(self, backup_id: str, region: str):
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
-        snapshot = ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
+        snapshot = self.ec2client.describe_snapshots(SnapshotIds=[backup_id])['Snapshots'][0]
         regional_client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         copy_snapshot_response = regional_client.copy_snapshot(SourceSnapshotId=backup_id,
-                                                               SourceRegion=ec2client._client_config.region_name,
+                                                               SourceRegion=self.ec2client._client_config.region_name,
                                                                DestinationRegion=region,
                                                                Description=snapshot['Description'])
 
@@ -123,8 +121,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
                                   OperationType='add')
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
-        snap = ec2client.copy_snapshot(
+        snap = self.ec2client.copy_snapshot(
             SourceSnapshotId=source_backup.backup_id,
             SourceRegion=source_backup.region
         )
@@ -149,7 +146,6 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
     def populate_volume_information(self, backups):
         volume_ids = []
         volumes = {}
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
         local_region = boto3.session.Session().region_name
 
         # create list of all volume ids
@@ -160,7 +156,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         # populate map volumeid->volume if present
         for volume_id in volume_ids:
             try:
-                volume = ec2client.describe_volumes(VolumeIds=[volume_id])['Volumes'][0]
+                volume = self.ec2client.describe_volumes(VolumeIds=[volume_id])['Volumes'][0]
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), volume['Tags']))
                 volumes[volume_id] = EntityResource(volume_id, local_region, volume['CreateTime'], d_tags)
             except ClientError as e:
