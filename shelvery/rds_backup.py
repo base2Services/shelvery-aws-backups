@@ -10,6 +10,9 @@ from botocore.errorfactory import ClientError
 from shelvery.aws_helper import AwsHelper
 
 class ShelveryRDSBackup(ShelveryEngine):
+    def __init__(self):
+        self.rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
+
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
@@ -30,8 +33,7 @@ class ShelveryRDSBackup(ShelveryEngine):
                         f"modes supported - set rds backup mode using rds_backup_mode configuration option ")
 
     def backup_from_latest_automated(self, backup_resource: BackupResource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        auto_snapshots = rds_client.describe_db_snapshots(
+        auto_snapshots = self.rds_client.describe_db_snapshots(
             DBInstanceIdentifier=backup_resource.entity_id,
             SnapshotType='automated',
             # API always returns in date descending order, and we only need last one
@@ -45,7 +47,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             return self.backup_from_instance(backup_resource)
 
         automated_snapshot_id = auto_snapshots[0]['DBSnapshotIdentifier']
-        rds_client.copy_db_snapshot(
+        self.rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=automated_snapshot_id,
             TargetDBSnapshotIdentifier=backup_resource.name,
             CopyTags=False
@@ -54,8 +56,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         return backup_resource
 
     def backup_from_instance(self, backup_resource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        rds_client.create_db_snapshot(
+        self.rds_client.create_db_snapshot(
             DBSnapshotIdentifier=backup_resource.name,
             DBInstanceIdentifier=backup_resource.entity_id
         )
@@ -79,13 +80,12 @@ class ShelveryRDSBackup(ShelveryEngine):
         )
 
     def get_existing_backups(self, backup_tag_prefix: str) -> List[BackupResource]:
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
 
         # collect all snapshots
-        all_snapshots = self.collect_all_snapshots(rds_client)
+        all_snapshots = self.collect_all_snapshots()
 
         # filter ones backed up with shelvery
-        all_backups = self.get_shelvery_backups_only(all_snapshots, backup_tag_prefix, rds_client)
+        all_backups = self.get_shelvery_backups_only(all_snapshots, backup_tag_prefix)
 
         return all_backups
 
@@ -99,7 +99,6 @@ class ShelveryRDSBackup(ShelveryEngine):
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
-        client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         rds_client = AwsHelper.boto3_client('rds', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
@@ -125,19 +124,18 @@ class ShelveryRDSBackup(ShelveryEngine):
 
     def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
         local_region = boto3.session.Session().region_name
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
 
         db_entities = []
 
         if selected_entity:
             self.logger.info(f"Creating backups only for selected entity '{entity_id}' ...")
-            db_instances = rds_client.describe_db_instances(DBInstanceIdentifier=selected_entity)['DBInstances']
+            db_instances = self.rds_client.describe_db_instances(DBInstanceIdentifier=selected_entity)['DBInstances']
         else:
-            db_instances = self.get_all_instances(rds_client)
+            db_instances = self.get_all_instances()
 
         # Check the resource's tags to see if it is marked for backup
         for instance in db_instances:
-            tags = rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
+            tags = self.rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
 
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
@@ -157,40 +155,40 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         return db_entities
 
-    def get_all_instances(self, rds_client):
+    def get_all_instances(self):
         """
         Get all RDS instances within region for given boto3 client
 
-        :param rds_client: boto3 rds service
         :return: all RDS instances within region for given boto3 client
         """
         db_instances = []
         self.logger.info("Collecting all RDS DB instances...")
 
-        temp_instances = rds_client.describe_db_instances()
+        temp_instances = self.rds_client.describe_db_instances()
         db_instances.extend(temp_instances['DBInstances'])
 
         while 'Marker' in temp_instances:
-            temp_instances = rds_client.describe_db_instances(Marker=temp_instances['Marker'])
+            temp_instances = self.rds_client.describe_db_instances(Marker=temp_instances['Marker'])
             db_instances.extend(temp_instances['DBInstances'])
 
         self.logger.info(f"Collected {len(db_instances)} instances.")
 
         return db_instances
 
-    def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, rds_client):
+    def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix):
         """
         :param all_snapshots: all snapshots within region
         :param backup_tag_prefix:  prefix of shelvery backup system
-        :param rds_client:  amazon boto3 rds client
         :return: snapshots created using shelvery
         """
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
+
         for snap in all_snapshots:
-            tags = rds_client.list_tags_for_resource(ResourceName=snap['DBSnapshotArn'])['TagList']
+            tags = self.rds_client.list_tags_for_resource(ResourceName=snap['DBSnapshotArn'])['TagList']
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+
             if marker_tag in d_tags:
                 if d_tags[marker_tag] in SHELVERY_DO_BACKUP_TAGS:
                     backup_resource = BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags)
@@ -202,10 +200,9 @@ class ShelveryRDSBackup(ShelveryEngine):
         return all_backups
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         # copying of tags happens outside this method
         source_arn = f"arn:aws:rds:{source_backup.region}:{source_backup.account_id}:snapshot:{source_backup.backup_id}"
-        snap = rds_client.copy_db_snapshot(
+        snap = self.rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=source_arn,
             SourceRegion=source_backup.region,
             CopyTags=False,
@@ -213,16 +210,15 @@ class ShelveryRDSBackup(ShelveryEngine):
         )
         return snap['DBSnapshot']['DBSnapshotIdentifier']
 
-    def collect_all_snapshots(self, rds_client):
+    def collect_all_snapshots(self):
         """
-        :param rds_client:
-        :return: All snapshots within region for rds_client
+        :return: All snapshots within a region
         """
         all_snapshots = []
-        tmp_snapshots = rds_client.describe_db_snapshots(SnapshotType='manual')
+        tmp_snapshots = self.rds_client.describe_db_snapshots(SnapshotType='manual')
         all_snapshots.extend(tmp_snapshots['DBSnapshots'])
         while 'Marker' in tmp_snapshots:
-            tmp_snapshots = rds_client.describe_db_snapshots(Marker=tmp_snapshots['Marker'])
+            tmp_snapshots = self.rds_client.describe_db_snapshots(Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBSnapshots'])
 
         self.populate_snap_entity_resource(all_snapshots)
@@ -235,13 +231,12 @@ class ShelveryRDSBackup(ShelveryEngine):
             if snap['DBInstanceIdentifier'] not in instance_ids:
                 instance_ids.append(snap['DBInstanceIdentifier'])
         entities = {}
-        rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         local_region = boto3.session.Session().region_name
 
         for instance_id in instance_ids:
             try:
-                rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
-                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+                rds_instance = self.rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
+                tags = self.rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(instance_id,
                                             local_region,
