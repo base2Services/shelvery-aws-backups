@@ -66,8 +66,18 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), snapshot.tags))
         return BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
 
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
-        volumes = self.collect_volumes(tag_name)
+    def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
+        client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        filters = [{'Name': f"tag:{tag_name}", 'Values': SHELVERY_DO_BACKUP_TAGS}]
+
+        if selected_entity:
+            volumes = client.describe_volumes(
+                VolumeIds=[selected_entity],
+                Filters=filters
+            )['Volumes']
+        else:
+            volumes = self.collect_all_volumes(client, filters)
+
         return list(
             map(
                 lambda vol: EntityResource(
@@ -119,23 +129,20 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             SourceRegion=source_backup.region
         )
         return snap['SnapshotId']
+
     # collect all volumes tagged with given tag, in paginated manner
-    def collect_volumes(self, tag_name: str):
-        load_volumes = True
+    def collect_all_volumes(self, client, filters):
         next_token = ''
         all_volumes = []
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
-        while load_volumes:
-            tagged_volumes = ec2client.describe_volumes(
-                Filters=[{'Name': f"tag:{tag_name}", 'Values': SHELVERY_DO_BACKUP_TAGS}],
-                NextToken=next_token
-            )
+
+        while True:
+            tagged_volumes = client.describe_volumes(Filters=filters, NextToken=next_token)
             all_volumes = all_volumes + tagged_volumes['Volumes']
+
             if 'NextToken' in tagged_volumes and len(tagged_volumes['NextToken']) > 0:
-                load_volumes = True
                 next_token = tagged_volumes['NextToken']
             else:
-                load_volumes = False
+                break
 
         return all_volumes
 

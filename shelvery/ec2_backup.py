@@ -34,7 +34,7 @@ class ShelveryEC2Backup(ShelveryEngine):
     def backup_resource(self, backup_resource: BackupResource):
         pass
 
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
+    def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
         pass
 
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:

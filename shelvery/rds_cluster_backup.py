@@ -151,7 +151,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
     def get_engine_type(self) -> str:
         return 'rds_cluster'
 
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
+    def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
         # region and api client
         local_region = boto3.session.Session().region_name
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)

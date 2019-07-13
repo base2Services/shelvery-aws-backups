@@ -86,7 +86,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 
 		return backups
 
-	def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
+	def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
 		"""Get all instances that contain `tag_name` as a tag."""
 		clusters = self.collect_clusters(tag_name)
 

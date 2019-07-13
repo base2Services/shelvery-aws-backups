@@ -86,7 +86,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
             )
         return self._convert_instances_to_entities(instances)
 
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
+    def get_entities_to_backup(self, tag_name: str, selected_entity=None) -> List[EntityResource]:
         ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
         instances = ec2client.describe_instances(
             Filters=[

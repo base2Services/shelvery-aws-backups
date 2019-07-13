@@ -707,7 +707,7 @@ class ShelveryEngine:
         """
 
     @abstractmethod
-    def get_entities_to_backup(self, tag_name: str) -> List[EntityResource]:
+    def get_entities_to_backup(self, tag_name: str, selected_entity) -> List[EntityResource]:
         """
         Returns list of objects with 'date_created', 'id' and 'tags' properties
         """
