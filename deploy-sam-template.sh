@@ -30,11 +30,6 @@ if [ -z ${BUCKET+x} ]; then
   exit 1
 fi
 
-if [ -z ${REGION+x} ]; then
-  echo "Region not set with -r"
-  exit 1
-fi
-
 rm -rf lib/*
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
