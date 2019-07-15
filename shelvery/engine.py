@@ -334,6 +334,8 @@ class ShelveryEngine:
                     )
                     all_backups.extend(shared_backups['Contents'])
 
+                self.logger.info(f"Collected information for {len(all_backups)} backups from S3.")
+
                 for backup_object in all_backups:
                     try:
                         serialised_shared_backup = regional_client.get_object(
