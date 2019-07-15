@@ -30,6 +30,10 @@ if [ -z ${BUCKET+x} ]; then
   exit 1
 fi
 
+if [ ! -z ${REGION} ]; then
+  REGION="--region $REGION"
+fi
+
 rm -rf lib/*
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -47,7 +51,7 @@ aws cloudformation package \
   --s3-bucket $BUCKET \
   --s3-prefix cloudformation/shelvery \
   --output-template-file packaged-template.yaml \
-  --region $REGION
+  $REGION
 
 echo "updating/creating cloudformation stack shelvery"
 aws cloudformation deploy \
@@ -56,4 +60,4 @@ aws cloudformation deploy \
   --template-file ./packaged-template.yaml \
   --stack-name shelvery \
   --capabilities CAPABILITY_IAM \
-  --region $REGION
+  $REGION
