@@ -149,7 +149,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
                                           )['ImageId']
 
     def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:
-        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        ec2client = AwsHelper.boto3_client('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         ami = ec2client.describe_images(ImageIds=[backup_id])['Images'][0]
 
         d_tags = dict(map(lambda x: (x['Key'], x['Value']), ami['Tags']))
