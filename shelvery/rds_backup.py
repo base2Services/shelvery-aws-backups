@@ -34,6 +34,7 @@ class ShelveryRDSBackup(ShelveryEngine):
                         f"modes supported - set rds backup mode using rds_backup_mode configuration option ")
 
     def backup_from_latest_automated(self, backup_resource: BackupResource):
+        self.logger.info(f"Collecting automated snapshots for instance {backup_resource.entity_id} ...")
         auto_snapshots = self.rds_client.describe_db_snapshots(
             DBInstanceIdentifier=backup_resource.entity_id,
             SnapshotType='automated',
@@ -48,6 +49,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             return self.backup_from_instance(backup_resource)
 
         automated_snapshot_id = auto_snapshots[0]['DBSnapshotIdentifier']
+        self.logger.info(f"Copying automated snapshot {automated_snapshot_id} ...")
         self.rds_client.copy_db_snapshot(
             SourceDBSnapshotIdentifier=automated_snapshot_id,
             TargetDBSnapshotIdentifier=backup_resource.name,
@@ -74,6 +76,8 @@ class ShelveryRDSBackup(ShelveryEngine):
         regional_rds_client = AwsHelper.boto3_client('rds', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = regional_rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_resource.backup_id)
         snapshot_arn = snapshots['DBSnapshots'][0]['DBSnapshotArn']
+
+        self.logger.info(f"Adding tags to resource '{snapshot_arn}' ...")
         regional_rds_client.add_tags_to_resource(
             ResourceName=snapshot_arn,
             Tags=list(
