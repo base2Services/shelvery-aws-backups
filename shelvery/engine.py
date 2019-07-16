@@ -622,6 +622,10 @@ class ShelveryEngine:
                 # This will occasionally happen due to AWS eventual consistency model
                 self.logger.warn(f"Retrying to share backup {backup_id} ({backup_region}) with account {destination_account_id} due to exception InvalidDBSnapshotState")
                 self.share_backup(backup_resource, destination_account_id)
+
+            elif e.response['Error']['Code'] == 'InvalidParameterValue':
+                # Some backups may fail to be shared due to AWS limitations
+                self.logger.warn(f"Attempt to share backup '{backup_id}' in ({backup_region}) with account {destination_account_id} failed: {str(e)}")
             else:
                 self.snspublisher_error.notify({
                     'Operation': 'ShareBackup',
