@@ -3,13 +3,16 @@ set -e
 
 SHELVERY_VERSION=0.8.7
 
-while getopts ":b:v:a:" opt; do
+while getopts ":b:v:a:r:" opt; do
   case $opt in
     b)
       BUCKET=$OPTARG
       ;;
     v)
       SHELVERY_VERSION=$OPTARG
+      ;;
+    r)
+      REGION=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -25,6 +28,10 @@ done
 if [ -z ${BUCKET+x} ]; then
   echo "Source bucket not set with -b"
   exit 1
+fi
+
+if [ ! -z ${REGION} ]; then
+  REGION="--region $REGION"
 fi
 
 rm -rf lib/*
@@ -43,7 +50,8 @@ aws cloudformation package \
   --template-file template.yaml \
   --s3-bucket $BUCKET \
   --s3-prefix cloudformation/shelvery \
-  --output-template-file packaged-template.yaml
+  --output-template-file packaged-template.yaml \
+  $REGION
 
 echo "updating/creating cloudformation stack shelvery"
 aws cloudformation deploy \
@@ -51,4 +59,5 @@ aws cloudformation deploy \
   --no-fail-on-empty-changeset \
   --template-file ./packaged-template.yaml \
   --stack-name shelvery \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_IAM \
+  $REGION
