@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SHELVERY_VERSION=0.8.7
+SHELVERY_VERSION=0.8.8
 
 while getopts ":b:v:a:r:" opt; do
   case $opt in
