@@ -169,8 +169,8 @@ class BackupResource:
             expire_date =  self.date_created + timedelta(
                 seconds=custom_retention_types[self.retention_type])
         else:
-            # in case there is no retention tag on backup, we want it kept forever
-            expire_date = datetime.utcnow() + relativedelta(years=10)
+          # We don't want backups existing forever
+          raise Exception(f"Unknown retention period '{self.retention_type}' for backup '{self.backup_id}'")
 
         self.expire_date = expire_date
 
