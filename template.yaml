@@ -38,6 +38,21 @@ Parameters:
   ShelveryRdsBackupMode:
     Type: String
     Default: 'RDS_COPY_AUTOMATED_SNAPSHOT'
+    AllowedValues:
+      - RDS_COPY_AUTOMATED_SNAPSHOT
+      - RDS_CREATE_SNAPSHOT
+  ShelveryDocDbBackupMode:
+    Type: String
+    Default: 'DOCDB_COPY_AUTOMATED_SNAPSHOT'
+    AllowedValues:
+      - DOCDB_COPY_AUTOMATED_SNAPSHOT
+      - DOCDB_CREATE_SNAPSHOT
+  ShelveryRedShiftBackupMode:
+    Type: String
+    Default: 'REDSHIFT_COPY_AUTOMATED_SNAPSHOT'
+    AllowedValues:
+      - REDSHIFT_COPY_AUTOMATED_SNAPSHOT
+      - REDSHIFT_CREATE_SNAPSHOT
   ShelveryCustomRetentionTypes:
     Type: String
     Default: 'quarterHourly:86400,halfHourly:86400,hourly:86400'
@@ -86,13 +101,13 @@ Resources:
       FunctionName: ShelveryBackups
       Handler: shelvery_lambda/lambda_handler.lambda_handler
       Runtime: python3.6
-      CodeUri: ./lib/shelvery.zip
+      CodeUri: ./lib
       Timeout: 900
 
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.8.8
+        ShelveryVersion: 0.9.0
 
       Environment:
         Variables:
@@ -103,6 +118,8 @@ Resources:
           shelvery_source_aws_account_ids: !Ref ShelverySourceAwsAccountIds
           shelvery_share_aws_account_ids: !Ref ShelveryShareAwsAccountIds
           shelvery_rds_backup_mode: !Ref ShelveryRdsBackupMode
+          shelvery_docdb_backup_mode: !Ref ShelveryDocDbBackupMode
+          shelvery_redshift_backup_mode: !Ref ShelveryRedShiftBackupMode
           shelvery_sns_topic: !Ref SnsTopic
           shelvery_error_sns_topic: !Ref SnsTopicErrors
           shelvery_custom_retention_types: !Ref ShelveryCustomRetentionTypes
@@ -143,6 +160,11 @@ Resources:
           Properties:
             Schedule: !Sub cron(${CreateBackupSchedule})
             Input: '{"backup_type":"ec2ami","action":"create_backups"}'
+        CreateDocDb:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CreateBackupSchedule})
+            Input: '{"backup_type":"docdb","action":"create_backups"}'
 
         CleanEbs:
           Type: Schedule
@@ -164,6 +186,11 @@ Resources:
           Properties:
             Schedule: !Sub cron(${CleanBackupsSchedule})
             Input: '{"backup_type":"ec2ami","action":"clean_backups"}'
+        CleanDocDb:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${CleanBackupsSchedule})
+            Input: '{"backup_type":"docdb","action":"clean_backups"}'
 
         PullEbs:
           Type: Schedule
@@ -185,6 +212,11 @@ Resources:
           Properties:
             Schedule: !Sub cron(${PullSharedBackupsSchedule})
             Input: '{"backup_type":"ec2ami","action":"pull_shared_backups"}'
+        PullDocdb:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${PullSharedBackupsSchedule})
+            Input: '{"backup_type":"docdb","action":"pull_shared_backups"}'
 
       Policies:
         - Version: "2012-10-17"
