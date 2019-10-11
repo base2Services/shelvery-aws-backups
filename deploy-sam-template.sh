@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-SHELVERY_VERSION=0.8.8
+SHELVERY_VERSION=0.9.0
 
-while getopts ":b:v:a:r:" opt; do
+while getopts ":b:v:a:r:l:p:" opt; do
   case $opt in
     b)
       BUCKET=$OPTARG
@@ -13,6 +13,12 @@ while getopts ":b:v:a:r:" opt; do
       ;;
     r)
       REGION=$OPTARG
+      ;;
+    l)
+      LOCAL_INSTALL=$OPTARG
+      ;;
+    p)
+      PACKAGE=$OPTARG
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -35,9 +41,19 @@ if [ ! -z ${REGION} ]; then
 fi
 
 rm -rf lib/*
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-docker run --rm -v $DIR:/dst -w /dst -u 1000 python:3 pip install shelvery==$SHELVERY_VERSION -t lib
+
+if [[ ${PACKAGE} == 'true' ]]; then
+    docker run --rm -v $DIR:/build -w /build -u 1000 python:3 python setup.py sdist
+fi
+
+if [[ ${LOCAL_INSTALL} == 'true' ]]; then
+  echo "Installing shelvery $SHELVERY_VERSION from local sdist"
+  docker run --rm -v $DIR:/dst -w /dst -u 1000 python:3 pip install ./dist/shelvery-${SHELVERY_VERSION}.tar.gz -t lib
+else
+  echo "Installing shelvery $SHELVERY_VERSION from pypi"
+  docker run --rm -v $DIR:/dst -w /dst -u 1000 python:3 pip install shelvery==$SHELVERY_VERSION -t lib
+fi
 
 echo "packaging lambdas"
 cd lib

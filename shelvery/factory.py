@@ -4,6 +4,7 @@ from shelvery.rds_backup import  ShelveryRDSBackup
 from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
 from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
 from shelvery.redshift_backup import ShelveryRedshiftBackup
+from shelvery.documentdb_backup import ShelveryDocumentDbBackup
 
 class ShelveryFactory:
 
@@ -23,3 +24,6 @@ class ShelveryFactory:
 
         if type == 'redshift':
             return ShelveryRedshiftBackup()
+            
+        if type == 'docdb':
+            return ShelveryDocumentDbBackup()

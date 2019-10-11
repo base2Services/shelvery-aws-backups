@@ -66,6 +66,8 @@ class RuntimeConfig:
 
     RDS_COPY_AUTOMATED_SNAPSHOT = 'RDS_COPY_AUTOMATED_SNAPSHOT'
     RDS_CREATE_SNAPSHOT = 'RDS_CREATE_SNAPSHOT'
+    DOCDB_COPY_AUTOMATED_SNAPSHOT = 'DOCDB_COPY_AUTOMATED_SNAPSHOT'
+    DOCDB_CREATE_SNAPSHOT = 'DOCDB_CREATE_SNAPSHOT'
     REDSHIFT_COPY_AUTOMATED_SNAPSHOT = 'REDSHIFT_COPY_AUTOMATED_SNAPSHOT'
     REDSHIFT_CREATE_SNAPSHOT = 'REDSHIFT_CREATE_SNAPSHOT'
 
@@ -80,6 +82,7 @@ class RuntimeConfig:
         'shelvery_lambda_max_wait_iterations': 5,
         'shelvery_dr_regions': None,
         'shelvery_rds_backup_mode': RDS_COPY_AUTOMATED_SNAPSHOT,
+        'shelvery_docdb_backup_mode': DOCDB_COPY_AUTOMATED_SNAPSHOT,
         'shelvery_source_aws_account_ids': None,
         'shelvery_share_aws_account_ids': None,
         'shelvery_redshift_backup_mode': REDSHIFT_COPY_AUTOMATED_SNAPSHOT,
@@ -240,6 +243,10 @@ class RuntimeConfig:
     @classmethod
     def get_rds_mode(cls, resource_tags, engine):
         return cls.get_conf_value('shelvery_rds_backup_mode', resource_tags, engine.lambda_payload)
+
+    @classmethod
+    def get_docdb_mode(cls, resource_tags, engine):
+        return cls.get_conf_value('shelvery_docdb_backup_mode', resource_tags, engine.lambda_payload)
 
     @classmethod
     def get_redshift_mode(cls, resource_tags, engine):

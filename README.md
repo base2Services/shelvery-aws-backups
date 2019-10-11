@@ -10,6 +10,7 @@ Shelvery currently supports the following resource types
 - RDS Instances
 - RDS Clusters
 - Redshift Clusters (limited support)
+- DocumentDb
 
 ## The Shelvery strategy
 
@@ -87,6 +88,12 @@ shelvery redshift create_backups
 
 # cleanup redshift cluster backups
 shelvery redshift clean_backups
+
+# create documentdb backups
+shelvery docdb create_backups
+
+# cleanup documentdb backups
+shelvery docdb clean_backups
 ```
 
 ### Deploy as lambda
@@ -213,6 +220,7 @@ For following resource types:
 - RDS Instances
 - RDS Clusters
 - Redshift Clusters
+- DocumentDb
 
 Simply  add `shelvery:create_backup` tag with any of the following values
 
@@ -257,6 +265,10 @@ supported natively through API, but can be achieved using data transfer through 
 `UNLOAD/COPY` statements, and `EnableSnapshotCopy` API call. This operations however are currenlty outside
 of Shelvery scope
 
+### DocumentDb
+
+DocumentDb backups behave same as RDS instance backups, just on DocumentDb Clusters. Value of `shelvery_docdb_backup_mode` has the same effect as `shelvery_rds_backup_mode` for RDS instance and cluster backups.
+
 ## Runtime Configuration
 
 There are multiple configuration options for the shelvery backup engine, configurable on multiple levels.
@@ -284,6 +296,7 @@ to another region or sharing with other account. Defaults to 1200 (20 minutes)
     from other accounts.
 - `shelvery_bucket_name_template` - Template used to create bucket name. Available keys: `{account_id}`, `{region}`. Defaults to `shelvery.data.{account_id}-{region}.base2tools`
 - `shelvery_rds_backup_mode` - can be either `RDS_COPY_AUTOMATED_SNAPSHOT` or `RDS_CREATE_SNAPSHOT`. Values are self-explanatory
+- `shelvery_docdb_backup_mode` - can be either `DOCDB_COPY_AUTOMATED_SNAPSHOT` or `DOCDB_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_redshift_backup_mode` - can be either `REDSHIFT_COPY_AUTOMATED_SNAPSHOT` or `REDSHIFT_CREATE_SNAPSHOT`. Values are self-explanatory
 - `shelvery_lambda_max_wait_iterations` - maximum number of chained calls to wait for backup availability
 when running Lambda environment. `shelvery_wait_snapshot_timeout` will be used only in CLI mode, while this key is used only
@@ -424,4 +437,4 @@ shelvery_sqs_queue_wait_period=300
 2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
 
     - `-b` [required] source bucket to deploy the sam package to
-    - `-v` [optional] shelvery version to deploy, defaults to `0.8.8`
+    - `-v` [optional] shelvery version to deploy, defaults to `0.9.0`
