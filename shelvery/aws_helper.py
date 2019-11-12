@@ -20,7 +20,7 @@ class AwsHelper:
         policy_stmt = [{
             'Effect': 'Allow',
             'Principal':{'AWS':f"arn:aws:iam::{owner_id}:root"} ,
-            'Action': ['s3:*'],
+            'Action': 's3:*',
             'Resource': [
                 f"arn:aws:s3:::{bucket_name}",
                 f"arn:aws:s3:::{bucket_name}/*",
@@ -39,12 +39,12 @@ class AwsHelper:
                 policy_stmt.append({
                     'Effect': 'Allow',
                     'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
-                    'Action': ['s3:*'],
+                    'Action': 's3:*',
                     'Resource': [
                         f"arn:aws:s3:::{bucket_name}/{S3_DATA_PREFIX}/shared/{shared_account_id}*",
                     ]
                 })
-        return json.dumps({'Version': '2012-10-17', 'Id': 'shelvery-generated', 'Statement': policy_stmt})
+        return json.dumps({'Version': '2012-10-17', 'Id': 'shelvery-generated', 'Statement': policy_stmt}, separators=(',', ':'))
 
     @staticmethod
     def local_account_id():
