@@ -78,6 +78,15 @@ class ShelveryEngine:
     def get_remote_bucket_name(self, account_id, remote_region=None):
         return self.get_bucket_name(account_id=account_id, region=remote_region)
 
+    def _bucket_policy_changed(self,region,bucket):
+        client = boto3.client('s3',region_name=region)
+        current_policy = client.get_bucket_policy(Bucket=bucket)['Policy']
+        shelvery_bucket_policy = AwsHelper.get_shelvery_bucket_policy(
+            self.account_id,
+            RuntimeConfig.get_share_with_accounts(self),
+            bucket)
+        return current_policy != shelvery_bucket_policy
+
     def _get_data_bucket(self, region=None):
         bucket_name = self.get_local_bucket_name(region)
         if region is None:
@@ -398,12 +407,14 @@ class ShelveryEngine:
         regions.extend(RuntimeConfig.get_dr_regions(None, self))
         for region in regions:
             bucket = self._get_data_bucket(region)
-            AwsHelper.boto3_client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,
-                                                 Policy=AwsHelper.get_shelvery_bucket_policy(
-                                                     self.account_id,
-                                                     RuntimeConfig.get_share_with_accounts(self),
-                                                     bucket.name)
-                                                 )
+            
+            if self._bucket_policy_changed(region,bucket.name):
+                policy = AwsHelper.get_shelvery_bucket_policy(self.account_id,
+                            RuntimeConfig.get_share_with_accounts(self),bucket.name)
+                self.logger.info(f"Bucket policy has changed, updating policy to {policy}")
+                AwsHelper.boto3_client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,Policy=policy)
+            else:
+                self.logger.info(f"Bucket policy hasn't changed")
 
     ### Helper methods, invoked internally, could be refactored
     def do_wait_backup_available(self, backup_region: str, backup_id: str, timeout_fn=None):
