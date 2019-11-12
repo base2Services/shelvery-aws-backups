@@ -1,6 +1,6 @@
 from setuptools import setup
 
-setup(name='shelvery', version='0.9.0', author='Base2Services R&D',
+setup(name='shelvery', version='0.9.1', author='Base2Services R&D',
       author_email='itsupport@base2services.com',
       url='http://github.com/base2Services/shelvery-aws-backups',
       classifiers=[
