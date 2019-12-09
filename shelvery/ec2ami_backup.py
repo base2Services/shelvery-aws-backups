@@ -1,5 +1,6 @@
 from functools import reduce
 from typing import List
+from time import sleep 
 
 import boto3
 
@@ -76,6 +77,36 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         )
         backup_resource.backup_id = ami['ImageId']
         return backup_resource
+
+    def tag_backup_resource(self, backup_resource: BackupResource):
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
+        regional_client.create_tags(
+            Resources=[backup_resource.backup_id],
+            Tags=list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k]}, backup_resource.tags))
+        )
+                
+        attempts = 0
+        while attempts < 10:
+            snapshots = self._get_snapshots_from_ami(backup_resource)
+            if snapshots:
+                break
+            sleep(2)
+            attempts += 1
+
+        # tag all snapshots associated with the ami
+        backup_resource.tags[f"{backup_resource.tags['shelvery:tag_name']}:ami_id"] = backup_resource.backup_id
+        for snapshot in snapshots:
+            regional_client.create_tags(
+                Resources=[snapshot],
+                Tags=list(map(lambda k: {'Key': k, 'Value': backup_resource.tags[k]}, backup_resource.tags))
+            )
+    
+    def _get_snapshots_from_ami(self, backup_resource: BackupResource):
+        regional_client = AwsHelper.boto3_client('ec2', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
+        response = regional_client.describe_images(
+            ImageIds=[backup_resource.backup_id]
+        )
+        return [snapshot['Ebs']['SnapshotId'] for snapshot in response['Images'][0]['BlockDeviceMappings']]
 
     def _get_all_entities(self) -> List[EntityResource]:
         ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
