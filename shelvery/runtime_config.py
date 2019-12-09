@@ -298,7 +298,7 @@ class RuntimeConfig:
     @classmethod
     def ignore_invalid_resource_state(cls, engine) -> bool:
         ignore_state = cls.get_conf_value('shelvery_ignore_invalid_resource_state', None, engine.lambda_payload)
-        if ignore_state or str(ignore_state.lower()) == 'true' or int(ignore_state) == 0:
+        if ignore_state or str(ignore_state).lower() == 'true' or int(ignore_state) == 0:
             return True
         else:
             return False
