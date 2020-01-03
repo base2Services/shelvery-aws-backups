@@ -106,7 +106,7 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
         response = regional_client.describe_images(
             ImageIds=[backup_resource.backup_id]
         )
-        return [snapshot['Ebs']['SnapshotId'] for snapshot in response['Images'][0]['BlockDeviceMappings']]
+        return [snapshot['Ebs']['SnapshotId'] for snapshot in response['Images'][0]['BlockDeviceMappings'] if 'Ebs' in snapshot]
 
     def _get_all_entities(self) -> List[EntityResource]:
         ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
