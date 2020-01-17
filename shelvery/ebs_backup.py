@@ -29,14 +29,20 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         backups = []
 
         # create backup resource objects
-        for snap in snapshots['Snapshots']:
+        for snap in snapshots['Snapshots']:        
+            snap_tags = dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
+            if f"{tag_prefix}:ami_id" in snap_tags:
+                self.logger.info(f"EBS snapshot {snap['SnapshotId']} created by AMI shelvery backup, skiping...")
+                continue
+                            
             backup = BackupResource.construct(
                 tag_prefix=tag_prefix,
                 backup_id=snap['SnapshotId'],
-                tags=dict(map(lambda t: (t['Key'], t['Value']), snap['Tags']))
+                tags=snap_tags
             )
             # legacy code - entity id should be picked up from tags
             if backup.entity_id is None:
+                self.logger.info(f"SnapshotId is None, using VolumeId {snap['VolumeId']}")
                 backup.entity_id = snap['VolumeId']
             backups.append(backup)
 
