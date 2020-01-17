@@ -80,7 +80,13 @@ class ShelveryEngine:
 
     def _bucket_policy_changed(self,region,bucket):
         client = boto3.client('s3',region_name=region)
-        current_policy = client.get_bucket_policy(Bucket=bucket)['Policy']
+        
+        try:
+            current_policy = client.get_bucket_policy(Bucket=bucket)['Policy']
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "NoSuchBucketPolicy":
+                current_policy = None
+        
         shelvery_bucket_policy = AwsHelper.get_shelvery_bucket_policy(
             self.account_id,
             RuntimeConfig.get_share_with_accounts(self),

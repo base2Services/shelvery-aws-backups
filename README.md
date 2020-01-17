@@ -437,4 +437,4 @@ shelvery_sqs_queue_wait_period=300
 2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
 
     - `-b` [required] source bucket to deploy the sam package to
-    - `-v` [optional] shelvery version to deploy, defaults to `0.9.3`
+    - `-v` [optional] shelvery version to deploy, defaults to `0.9.4`
