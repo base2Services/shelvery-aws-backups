@@ -3,7 +3,10 @@ set -e
 
 SHELVERY_VERSION=0.9.4
 
-while getopts ":b:v:a:r:l:p:" opt; do
+# set DOCKERUSERID to current user. could be changed with -u uid
+DOCKERUSERID="-u $(id -u)"
+
+while getopts ":b:v:a:r:u:l:p:" opt; do
   case $opt in
     b)
       BUCKET=$OPTARG
@@ -19,6 +22,9 @@ while getopts ":b:v:a:r:l:p:" opt; do
       ;;
     p)
       PACKAGE=$OPTARG
+      ;;
+    u)
+      DOCKERUSERID=" -u $OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -44,15 +50,15 @@ rm -rf lib/*
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [[ ${PACKAGE} == 'true' ]]; then
-    docker run --rm -v $DIR:/build -w /build -u 1000 python:3 python setup.py sdist
+    docker run --rm -v $DIR:/build -w /build $DOCKERUSERID python:3 python setup.py sdist
 fi
 
 if [[ ${LOCAL_INSTALL} == 'true' ]]; then
   echo "Installing shelvery $SHELVERY_VERSION from local sdist"
-  docker run --rm -v $DIR:/dst -w /dst -u 1000 python:3 pip install ./dist/shelvery-${SHELVERY_VERSION}.tar.gz -t lib
+  docker run --rm -v $DIR:/dst -w /dst $DOCKERUSERID python:3 pip install ./dist/shelvery-${SHELVERY_VERSION}.tar.gz -t lib
 else
   echo "Installing shelvery $SHELVERY_VERSION from pypi"
-  docker run --rm -v $DIR:/dst -w /dst -u 1000 python:3 pip install shelvery==$SHELVERY_VERSION -t lib
+  docker run --rm -v $DIR:/dst -w /dst $DOCKERUSERID python:3 pip install shelvery==$SHELVERY_VERSION -t lib
 fi
 
 echo "packaging lambdas"
