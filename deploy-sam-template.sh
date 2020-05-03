@@ -6,7 +6,7 @@ SHELVERY_VERSION=0.9.4
 # set DOCKERUSERID to current user. could be changed with -u uid
 DOCKERUSERID="-u $(id -u)"
 
-while getopts ":b:v:a:r:u:l:p:" opt; do
+while getopts ":b:fa:r:u:l:p:v" opt; do
   case $opt in
     b)
       BUCKET=$OPTARG
@@ -22,6 +22,9 @@ while getopts ":b:v:a:r:u:l:p:" opt; do
       ;;
     p)
       PACKAGE=$OPTARG
+      ;;
+    f)
+      CLOUDFORMOPTIONS="--force-upload"
       ;;
     u)
       DOCKERUSERID=" -u $OPTARG"
@@ -68,7 +71,7 @@ cd ..
 
 echo "packaging cloudformation"
 aws cloudformation package \
-  --force-upload \
+  ${CLOUDFORMOPTIONS} \
   --template-file template.yaml \
   --s3-bucket $BUCKET \
   --s3-prefix cloudformation/shelvery \
@@ -77,7 +80,7 @@ aws cloudformation package \
 
 echo "updating/creating cloudformation stack shelvery"
 aws cloudformation deploy \
-  --force-upload \
+  ${CLOUDFORMOPTIONS} \
   --no-fail-on-empty-changeset \
   --template-file ./packaged-template.yaml \
   --stack-name shelvery \
