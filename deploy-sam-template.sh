@@ -1,10 +1,29 @@
 #!/bin/bash
-set -ex
+set -e
 
 SHELVERY_VERSION=0.9.5
 
 # set DOCKERUSERID to current user. could be changed with -u uid
 DOCKERUSERID="-u $(id -u)"
+
+if [[ $1 == "help" ]]; then
+  echo """
+  Usage: 
+    ./deploy-sam-template.sh -b my-s3-bucket -r us-west-2     # deploy latest shelvery version in the us-west-2 region
+    ./deploy-sam-template.sh -b my-s3-bucket -l true -p true  # package and deploy the current git branch
+  
+  Options:
+    -b BUCKET                     # s3 bucket to deploy the sam package to
+    [-v VERSION]                  # set the shelvery version to deploy, defaults to $SHELVERY_VERSION
+    [-r REGION]                   # AWS region to deploy shelvery, if not set it will get from the aws config or environment
+    [-p true] BOOLEAN             # Build and package shelvery from the current branch. Use with '-l true' to deploy the package.
+    [-l true] BOOLEAN             # install shelvery from a local dist build in the ./dist/shelvery-\${SHELVERY_VERSION}.tar.gz
+    [-o KEY1=VALUE1,KEY2=VALUE2]  # Override cloudformation template parameters with a comma separated string of key value pairs
+                                  # e.g. -o ShelveryRdsBackupMode=RDS_CREATE_SNAPSHOT,ShelveryEncryptCopy=true
+    [-u UID]                      # Set the docker user id, defaults to $DOCKERUSERID
+  """
+  exit -1
+fi
 
 while getopts ":b:r:u:l:p:v:o:" opt; do
   case $opt in
