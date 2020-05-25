@@ -464,7 +464,7 @@ shelvery_sqs_queue_wait_period=300
 
     Options:
       -b BUCKET                     # s3 bucket to deploy the sam package to
-      [-v VERSION]                  # set the shelvery version to deploy, defaults to 0.9.4
+      [-v VERSION]                  # set the shelvery version to deploy, defaults to x.x.x
       [-r REGION]                   # AWS region to deploy shelvery, if not set it will get from the aws config or environment
       [-p true] BOOLEAN             # Build and package shelvery from the current branch. Use with '-l true' to deploy the package.
       [-l true] BOOLEAN             # install shelvery from a local dist build in the ./dist/shelvery-${SHELVERY_VERSION}.tar.gz
