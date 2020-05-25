@@ -17,7 +17,7 @@ class RuntimeConfig:
     shelvery_custom_retention_types - custom retention periods in name:seconds format, comma separated, empty (disabled) by default
     shelvery_current_retention_type - custom retention period applied to current create backup process
     shelvery_dr_regions - disaster recovery regions, comma separated, empty (disabled) by default
-
+    
     shelvery_keep_daily_backups_dr - daily backups to keep in disaster recover region
     shelvery_keep_weekly_backups_dr - daily backups to keep in disaster recover region
     shelvery_keep_monthly_backups_dr - daily backups to keep in disaster recover region
@@ -57,6 +57,11 @@ class RuntimeConfig:
 
     shelvery_ignore_invalid_resource_state - ignore exceptions due to the resource being in a unavailable state,
                                              such as shutdown, rebooting.
+                                             
+    shelvery_encrypt_copy - when copying a shared unencrypted snapshot, encrypt the shapshot. 
+                            when enabled 'shelvery_copy_kms_key_id' must also be set.
+    shelvery_copy_kms_key_id - when copying a shared snapshot, you can specify a different kms key used to encrypt the original snapshot.
+                               Note that when copying to a new key, the shelvery requires access to both the new key and the original key.
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -95,7 +100,9 @@ class RuntimeConfig:
         'shelvery_exluded_resource_tag_keys': None,
         'shelvery_sqs_queue_url': None,
         'shelvery_sqs_queue_wait_period': 0,
-        'shelvery_ignore_invalid_resource_state': False
+        'shelvery_ignore_invalid_resource_state': False,
+        'shelvery_encrypt_copy': False,
+        'shelvery_copy_kms_key_id': None
     }
 
     @classmethod
@@ -320,3 +327,11 @@ class RuntimeConfig:
     @classmethod
     def get_sqs_queue_wait_period(cls, engine):
         return cls.get_conf_value('shelvery_sqs_queue_wait_period', None, engine.lambda_payload)
+    
+    @classmethod
+    def get_encrypt_copy(cls, resource_tags, engine):
+        return cls.get_conf_value('shelvery_encrypt_copy', resource_tags, engine.lambda_payload)
+    
+    @classmethod
+    def get_copy_kms_key_id(cls, resource_tags, engine):
+        return cls.get_conf_value('shelvery_copy_kms_key_id', resource_tags, engine.lambda_payload)

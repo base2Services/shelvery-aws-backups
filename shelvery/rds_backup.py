@@ -144,7 +144,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-
+            
             if 'DBClusterIdentifier' in instance:
                 self.logger.info(f"Skipping RDS Instance {instance['DBInstanceIdentifier']} as it is part"
                                  f" of cluster {instance['DBClusterIdentifier']}")
@@ -217,8 +217,22 @@ class ShelveryRDSBackup(ShelveryEngine):
         # We have to check the attribute to support our previous YAML file format for backup data stored in S3
         if hasattr(source_backup, 'resource_properties') and source_backup.resource_properties['Encrypted']:
           kms_key = source_backup.resource_properties['KmsKeyId']
-          self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted. Copying backup with KMS key {kms_key} ...")
+          self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted with the kms key {kms_key}")
+          
+          copy_kms_key = RuntimeConfig.get_copy_kms_key_id(source_backup.tags, self)
+          # if a new key is provided by config encypt the copy with the new kms key
+          if copy_kms_key is not None:
+              self.logger.info(f"Snapshot {source_backup.backup_id} will be copied and encrypted with the kms key {copy_kms_key}")
+              kms_key = copy_kms_key
+              
           params['KmsKeyId'] = kms_key
+        else:
+            # if the backup is not encrypted and the encrypt_copy is enabled, encrypted the backup with the provided kms key
+            if RuntimeConfig.get_encrypt_copy(source_backup.tags, self):
+                kms_key = RuntimeConfig.get_copy_kms_key_id(source_backup.tags, self)
+                if kms_key is not None:
+                    self.logger.info(f"Snapshot {source_backup.backup_id} is not encrypted. Encrypting the copy with KMS key {kms_key}")
+                    params['KmsKeyId'] = kms_key
 
         snap = rds_client.copy_db_snapshot(**params)
         return snap['DBSnapshot']['DBSnapshotIdentifier']
