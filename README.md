@@ -318,6 +318,13 @@ backups
 
 - `shelvery_ignore_invalid_resource_state` - ignore exceptions due to the resource being in a unavailable state, such as shutdown, rebooting. Default value is `False`. [boolean]
 
+- `shelvery_encrypt_copy` - [boolean] when copying a shared unencrypted snapshot, encrypt the shapshot. 
+                            when enabled 'shelvery_copy_kms_key_id' must also be set.
+
+- `shelvery_copy_kms_key_id` - when copying a shared snapshot, you can specify a different kms key used to encrypt the original snapshot.
+                               Note that when copying to a new key, the shelvery requires access to both the new key and the original key.
+                               The full KMS key ARN should be supplied.
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -406,11 +413,13 @@ $ shelvery ebs pull_shared_backups
 
 ## Cross-account copying of encrypted backups
 
-Shelvery enables the sharing and copying of encrypted backups between accounts. In order to configure this, you must share the backup's KMS key and follow the instructions in step #2 above.
+Shelvery enables the sharing and copying of encrypted backups between accounts. In order to configure this, you must share the backup's KMS key and follow the instructions in step #2 above. A new kms key can be used when copying the shared snapshot or you can encrypt an unencrypted snapshot when coying to the shared account.
+
 For instructions on how to share the KMS key, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ShareSnapshot.html
 
 This is currently only supported for:
   - RDS clusters
+  - RDS Instances
 
 ## Waiting on backups to complete
 
@@ -427,14 +436,39 @@ shelvery_sqs_queue_wait_period=300
 
 ## Deploying with SAM template
 
-1. Setup you aws credentials and set the region
+1. Install the [AWS SAM cli](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+
+2. Setup you aws credentials and set the region
 
     ```bash
     export AWS_PROFILE=profile
     export AWS_DEFAULT_REGION=ap-southeast-2
     ```
+    
+    or using sts keys
+    
+    ```bash
+    export AWS_ACCESS_KEY_ID=xxx
+    export AWS_SECRET_ACCESS_KEY=xxx
+    export AWS_SESSION_TOKEN=xxx
+    ```
 
-2. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
+3. Run the `deploy-sam-template.sh` script with the options to deploy the template in the target account.
 
-    - `-b` [required] source bucket to deploy the sam package to
-    - `-v` [optional] shelvery version to deploy, defaults to `0.9.4`
+    ```bash
+    $ ./deploy-sam-template.sh help
+    
+    Usage:
+      ./deploy-sam-template.sh -b my-s3-bucket -r us-west-2     # deploy latest shelvery version in the us-west-2 region
+      ./deploy-sam-template.sh -b my-s3-bucket -l true -p true  # package and deploy the current git branch
+
+    Options:
+      -b BUCKET                     # s3 bucket to deploy the sam package to
+      [-v VERSION]                  # set the shelvery version to deploy, defaults to x.x.x
+      [-r REGION]                   # AWS region to deploy shelvery, if not set it will get from the aws config or environment
+      [-p true] BOOLEAN             # Build and package shelvery from the current branch. Use with '-l true' to deploy the package.
+      [-l true] BOOLEAN             # install shelvery from a local dist build in the ./dist/shelvery-${SHELVERY_VERSION}.tar.gz
+      [-o KEY1=VALUE1,KEY2=VALUE2]  # Override cloudformation template parameters with a comma separated string of key value pairs
+                                    # e.g. -o ShelveryRdsBackupMode=RDS_CREATE_SNAPSHOT,ShelveryEncryptCopy=true
+      [-u UID]                      # Set the docker user id, defaults to -u 501
+    ```

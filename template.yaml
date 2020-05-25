@@ -56,7 +56,18 @@ Parameters:
   ShelveryCustomRetentionTypes:
     Type: String
     Default: 'quarterHourly:86400,halfHourly:86400,hourly:86400'
-
+  ShelveryEncryptCopy:
+    Description: During the pull backup task, encrypt all unencrypted snapshots with kms
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+  ShelveryCopyKmsKeyId:
+    Description: Duing the pull backup task, Kms key id to encrypt snapshots with
+    Type: String
+    Default: ''
+    
 Resources:
 
   SnsTopic:
@@ -107,7 +118,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.4
+        ShelveryVersion: 0.9.5
 
       Environment:
         Variables:
@@ -125,6 +136,8 @@ Resources:
           shelvery_custom_retention_types: !Ref ShelveryCustomRetentionTypes
           shelvery_sqs_queue_url: !Ref ShelveryWaitQueue
           shelvery_sqs_queue_wait_period: 300
+          shelvery_encrypt_copy: !Ref ShelveryEncryptCopy
+          shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
 
       Events:
 
@@ -221,6 +234,25 @@ Resources:
       Policies:
         - Version: "2012-10-17"
           Statement:
+            # kms encryption
+            - Effect: Allow
+              Action:
+              - kms:DescribeKey
+              - kms:Decrypt
+              - kms:Encrypt
+              # add your kms keys here if you want to be more restrictive
+              Resource: '*'
+            # kms permissions for cross account copying of snapshots
+            - Effect: Allow
+              Action:
+              - kms:RevokeGrant
+              - kms:CreateGrant
+              - kms:ListGrants
+              # add your kms keys here if you want to be more restrictive
+              Resource: '*'
+              Condition:
+                Bool:
+                  kms:GrantIsForAWSResource: 'true'
             - Effect: Allow
               Action:
               - lambda:Invoke*

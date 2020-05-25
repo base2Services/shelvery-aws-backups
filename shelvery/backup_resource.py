@@ -75,14 +75,22 @@ class BackupResource:
             f"{tag_prefix}:entity_id": entity_resource.resource_id,
             f"{tag_prefix}:{self.BACKUP_MARKER_TAG}": 'true'
         }
-
+        
+        resource_tags = self.entity_resource_tags()
+        
+        if f"{tag_prefix}:config:shelvery_encrypt_copy" in resource_tags:
+            self.tags[f"{tag_prefix}:config:shelvery_encrypt_copy"] = resource_tags[f"{tag_prefix}:config:shelvery_encrypt_copy"]
+        
+        if f"{tag_prefix}:config:shelvery_copy_kms_key_id" in resource_tags:
+            self.tags[f"{tag_prefix}:config:shelvery_copy_kms_key_id"] = resource_tags[f"{tag_prefix}:config:shelvery_copy_kms_key_id"]
+        
         if copy_resource_tags:
             for key, value in self.entity_resource_tags().items():
                 if key == 'Name':
                     self.tags["ResourceName"] = value
                 elif not any(exc_tag in key for exc_tag in exluded_resource_tag_keys):
                     self.tags[key] = value
-
+        
         self.backup_id = None
         self.expire_date = None
         self.date_deleted = None
@@ -106,6 +114,7 @@ class BackupResource:
         backup.tags[f"{tag_prefix}:cross_account_copy"] = 'true'
         backup.tags[f"{tag_prefix}:dr_regions"] = ''
         backup.tags[f"{tag_prefix}:dr_copies"] = ''
+        
         return backup
 
 
