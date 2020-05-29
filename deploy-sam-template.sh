@@ -101,9 +101,21 @@ if [ ! -z ${PARAM_OVERRIDES} ]; then
   done
 fi
 
-echo "packaging cloudformation"
-sam package --template-file template.yaml --s3-bucket $BUCKET --s3-prefix cloudformation/shelvery --output-template-file packaged-template.yaml $REGION
+SAMEXEC=$(which sam 2>/dev/null || true) 
 
+if [ ! "$SAMEXEC" ]; then
+
+  # store all AWS_ variablenames in dockerenv for docker
+  for var in $(env | grep "^AWS_" | cut -d"=" -f1) ; do
+    dockerenv="-e $var $dockerenv"
+  done
+
+  SAMEXEC="docker run --rm $dockerenv -v $HOME:$HOME -v $DIR:/dst -w /dst $DOCKERUSERID rendanic/sam:latest sam"
+
+fi
+
+echo "packaging cloudformation"
+$SAMEXEC package --template-file template.yaml --s3-bucket $BUCKET --s3-prefix cloudformation/shelvery --output-template-file packaged-template.yaml $REGION
 
 echo "updating/creating cloudformation stack shelvery"
-sam deploy --template-file ./packaged-template.yaml --stack-name shelvery --capabilities CAPABILITY_IAM $PARAM_OPTS $REGION
+$SAMEXEC deploy --template-file ./packaged-template.yaml --stack-name shelvery --capabilities CAPABILITY_IAM $PARAM_OPTS $REGION
