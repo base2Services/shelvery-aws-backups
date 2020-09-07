@@ -35,6 +35,25 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		redshift_client = AwsHelper.boto3_client('redshift', region_name = backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
 		cluster_id = backup_resource.backup_id.split(":")[-1].split("/")[0]
 		snapshot_id = backup_resource.backup_id.split(":")[-1].split("/")[1]
+
+		response = redshift_client.describe_cluster_snapshots(
+            SnapshotIdentifier=snapshot_id
+        )
+
+		snapshot = next((snap for snap in response['Snapshots'] if snap['SnapshotIdentifier'] == snapshot_id), None)
+
+		if snapshot is None:
+			self.logger.exception(f"Failed t delete snapshot as the snapshot {backup_resource.backup_id} doesn't exist")
+
+		if 'AccountsWithRestoreAccess' in snapshot:
+			for shared_account in snapshot['AccountsWithRestoreAccess']:
+				self.logger.info(f"revoking access to snapshot {backup_resource.backup_id} to account {shared_account['AccountId']} for the purpose of deletion")
+				redshift_client.revoke_snapshot_access(
+					SnapshotIdentifier=snapshot_id,
+					SnapshotClusterIdentifier=cluster_id,
+					AccountWithRestoreAccess=shared_account['AccountId']
+				)
+
 		try:
 			redshift_client.delete_cluster_snapshot(
 				SnapshotIdentifier=snapshot_id,
@@ -42,7 +61,7 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 			)
 		except ClientError as ex:
 			if 'other accounts still have access to it' in ex.response['Error']['Message']:
-				self.logger.exception(f"Could not delete {backup_resource.backup_id} as"
+				self.logger.exception(f"Could not delete {backup_resource.backup_id} as "
 				f"other accounts still have access to this snapshot")
 				return
 			else:
