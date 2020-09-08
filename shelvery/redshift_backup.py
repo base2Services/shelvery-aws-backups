@@ -37,8 +37,8 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 		snapshot_id = backup_resource.backup_id.split(":")[-1].split("/")[1]
 
 		response = redshift_client.describe_cluster_snapshots(
-            SnapshotIdentifier=snapshot_id
-        )
+			SnapshotIdentifier=snapshot_id
+		)
 
 		snapshot = next((snap for snap in response['Snapshots'] if snap['SnapshotIdentifier'] == snapshot_id), None)
 
