@@ -356,7 +356,7 @@ class ShelveryEngine:
                         serialised_shared_backup = regional_client.get_object(
                             Bucket=bucket_name,
                             Key=backup_object['Key'])['Body'].read()
-                        shared_backup = yaml.load(serialised_shared_backup)
+                        shared_backup = yaml.load(serialised_shared_backup, Loader=yaml.SafeLoader)
                         new_backup_id = self.copy_shared_backup(src_account_id, shared_backup)
                         new_backup = shared_backup.cross_account_copy(new_backup_id)
                         self.tag_backup_resource(new_backup)
