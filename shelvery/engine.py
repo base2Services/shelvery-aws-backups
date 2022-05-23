@@ -104,6 +104,15 @@ class ShelveryEngine:
         try:
             AwsHelper.boto3_client('s3').head_bucket(Bucket=bucket_name)
             bucket = s3.Bucket(bucket_name)
+            AwsHelper.boto3_client('s3').put_public_access_block(
+                Bucket=bucket_name,
+                PublicAccessBlockConfiguration={
+                    'BlockPublicAcls': True,
+                    'IgnorePublicAcls': True,
+                    'BlockPublicPolicy': True,
+                    'RestrictPublicBuckets': True
+                },
+            )
 
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
