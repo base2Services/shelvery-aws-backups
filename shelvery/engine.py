@@ -104,6 +104,15 @@ class ShelveryEngine:
         try:
             AwsHelper.boto3_client('s3').head_bucket(Bucket=bucket_name)
             bucket = s3.Bucket(bucket_name)
+            AwsHelper.boto3_client('s3').put_public_access_block(
+                Bucket=bucket_name,
+                PublicAccessBlockConfiguration={
+                    'BlockPublicAcls': True,
+                    'IgnorePublicAcls': True,
+                    'BlockPublicPolicy': True,
+                    'RestrictPublicBuckets': True
+                },
+            )
 
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
@@ -356,7 +365,7 @@ class ShelveryEngine:
                         serialised_shared_backup = regional_client.get_object(
                             Bucket=bucket_name,
                             Key=backup_object['Key'])['Body'].read()
-                        shared_backup = yaml.load(serialised_shared_backup)
+                        shared_backup = yaml.load(serialised_shared_backup, Loader=yaml.Loader)
                         new_backup_id = self.copy_shared_backup(src_account_id, shared_backup)
                         new_backup = shared_backup.cross_account_copy(new_backup_id)
                         self.tag_backup_resource(new_backup)

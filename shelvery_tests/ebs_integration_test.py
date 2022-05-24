@@ -184,17 +184,17 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
                 tag_key = f"{RuntimeConfig.get_tag_prefix()}:dr_copy"
                 tag_value = 'true'
                 self.assertTrue(tag_key in drsnapshot_dtags)
-                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+                self.assertEqual(drsnapshot_dtags[tag_key], tag_value)
 
                 tag_key = f"{RuntimeConfig.get_tag_prefix()}:dr_source_backup"
                 tag_value = f"us-east-1:{snapshot_id}"
                 self.assertTrue(tag_key in drsnapshot_dtags)
-                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+                self.assertEqual(drsnapshot_dtags[tag_key], tag_value)
 
                 tag_key = f"{RuntimeConfig.get_tag_prefix()}:region"
                 tag_value = 'us-west-2'
                 self.assertTrue(tag_key in drsnapshot_dtags)
-                self.assertEquals(drsnapshot_dtags[tag_key], tag_value)
+                self.assertEqual(drsnapshot_dtags[tag_key], tag_value)
 
                 self.regional_snapshots['us-west-2'].append(drsnapshot['SnapshotId'])
                 valid = True
