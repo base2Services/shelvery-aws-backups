@@ -31,13 +31,15 @@ class ShelveryRDSBackup(ShelveryEngine):
 
     def backup_from_latest_automated(self, backup_resource: BackupResource):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
-        auto_snapshots = rds_client.describe_db_snapshots(
+        response = rds_client.describe_db_snapshots(
             DBInstanceIdentifier=backup_resource.entity_id,
             SnapshotType='automated',
             # API always returns in date descending order, and we only need last one
             MaxRecords=20
         )
-        auto_snapshots = sorted(auto_snapshots['DBSnapshots'], key=lambda k: k['SnapshotCreateTime'], reverse=True)
+        # filter out any snapshots that could be in progress
+        available_snapshots = [snap for snap in response['DBSnapshots'] if snap['Status'] == 'available']
+        auto_snapshots = sorted(available_snapshots, key=lambda k: k['SnapshotCreateTime'], reverse=True)
 
         if len(auto_snapshots) == 0:
             self.logger.info(f"There is no latest automated backup for cluster {backup_resource.entity_id},"
