@@ -111,7 +111,7 @@ Resources:
     Properties:
       FunctionName: ShelveryBackups
       Handler: shelvery_lambda/lambda_handler.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       CodeUri: ./lib
       Timeout: 900
 
