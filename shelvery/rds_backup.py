@@ -120,7 +120,8 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
-        tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBSnapshotArn'])['TagList']
+        #tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBSnapshotArn'])['TagList']
+        tags = snapshots['DBSnapshots'][0]['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -140,13 +141,11 @@ class ShelveryRDSBackup(ShelveryEngine):
         db_instances = self.get_all_instances(rds_client)
 
         # collect tags in check if instance tagged with marker tag
+        tags = db_instances['DBInstances'][0]['TagList']
+        # convert api response to dictionary
+        d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
 
         for instance in db_instances:
-            tags = rds_client.list_tags_for_resource(ResourceName=instance['DBInstanceArn'])['TagList']
-
-            # convert api response to dictionary
-            d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-            
             if 'DBClusterIdentifier' in instance:
                 self.logger.info(f"Skipping RDS Instance {instance['DBInstanceIdentifier']} as it is part"
                                  f" of cluster {instance['DBClusterIdentifier']}")
@@ -189,10 +188,14 @@ class ShelveryRDSBackup(ShelveryEngine):
         """
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
+
+        #collect tags
+        tags = all_snapshots['DBSnapshots'][0]['TagList']
+        d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+
         for snap in all_snapshots:
-            tags = rds_client.list_tags_for_resource(ResourceName=snap['DBSnapshotArn'])['TagList']
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
-            d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
+
             if marker_tag in d_tags:
                 if d_tags[marker_tag] in SHELVERY_DO_BACKUP_TAGS:
                     backup_resource = BackupResource.construct(backup_tag_prefix, snap['DBSnapshotIdentifier'], d_tags)
@@ -267,7 +270,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         for instance_id in instance_ids:
             try:
                 rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
-                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+                tags = rds_instance['DBSnapshots'][0]['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(instance_id,
                                             local_region,
