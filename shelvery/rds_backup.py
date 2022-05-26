@@ -120,7 +120,6 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
-        #tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBSnapshotArn'])['TagList']
         tags = snapshots['DBSnapshots'][0]['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
