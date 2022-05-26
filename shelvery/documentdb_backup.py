@@ -156,7 +156,8 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = docdb_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
-        tags = docdb_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
+        tags = snapshots['DBSnapshots'][0]['TagList']
+        #tags = docdb_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -178,8 +179,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         # collect tags in check if instance tagged with marker tag
 
         for instance in db_clusters:
-            tags = docdb_client.list_tags_for_resource(ResourceName=instance['DBClusterArn'])['TagList']
-
+            tags = instance['DBSnapshots']['TagList']
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             
@@ -221,7 +221,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = docdb_client.list_tags_for_resource(ResourceName=snap['DBClusterSnapshotArn'])['TagList']
+            tags = snap['DBSnapshots']['TagList']
             self.logger.info(f"Checking DocumentDb Snapshot {snap['DBClusterSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
@@ -271,7 +271,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
             try:
                 self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
                 docdb_instance = docdb_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
-                tags = docdb_client.list_tags_for_resource(ResourceName=docdb_instance['DBClusterArn'])['TagList']
+                tags = docdb_instance['DBSnapshots']['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 docdb_entity = EntityResource(cluster_id,
                                             local_region,
