@@ -157,7 +157,6 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         snapshots = docdb_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
         tags = snapshots['DBSnapshots'][0]['TagList']
-        #tags = docdb_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
