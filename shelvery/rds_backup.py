@@ -139,12 +139,11 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         db_instances = self.get_all_instances(rds_client)
 
-        # collect tags in check if instance tagged with marker tag
-        tags = db_instances['DBInstances'][0]['TagList']
-        # convert api response to dictionary
-        d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-
         for instance in db_instances:
+            # collect tags in check if instance tagged with marker tag
+            tags = instance['DBInstances']['TagList']
+            # convert api response to dictionary
+            d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if 'DBClusterIdentifier' in instance:
                 self.logger.info(f"Skipping RDS Instance {instance['DBInstanceIdentifier']} as it is part"
                                  f" of cluster {instance['DBClusterIdentifier']}")
@@ -188,11 +187,10 @@ class ShelveryRDSBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
 
-        #collect tags
-        tags = all_snapshots['DBSnapshots'][0]['TagList']
-        d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-
         for snap in all_snapshots:
+            #collect tags
+            tags = snap['DBSnapshots']['TagList']
+            d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
 
             if marker_tag in d_tags:
