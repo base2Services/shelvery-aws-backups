@@ -120,7 +120,8 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
-        tags = snapshots['DBSnapshots'][0]['TagList']
+        self.logger.info(snapshot)
+        tags = snapshot['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -141,7 +142,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         for instance in db_instances:
             # collect tags in check if instance tagged with marker tag
-            tags = instance['DBInstances']['TagList']
+            tags = instance['TagList']
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if 'DBClusterIdentifier' in instance:
@@ -189,7 +190,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         for snap in all_snapshots:
             #collect tags
-            tags = snap['DBSnapshots']['TagList']
+            tags = snap['TagList']
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
 

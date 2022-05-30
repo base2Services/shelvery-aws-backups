@@ -9,9 +9,11 @@ from typing import Dict, List
 from botocore.errorfactory import ClientError
 from shelvery.aws_helper import AwsHelper
 
+
 class ShelveryDocumentDbBackup(ShelveryEngine):
     def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
-        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
+        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn,
+                                              external_id=self.role_external_id)
         snapshots = docdb_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         return snapshots['DBClusterSnapshots'][0]['Status'] == 'available'
 
@@ -19,10 +21,11 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         return 'DocumentDb'
 
     def backup_resource(self, backup_resource: BackupResource) -> BackupResource:
-        if RuntimeConfig.get_docdb_mode(backup_resource.entity_resource.tags, self) == RuntimeConfig.DOCDB_CREATE_SNAPSHOT:
+        if RuntimeConfig.get_docdb_mode(backup_resource.entity_resource.tags,
+                                        self) == RuntimeConfig.DOCDB_CREATE_SNAPSHOT:
             return self.backup_from_cluster(backup_resource)
         if RuntimeConfig.get_docdb_mode(backup_resource.entity_resource.tags,
-                                      self) == RuntimeConfig.DOCDB_COPY_AUTOMATED_SNAPSHOT:
+                                        self) == RuntimeConfig.DOCDB_COPY_AUTOMATED_SNAPSHOT:
             return self.backup_from_latest_automated(backup_resource)
 
         raise Exception(f"Only {RuntimeConfig.DOCDB_COPY_AUTOMATED_SNAPSHOT} and "
@@ -42,7 +45,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
 
         if len(auto_snapshots) == 0:
             self.logger.info(f"There is no latest automated backup for cluster {backup_resource.entity_id},"
-                              f" fallback to DOCDB_CREATE_SNAPSHOT mode. Creating snapshot directly on cluster...")
+                             f" fallback to DOCDB_CREATE_SNAPSHOT mode. Creating snapshot directly on cluster...")
             return self.backup_from_cluster(backup_resource)
 
         # TODO handle case when there are no latest automated backups
@@ -73,7 +76,8 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         )
 
     def tag_backup_resource(self, backup_resource: BackupResource):
-        regional_docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_resource.region, arn=self.role_arn, external_id=self.role_external_id)
+        regional_docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_resource.region, arn=self.role_arn,
+                                                       external_id=self.role_external_id)
         snapshots = regional_docdb_client.describe_db_cluster_snapshots(
             DBClusterSnapshotIdentifier=backup_resource.backup_id)
         snapshot_arn = snapshots['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
@@ -95,7 +99,8 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         return all_backups
 
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
-        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
+        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn,
+                                              external_id=self.role_external_id)
         docdb_client.modify_db_cluster_snapshot_attribute(
             DBClusterSnapshotIdentifier=backup_id,
             AttributeName='restore',
@@ -133,30 +138,33 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         if source_backup.resource_properties['StorageEncrypted']:
             kms_key = source_backup.resource_properties['KmsKeyId']
             self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted with the kms key {kms_key}")
-            
+
             copy_kms_key = RuntimeConfig.get_copy_kms_key_id(backup_resource.entity_resource.tags, self)
             # if a new key is provided by config encypt the copy with the new kms key
             if copy_kms_key is not None:
-                self.logger.info(f"Snapshot {source_backup.backup_id} will be copied and encrypted with the kms key {copy_kms_key}")
+                self.logger.info(
+                    f"Snapshot {source_backup.backup_id} will be copied and encrypted with the kms key {copy_kms_key}")
                 kms_key = copy_kms_key
-                
+
             params['KmsKeyId'] = kms_key
         else:
             # if the backup is not encrypted and the encrypt_copy is enabled, encrypted the backup with the provided kms key
             if RuntimeConfig.get_encrypt_copy(backup_resource.entity_resource.tags, self):
                 kms_key = RuntimeConfig.get_copy_kms_key_id(backup_resource.entity_resource.tags, self)
                 if kms_key is not None:
-                    self.logger.info(f"Snapshot {source_backup.backup_id} is not encrypted. Encrypting the copy with KMS key {kms_key}")
+                    self.logger.info(
+                        f"Snapshot {source_backup.backup_id} is not encrypted. Encrypting the copy with KMS key {kms_key}")
                     params['KmsKeyId'] = kms_key
 
         snap = docdb_client.copy_db_cluster_snapshot(**params)
         return snap['DBClusterSnapshot']['DBClusterSnapshotIdentifier']
 
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
-        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
+        docdb_client = AwsHelper.boto3_client('docdb', region_name=backup_region, arn=self.role_arn,
+                                              external_id=self.role_external_id)
         snapshots = docdb_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
-        tags = snapshots['DBSnapshots'][0]['TagList']
+        tags = docdb_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -178,10 +186,11 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         # collect tags in check if instance tagged with marker tag
 
         for instance in db_clusters:
-            tags = instance['DBSnapshots']['TagList']
+            tags = docdb_client.list_tags_for_resource(ResourceName=instance['DBClusterArn'])['TagList']
+
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
-            
+
             # check if marker tag is present
             if tag_name in d_tags and d_tags[tag_name] in SHELVERY_DO_BACKUP_TAGS:
                 resource = EntityResource(instance['DBClusterIdentifier'],
@@ -201,13 +210,20 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         # list of resource models
         db_clusters = []
         # temporary list of api models, as calls are batched
-        temp_clusters = docdb_client.describe_db_clusters()
+        temp_clusters = docdb_client.describe_db_clusters(
+            Filters=[
+                {
+                    'Name': 'engine',
+                    'Values': ['docdb',
+                               ]
+                },
+            ])
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
             temp_clusters = docdb_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
-        
+
         return db_clusters
 
     def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, docdb_client):
@@ -220,7 +236,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = snap['DBSnapshots']['TagList']
+            tags = snap['TagList']
             self.logger.info(f"Checking DocumentDb Snapshot {snap['DBClusterSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
@@ -246,8 +262,10 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
 
         while 'Marker' in tmp_snapshots:
-            self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
-            tmp_snapshots = docdb_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
+            self.logger.info(
+                f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
+            tmp_snapshots = docdb_client.describe_db_cluster_snapshots(SnapshotType='manual',
+                                                                       Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
 
         self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
@@ -270,12 +288,12 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
             try:
                 self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
                 docdb_instance = docdb_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
-                tags = docdb_instance['DBSnapshots']['TagList']
+                tags = docdb_instance['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 docdb_entity = EntityResource(cluster_id,
-                                            local_region,
-                                            docdb_instance['ClusterCreateTime'],
-                                            d_tags)
+                                              local_region,
+                                              docdb_instance['ClusterCreateTime'],
+                                              d_tags)
                 entities[cluster_id] = docdb_entity
             except ClientError as e:
                 if 'DBClusterNotFoundFault' in str(type(e)):
