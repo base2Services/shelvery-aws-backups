@@ -128,13 +128,27 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
             print(f"Tags restored: \n{yaml.dump(restored_br.tags)}\n")
             print(f"Tags backup: \n{yaml.dump(engine_backup.tags)}\n")
             self.assertEqual(restored_br.tags['Name'], engine_backup.tags['Name'])
-            for tag in ['name','date_created','entity_id','region','retention_type']:
+            for tag in ['name', 'date_created', 'entity_id', 'region', 'retention_type']:
                 self.assertEqual(
                     restored_br.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"],
                     engine_backup.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"]
                 )
             valid = True
-            self.assertTrue(valid)
+        self.assertTrue(valid)
+
+    def tearDown(self):
+        print("rds - tear down rds instance")
+        rdsclient = AwsHelper.boto3_client('rds', region_name='us-east-1')
+        for snapid in self.created_snapshots:
+            print(f"Deleting snapshot {snapid}")
+            try:
+                rdsclient.delete_db_snapshot(DBSnapshotIdentifier=snapid)
+            except Exception as e:
+                print(f"Failed to delete {snapid}:{str(e)}")
+
+        response = rdsclient.delete_db_instance(DBInstanceIdentifier='shelvery-test-instance',
+                                                SkipFinalSnapshot=True)
+        print("rds - snapshot deleted, instance deleting")
 
 
 if __name__ == '__main__':
