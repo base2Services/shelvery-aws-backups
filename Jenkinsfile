@@ -1,12 +1,12 @@
 #!groovy
-@Library('github.com/base2Services/ciinabox-pipelines@release/version-0.1.1') _
+@Library('ciinabox') _
 
 pipeline {
 
   agent none
 
   parameters {
-    string(name: 'DIST_BUCKET', defaultValue: 'dist.shelvery.base2.services')
+    string(name: 'DIST_BUCKET', defaultValue: 'dist-shelvery-base2-services')
   }
 
   stages {
