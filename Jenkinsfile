@@ -8,9 +8,8 @@ pipeline {
   }
 
   agent {
-    docker {
-      // sticking to python 3.9 as this is the latest python runtime we can run in lambda
-      image 'python:3.9'
+    dockerfile {
+      filename 'Dockerfile'
       label 'docker'
     }
   }
@@ -26,10 +25,9 @@ pipeline {
 
     stage('Static Code Analysis') {
       steps {
-        sh "pip install prospector --user"
         script {
           def prospectorStatus = sh script: "prospector", returnStatus: true
-          if (testStatus != 0) {
+          if (prospectorStatus != 0) {
             // ignore failures here for now until issues are resolved
             echo "prospector failed with status code ${prospectorStatus}"
           }
@@ -39,7 +37,6 @@ pipeline {
 
     stage('Unit Tests') {
       steps {
-        sh "pip install -r requirements.txt --user"
         script {
           def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
           junit 'pytest_unit.xml'
@@ -133,7 +130,7 @@ python setup.py sdist upload -r pypi
         message: "Shelvery ${env.BRANCH_NAME} build <${env.BUILD_URL}|${env.BUILD_NUMBER}> successfully completed"
     }
     failure {
-      slackSend color: '#00FF00',
+      slackSend color: '#FF0000',
         message: "Shelvery ${env.BRANCH_NAME} build <${env.BUILD_URL}|${env.BUILD_NUMBER}> failed"
     }
   }
