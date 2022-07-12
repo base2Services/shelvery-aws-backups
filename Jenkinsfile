@@ -1,11 +1,6 @@
-#!groovy
 @Library('ciinabox') _
 
 pipeline {
-
-  environment {
-    DIST_BUCKET = 'dist-shelvery-base2-services'
-  }
 
   agent {
     dockerfile {
@@ -38,12 +33,15 @@ pipeline {
     stage('Unit Tests') {
       steps {
         script {
-          def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
-          junit 'pytest_unit.xml'
+          withAWS(role: env.SHELVERY_TEST_ROLE) {
+            def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
+            
+            junit 'pytest_unit.xml'
 
-          if (pytestStatus != 0) {
-            currentBuild.result = 'FAILURE'
-            error("Shelvery unit tests failed with exit code ${pytestStatus}")
+            if (pytestStatus != 0) {
+              currentBuild.result = 'FAILURE'
+              error("Shelvery unit tests failed with exit code ${pytestStatus}")
+            }
           }
         }
 
@@ -75,16 +73,16 @@ pipeline {
           def gitsha = shellOut('git rev-parse --short HEAD'),
               fileName = shellOut('cd $WORKSPACE/dist && ls -1 *.tar.gz'),
               releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz','-develop.tar.gz')
-              releaseUrl = "https://${env.DIST_BUCKET}.s3.amazonaws.com/release/${releaseFileName}"
+              releaseUrl = "https://${env.SHELVERY_DIST_BUCKET}.s3.amazonaws.com/release/${releaseFileName}"
           
           echo "Shelvery pipeline: Release"
 
-          sh "aws s3 cp dist/${fileName} s3://${params.DIST_BUCKET}/release/${releaseFileName}"
+          sh "aws s3 cp dist/${fileName} s3://${params.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
         }
       }
       post {
         success {
-          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to s3://${params.DIST_BUCKET}/release/${releaseFileName}"
+          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to s3://${params.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
         }
       }
     }
