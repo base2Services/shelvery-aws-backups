@@ -70,26 +70,20 @@ pipeline {
     }
 
     stage('Release S3') {
-      agent {
-        label 'linux'
-      }
       steps {
+        unstash name: 'archive'
+
         script {
-          unstash name: 'archive'
-
-          def gitsha = shellOut('git rev-parse --short HEAD'),
-              fileName = shellOut('cd $WORKSPACE/dist && ls -1 *.tar.gz'),
-              releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz','-develop.tar.gz')
-              releaseUrl = "https://${env.SHELVERY_DIST_BUCKET}.s3.amazonaws.com/release/${releaseFileName}"
-          
-          echo "Shelvery pipeline: Release"
-
-          sh "aws s3 cp dist/${fileName} s3://${params.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
-        }
+          def fileName = shellOut('cd $WORKSPACE/dist && ls -1 shelvery-*.tar.gz')
+          def safebranch = env.BRANCH_NAME.replace("/", "_")
+          def releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz',"-${safebranch}.tar.gz")
+        
+          s3Upload(bucket: env.SHELVERY_DIST_BUCKET, file: "dist/${fileName}", path: "release/${releaseFileName}")
+        }        
       }
       post {
         success {
-          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to s3://${params.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
+          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to s3://${env.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
         }
       }
     }
