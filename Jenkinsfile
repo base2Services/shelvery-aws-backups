@@ -50,8 +50,8 @@ pipeline {
 
     stage('CLI Utility Test') {
       steps {
-        sh "python setup.py build install"
-        sh "shelvery --version"
+        sh "python setup.py build install --user"
+        sh "$HOME/.local/bin/shelvery --version"
       }
     }
 
