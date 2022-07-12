@@ -33,7 +33,7 @@ pipeline {
     stage('Unit Tests') {
       steps {
         script {
-          withAWS(role: env.SHELVERY_TEST_ROLE) {
+          withAWS(role: env.SHELVERY_TEST_ROLE, region: 'us-east-1') {
             def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
             
             junit 'pytest_unit.xml'
