@@ -51,7 +51,14 @@ pipeline {
     stage('CLI Utility Test') {
       steps {
         sh "python setup.py build install --user"
-        sh "shelvery --version"
+        script {
+          def shelveryCliStatus = sh script: "shelvery --version", returnStatus: true
+          
+          if (shelveryCliStatus != 254) {
+            currentBuild.result = 'FAILURE'
+            error("Shelvery CLI test failed with exit code ${shelveryCliStatus}")
+          }
+        }
       }
     }
 
