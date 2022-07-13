@@ -77,13 +77,14 @@ pipeline {
           def fileName = shellOut('cd $WORKSPACE/dist && ls -1 shelvery-*.tar.gz')
           def safebranch = env.BRANCH_NAME.replace("/", "_")
           def releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz',"-${safebranch}.tar.gz")
-        
+          env["SHELVERY_S3_RELEASE"] = "https://${env.SHELVERY_DIST_BUCKET}.s3.amazonaws.com/release/${releaseFileName}"
+          
           s3Upload(bucket: env.SHELVERY_DIST_BUCKET, file: "dist/${fileName}", path: "release/${releaseFileName}")
         }        
       }
       post {
         success {
-          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to s3://${env.SHELVERY_DIST_BUCKET}/release/${releaseFileName}"
+          slackSend color: '#00FF00', message: "built new shelvery release for banch ${env.BRANCH_NAME} and published to ${env.SHELVERY_S3_RELEASE}"
         }
       }
     }
