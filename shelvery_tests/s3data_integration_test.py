@@ -6,6 +6,7 @@ import boto3
 import os
 import time
 import botocore
+import pytest
 from datetime import datetime
 
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +72,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         # TODO wait until volume is 'available'
         self.share_with_id = int(self.id['Account']) + 1
         os.environ['shelvery_select_entity'] = self.volume['VolumeId']
-    
+
     def tearDown(self):
         ec2client = AwsHelper.boto3_client('ec2')
         ec2client.delete_volume(VolumeId=self.volume['VolumeId'])
@@ -93,7 +94,8 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                     ec2regional.delete_snapshot(SnapshotId=snapid)
                 except Exception as e:
                     print(f"Failed to delete {snapid}:{str(e)}")
-    
+                    
+    @pytest.mark.source
     def test_CreateBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -145,6 +147,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
     
+    @pytest.mark.source
     def test_CreateSharingInfo(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -181,7 +184,8 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 valid = True
         
         self.assertTrue(valid)
-    
+
+    @pytest.mark.source
     def test_CleanBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:

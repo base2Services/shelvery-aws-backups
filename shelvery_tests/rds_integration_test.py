@@ -1,5 +1,6 @@
 import sys
 import traceback
+from turtle import back
 import unittest
 import pytest
 import yaml
@@ -9,6 +10,8 @@ import os
 import time
 import botocore
 from datetime import datetime
+from shelvery import aws_helper
+from shelvery_tests.test_functions import addBackupTags, compareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups, instanceCleanupBackups, instanceShareBackups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,111 +37,97 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
     def id(self):
         return str(self.__class__)
 
+
     def setUp(self):
-        self.volume = None
         self.created_snapshots = []
         self.regional_snapshots = {
-            'us-east-1': [],
-            'us-east-2': []
+            'ap-southeast-1': [],
+            'ap-southeast-2': []
         }
 
         # Create and configure RDS artefact
-        print(f"Setting up rds integration test")
-        print("Create rds instance")
-        os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
-        os.environ['SHELVERY_MONO_THREAD'] = '1'
-        rdsclient = AwsHelper.boto3_client('rds', region_name='us-east-1')
-        sts = AwsHelper.boto3_client('sts')
-        self.id = sts.get_caller_identity()
-        print(f"Running as user:\n{self.id}\n")
-        self.volume = rdsclient.create_db_instance(Engine='mysql',
-                                                   DBName='Someting',
-                                                   AllocatedStorage=10,
-                                                   DBInstanceClass='db.t3.micro',
-                                                   DBInstanceIdentifier="shelvery-test-instance",
-                                                   MasterUsername='someuser',
-                                                   MasterUserPassword='bananas1',
-                                                   Port=3306,
-                                                   BackupRetentionPeriod=0)
-        print(f"rds - Creating RDS instance: {self}")
-        # wait until db is available
-        rdsinstance = rdsclient.describe_db_instances(DBInstanceIdentifier='shelvery-test-instance')['DBInstances'][0]
-        while rdsinstance['DBInstanceStatus'] != 'available':
-            time.sleep(15)
-            rdsinstance = rdsclient.describe_db_instances(DBInstanceIdentifier='shelvery-test-instance')['DBInstances'][
-                0]
-
+        initSetup(self,'rds')
+        rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
+        
+        #Get db instance name
+        rdsinstance = rdsclient.describe_db_instances(DBInstanceIdentifier='shelvery-test-rds')['DBInstances'][0]  
+        
         # add tags to resource
-        response = rdsclient.add_tags_to_resource(
-            ResourceName=rdsinstance['DBInstanceArn'],
-            Tags=[
-                {
-                    'Key': f"{RuntimeConfig.get_tag_prefix()}:{ShelveryEngine.BACKUP_RESOURCE_TAG}",
-                    'Value': 'true'
-                }, {'Key': 'Name', 'Value': 'shelvery-automated-shelvery_tests'}]
-        )
-        print(f"Created RDS instance Arn: {self.id['Arn']}")
-        print(f"Created RDS instance Account: {self.id['Account']}")
-        self.share_with_id = int(self.id['Account']) + 1
-        os.environ['shelvery_select_entity'] = rdsinstance['DBInstanceIdentifier']
+        addBackupTags(rdsclient,
+                      rdsinstance['DBInstanceArn'],
+                      "shelvery-test-rds")
 
+        self.share_with_id = 186991632813
+
+    @pytest.mark.source
+    def test_Cleanup(self):
+        print(f"rds - Running cleanup test")
+        rds_backups_engine = ShelveryRDSBackup()
+        backups = initCleanup(rds_backups_engine)
+        rds_client = AwsHelper.boto3_client('rds')
+
+        valid = False
+        for backup in backups:
+            valid = instanceCleanupBackups(self=self,
+                                   backup=backup,
+                                   backup_engine=rds_backups_engine,
+                                   service_client=rds_client
+                                   )
+        
+        self.assertTrue(valid)
+
+    @pytest.mark.source
     def test_CreateRdsBackup(self):
         print(f"rds - Running backup test")
+
         rds_backup_engine = ShelveryRDSBackup()
         print(f"rds - Shelvery backup initialised")
-        try:
-            print(f"rds - Execute create backups")
-            backups = rds_backup_engine.create_backups()
 
-        except Exception as e:
-            print(e)
-            print(f"Failed with {e}")
-            traceback.print_exc(file=sys.stdout)
-            raise e
-        rdsclient = AwsHelper.boto3_client('rds')
+        backups = initCreateBackups(rds_backup_engine)
+        print("Created RDS backups")
+
+        valid = False
+
+        # validate there is
+        for backup in backups:
+            valid = compareBackups(self=self,
+                           backup=backup,
+                           backup_engine=rds_backup_engine
+                           )
+        self.assertTrue(valid)
+
+    @pytest.mark.source
+    @pytest.mark.share
+    def test_shareRdsBackup(self):
+        
+        print(f"rds - Running share backup test")
+        rds_backups_engine = ShelveryRDSBackup()
+
+        backups = initShareBackups(rds_backups_engine, str(self.share_with_id))
+        
+        print("Shared backups created")
+
+        #Create source/dest sessions
+        source_session = boto3.Session(profile_name="test-dev")
+        source_client = source_session.client('rds')
+
+        dest_session = boto3.Session(profile_name="test-ops")
+        dest_client = dest_session.client('rds')
 
         valid = False
         # validate there is
         for backup in backups:
-            print("Inside backup loop" + backup.backup_id)
-            snapshot_id = backup.backup_id
-            self.created_snapshots.append(snapshot_id)
+            valid = instanceShareBackups(self=self,
+                                 backup=backup,
+                                 source_client=source_client,
+                                 dest_client=dest_client
+                                 )
 
-            # wait for snapshot to become available
-            rds_backup_engine.wait_backup_available(backup.region, backup.backup_id, None, None)
-
-            # allow buffer period for engine to write data to s3
-            time.sleep(20)
-
-            # this is the backup that gets stored in s3
-            engine_backup = rds_backup_engine.get_backup_resource(backup.region, backup.backup_id)
-            # verify the s3 data
-            account_id = rds_backup_engine.account_id
-            s3path = f"{S3_DATA_PREFIX}/{rds_backup_engine.get_engine_type()}/{engine_backup.name}.yaml"
-            s3bucket = rds_backup_engine.get_local_bucket_name()
-            print(f"Usingbucket {s3bucket}")
-            print(f"Using path {s3path}")
-            bucket = boto3.resource('s3').Bucket(s3bucket)
-            object = bucket.Object(s3path)
-            content = object.get()['Body'].read()
-            restored_br = yaml.load(content, Loader=yaml.Loader)
-            self.assertEqual(restored_br.backup_id, engine_backup.backup_id)
-            self.assertEqual(restored_br.name, engine_backup.name)
-            self.assertEqual(restored_br.region, engine_backup.region)
-            print(f"Tags restored: \n{yaml.dump(restored_br.tags)}\n")
-            print(f"Tags backup: \n{yaml.dump(engine_backup.tags)}\n")
-            self.assertEqual(restored_br.tags['Name'], engine_backup.tags['Name'])
-            for tag in ['name', 'date_created', 'entity_id', 'region', 'retention_type']:
-                self.assertEqual(
-                    restored_br.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"],
-                    engine_backup.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"]
-                )
-            valid = True
         self.assertTrue(valid)
 
     def tearDown(self):
         print("rds - tear down rds instance")
-        rdsclient = AwsHelper.boto3_client('rds', region_name='us-east-1')
+        rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
         for snapid in self.created_snapshots:
             print(f"Deleting snapshot {snapid}")
             try:
@@ -146,8 +135,6 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
             except Exception as e:
                 print(f"Failed to delete {snapid}:{str(e)}")
 
-        response = rdsclient.delete_db_instance(DBInstanceIdentifier='shelvery-test-instance',
-                                                SkipFinalSnapshot=True)
         print("rds - snapshot deleted, instance deleting")
 
 

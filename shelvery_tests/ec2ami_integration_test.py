@@ -9,9 +9,8 @@ import os
 import time
 import botocore
 from datetime import datetime
-from shelvery.ebs_backup import ShelveryEBSBackup
 
-from shelvery_tests.test_functions import compareBackups, createBackupTags, ebsCleanupBackups, ec2ShareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
+from shelvery_tests.test_functions import compareBackups, createBackupTags, ec2CleanupBackups, ec2ShareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,6 +20,7 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
+from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
 from shelvery.engine import ShelveryEngine
 from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
@@ -30,8 +30,10 @@ from shelvery.aws_helper import AwsHelper
 print(f"Python lib path:\n{sys.path}")
 
 
-class ShelveryEBSIntegrationTestCase(unittest.TestCase):
-    """Shelvery EBS Backups Integration shelvery tests"""
+## Add check for non-terminated ec2am? (because it takes ages to transition from terminated -> deleted)
+
+class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
+    """Shelvery EC2 AMI Backups Integration shelvery tests"""
 
     def id(self):
         return str(self.__class__)
@@ -49,45 +51,47 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
         #Find ec2 instance
         search_filter = [{'Name':'tag:Name',
-                          'Values': ['shelvery-test-ebs']  
+                          'Values': ['shelvery-test-ec2'],
+                          'Name': 'instance-state-name',
+                          'Values': ['running']
                         }]
+                        
     
-        #Get ebs volume
-        ebs_volume = ec2client.describe_volumes(Filters = search_filter)
-
-        print(ebs_volume)
+        #Get ec2 instance
+        ec2_instance = ec2client.describe_instances(Filters = search_filter)
 
         #Get instance id, looks dodgy is there a better way?
-        volume_id = ebs_volume['Volumes'][0]['VolumeId']
+        instance_id = ec2_instance['Reservations'][0]['Instances'][0]['InstanceId']
+        print("INSTANCE ID: " + str(instance_id))
 
-        createBackupTags(ec2client,[volume_id],"shelvery-test-ebs")
+        createBackupTags(ec2client,[instance_id],"shelvery-test-ec2")
 
         self.share_with_id = 186991632813
-        
+
     @pytest.mark.source
     def test_Cleanup(self):
-        print(f"ebs - Running cleanup test")
-        ebs_backup_engine = ShelveryEBSBackup()
-        backups = initCleanup(ebs_backup_engine)
+        print(f"ec2 ami - Running cleanup test")
+        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
+        backups = initCleanup(ec2_ami_backup_engine)
         ec2_client = AwsHelper.boto3_client('ec2')
 
         valid = False
         for backup in backups:
-            valid = ebsCleanupBackups(self=self,
+            valid = ec2CleanupBackups(self=self,
                                  backup=backup,
-                                 backup_engine=ebs_backup_engine,
+                                 backup_engine=ec2_ami_backup_engine,
                                  service_client=ec2_client)
         
         self.assertTrue(valid)
 
     @pytest.mark.source
-    def test_CreateEbsBackup(self):
-        print(f"ebs - Running backup test")
+    def test_CreateEc2AmiBackup(self):
+        print(f"ec2 ami - Running backup test")
 
-        ebs_backup_engine = ShelveryEBSBackup()
-        print(f"ebs - Shelvery backup initialised")
+        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
+        print(f"ec2 ami - Shelvery backup initialised")
 
-        backups = initCreateBackups(ebs_backup_engine)
+        backups = initCreateBackups(ec2_ami_backup_engine)
 
         ec2_client = AwsHelper.boto3_client('ec2')
 
@@ -111,20 +115,21 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
             valid = compareBackups(self=self,
                            backup=backup,
-                           backup_engine=ebs_backup_engine
+                           backup_engine=ec2_ami_backup_engine
                           )
+
 
         self.assertTrue(valid)
 
     @pytest.mark.source
     @pytest.mark.share
-    def test_ShareEbsBackup(self):
+    def test_ShareEc2AmiBackup(self):
 
-        print(f"ebs - Running share backup test")
-        ebs_backup_engine = ShelveryEBSBackup()
+        print(f"ec2 ami - Running share backup test")
+        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
 
         print("Creating shared backups")
-        backups = initShareBackups(ebs_backup_engine, str(self.share_with_id))
+        backups = initShareBackups(ec2_ami_backup_engine, str(self.share_with_id))
 
         print("Shared backups created")
 
@@ -147,13 +152,29 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
     def tearDown(self):
         ec2client = AwsHelper.boto3_client('ec2')
-        time.sleep(20)
         # snapshot deletion surrounded with try/except in order
         # for cases when shelvery cleans / does not clean up behind itself
+        time.sleep(20)
         for snapid in self.created_snapshots:
-
             print(f"Deleting snapshot {snapid}")
             try:
+                snapshot = ec2client.describe_snapshots(
+                    SnapshotIds = [snapid]
+                )
+                
+                print(snapshot)
+
+                tags = snapshot['Snapshots'][0]['Tags']
+
+                print("TAGS")
+                print(tags)
+
+                ami_id = [tag['Value'] for tag in tags if tag['Key'] == 'shelvery:ami_id'][0]
+
+                print("AMI")
+                print(ami_id)
+
+                ec2client.deregister_image(ImageId=ami_id)
                 ec2client.delete_snapshot(SnapshotId=snapid)
             except Exception as e:
                 print(f"Failed to delete {snapid}:{str(e)}")
