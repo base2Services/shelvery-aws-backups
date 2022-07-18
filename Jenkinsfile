@@ -39,7 +39,7 @@ pipeline {
 
             sh "pwd"
             dir ('shelvery_tests'){
-              def pytestSourceStatus = sh script: "pytest -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
+              def pytestSourceStatus = sh script: "pytest -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
               junit 'pytest_unit.xml'
             }
 
