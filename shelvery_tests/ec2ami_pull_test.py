@@ -33,8 +33,6 @@ class ShelveryEC2AmiPullTestCase(unittest.TestCase):
     @pytest.mark.destination
     def test_PullEC2Backup(self):
 
-        self.created_snapshots = []
-
         print(f"ec2 - Running pull shared backups test")
     
         ec2_client = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2')

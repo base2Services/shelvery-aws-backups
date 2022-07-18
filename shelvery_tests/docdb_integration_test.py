@@ -26,6 +26,7 @@ from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper
+from shelvery_tests.conftest import destination_account
 
 print(f"Python lib path:\n{sys.path}")
 
@@ -69,7 +70,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
                       clustername,
                       "shelvery-test-docdb")
 
-        self.share_with_id = 186991632813
+        self.share_with_id = destination_account
 
     @pytest.mark.source
     def test_Cleanup(self):

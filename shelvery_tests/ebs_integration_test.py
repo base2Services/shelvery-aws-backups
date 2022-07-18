@@ -26,6 +26,7 @@ from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper
+from shelvery_tests.conftest import destination_account
 
 print(f"Python lib path:\n{sys.path}")
 
@@ -62,7 +63,7 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
         createBackupTags(ec2client,[volume_id],"shelvery-test-ebs")
 
-        self.share_with_id = 186991632813
+        self.share_with_id = destination_account
         
     @pytest.mark.source
     def test_Cleanup(self):

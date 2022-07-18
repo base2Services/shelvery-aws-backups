@@ -11,8 +11,6 @@ import botocore
 from datetime import datetime
 from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
 
-from shelvery_tests.test_functions import cleanRdsClusterSnapshots
-
 pwd = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.append(f"{pwd}/..")
@@ -26,6 +24,8 @@ from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper
+from shelvery_tests.conftest import source_account
+from shelvery_tests.cleanup_functions import cleanRdsClusterSnapshots
 
 #Need to add 'source acc' to env 
 #Call create_data_bucket
@@ -37,6 +37,9 @@ class ShelveryRDSClusterPullTestCase(unittest.TestCase):
     def test_PullRdsClusterBackup(self):
 
         cleanRdsClusterSnapshots()
+
+        source_aws_id = source_account
+        os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
 
         print(f"rds cluster - Running pull shared backups test")
     

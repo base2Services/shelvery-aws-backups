@@ -10,7 +10,7 @@ import time
 import botocore
 from datetime import datetime
 
-from shelvery_tests.test_functions import addBackupTags, cleanDocDBSnapshots
+from shelvery_tests.test_functions import addBackupTags
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,6 +26,8 @@ from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper
+from shelvery_tests.conftest import source_account
+from shelvery_tests.cleanup_functions import cleanDocDBSnapshots
 
 #Need to add 'source acc' to env 
 #Call create_data_bucket
@@ -35,9 +37,12 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullDocDbBackup(self):
-        
+      
         cleanDocDBSnapshots()
 
+        source_aws_id = source_account
+        os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
+        
         print(f"doc db - Running pull shared backups test")
     
         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')

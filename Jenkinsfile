@@ -33,9 +33,11 @@ pipeline {
     stage('Unit Tests') {
       steps {
         script {
-          withAWS(role: env.SHELVERY_TEST_ROLE, region: 'us-east-1') {
-            def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
-            
+          // need to add second 'withAWS block with destination account and specify destination tests'
+          // also change shelvery_test_role -> test dev account (or refactor code to remove all references to test dev & ops account)?
+          withAWS(role: env.SHELVERY_TEST_ROLE, region: 'ap-southeast-2') {
+            def pytestSourceStatus = sh script: "pytest -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
+        
             junit 'pytest_unit.xml'
 
             if (pytestStatus != 0) {
