@@ -21,6 +21,7 @@ def pytest_configure(config):
     source_account = config.getoption('--source')
     destination_account = config.getoption('--destination')
 
+#Add some check here on if the stack aleady exists (eg: deleting/creating/available)
         
 @pytest.fixture(scope="session", autouse=True)
 def setup(request):

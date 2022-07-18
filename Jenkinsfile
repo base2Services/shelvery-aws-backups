@@ -41,15 +41,32 @@ pipeline {
             dir ('shelvery_tests'){
               def pytestSourceStatus = sh script: "pytest -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
               junit 'pytest_unit.xml'
-            }
+            
 
-            if (pytestStatus != 0) {
-              currentBuild.result = 'FAILURE'
-              error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              if (pytestSourceStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
+
             }
           }
         }
+         withAWS(role: env.SHELVERY_TEST_ROLE, roleAccount: env.DEV_ACCOUNT_ID, region: 'ap-southeast-2') {
 
+            sh "pwd"
+            dir ('shelvery_tests'){
+              def pytestDestStatus = sh script: "pytest -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              junit 'pytest_unit.xml'
+            
+
+              if (pytestDestStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
+            }
+
+
+        }
       }
     }
 
