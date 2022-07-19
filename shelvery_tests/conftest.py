@@ -81,13 +81,13 @@ def setup(request):
         #Cleanup snapshots after stack is created
         cleanupSnapshots()
 
-        def teardown():
-            print ("Initiating Teardown")
-            response = cfclient.delete_stack(
-                StackName='shelvery-test',
-                )
+        # def teardown():
+        #     print ("Initiating Teardown")
+        #     response = cfclient.delete_stack(
+        #         StackName='shelvery-test',
+        #         )
         
-        request.addfinalizer(teardown)
+        # request.addfinalizer(teardown)
 
     #Cleanup snapshots in destination account
     else:
