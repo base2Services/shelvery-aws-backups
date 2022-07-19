@@ -38,13 +38,14 @@ pipeline {
 
             sh "pwd"
             dir ('shelvery_tests'){
-              def pytestSourceStatus = sh script: "pytest -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              def pytestStatus = sh script: "pytest -v -m share --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
               junit 'pytest_unit.xml'
-            }
+            
 
-            if (pytestSourceStatus != 0) {
-              currentBuild.result = 'FAILURE'
-              error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              if (pytestStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
             }
           }
         }
@@ -53,13 +54,13 @@ pipeline {
           //Destination Account  
             sh "pwd"
             dir ('shelvery_tests'){
-              def pytestDestStatus = sh script: "pytest -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              def pytestStatus = sh script: "pytest -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
               junit 'pytest_unit.xml'
-            }
 
-            if (pytestDestStatus != 0) {
-              currentBuild.result = 'FAILURE'
-              error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              if (pytestStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
             }
           }
         }
