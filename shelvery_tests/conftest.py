@@ -35,60 +35,65 @@ def setup(request):
 
         #Need to add perms for describestack?
 
-        # stacks = cfclient.describe_stacks()
+        stacks = cfclient.describe_stacks()
 
-        # #Check whether stack aleady exists
-        # test_stack = [stack for stack in stacks['Stacks'] if stack['StackName'] == 'shelvery-test']
+        #Check whether stack aleady exists
+        test_stack = [stack for stack in stacks['Stacks'] if stack['StackName'] == 'shelvery-test']
         
-        # if len(test_stack) > 0:
-        #     shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+        if len(test_stack) > 0:
+            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-        #     if shelvery_status == 'CREATE_COMPLETE':
-        #         cfclient.delete_stack(
-        #             StackName='shelvery-test',
-        #             )
-        #         shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+            if shelvery_status == 'CREATE_COMPLETE':
+                cfclient.delete_stack(
+                    StackName='shelvery-test',
+                    )
+                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-        #     while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
-        #         print("Waiting for stack to teardown")
-        #         time.sleep(30)
-        #         shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+            while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
+                print("Waiting for stack to teardown")
+                time.sleep(30)
+                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-        #Create stack from template
-        # cwd = os.getcwd()
-        # template_path = f"{cwd}/cloudformation-unittest.yaml"
+        # Create stack from template
+        cwd = os.getcwd()
+        template_path = f"{cwd}/cloudformation-unittest.yaml"
 
-        # template = ""
-        # with open(template_path, "r") as file:
-        #     template = file.read()
+        template = ""
+        with open(template_path, "r") as file:
+            template = file.read()
 
-        # create_response = cfclient.create_stack(
-        #     StackName='shelvery-test',
-        #     TemplateBody=template
+        create_response = cfclient.create_stack(
+            StackName='shelvery-test',
+            TemplateBody=template
             
-        # )
+        )
 
-        # shelvery_status = ""
+        shelvery_status = ""
 
-        # #Wait till stack is created
-        # while shelvery_status != 'CREATE_COMPLETE':
-        #     print("Creating Stack...")
-        #     time.sleep(30)
-        #     shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+        #Wait till stack is created
+        while shelvery_status != 'CREATE_COMPLETE':
+            print("Creating Stack...")
+            time.sleep(30)
+            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-        # print('STACK CREATED')
+        print('STACK CREATED')
         
         #Cleanup snapshots after stack is created
         cleanupSnapshots()
 
-        # def teardown():
-        #     print ("Initiating Teardown")
-        #     response = cfclient.delete_stack(
-        #         StackName='shelvery-test',
-        #         )
+        def teardown():
+            print ("Initiating Teardown")
+            response = cfclient.delete_stack(
+                StackName='shelvery-test',
+                )
         
-        # request.addfinalizer(teardown)
+        request.addfinalizer(teardown)
 
     #Cleanup snapshots in destination account
     else:
         cleanupSnapshots()
+
+        def teardown():
+            cleanupSnapshots()
+        
+        request.addfinalizer(teardown)
