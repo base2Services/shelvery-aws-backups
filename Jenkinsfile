@@ -33,8 +33,7 @@ pipeline {
     stage('Unit Tests') {
       steps {
         script {
-          // need to add second 'withAWS block with destination account and specify destination tests'
-          // also change shelvery_test_role -> test dev account (or refactor code to remove all references to test dev & ops account)?
+          //Source Account
           withAWS(role: env.SHELVERY_TEST_ROLE, region: 'ap-southeast-2') {
 
             sh "pwd"
@@ -50,10 +49,8 @@ pipeline {
           }
         }
         script {
-          // need to add second 'withAWS block with destination account and specify destination tests'
-          // also change shelvery_test_role -> test dev account (or refactor code to remove all references to test dev & ops account)?
           withAWS(role: env.SHELVERY_TEST_ROLE, roleAccount: env.DEV_ACCOUNT_ID, region: 'ap-southeast-2') {
-
+          //Destination Account  
             sh "pwd"
             dir ('shelvery_tests'){
               def pytestDestStatus = sh script: "pytest -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
