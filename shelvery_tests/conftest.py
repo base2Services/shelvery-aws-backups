@@ -28,20 +28,30 @@ def setup(request):
 
     sts = AwsHelper.boto3_client('sts')
     id = str(sts.get_caller_identity()['Account'])
-    cfclient = boto3.client('cloudformation')
-
-    test_stack = cfclient.describe_stacks(StackName='shelvery-test')
-    
-    if len(test_stack['Stacks']) > 0:
-        shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
-
-        while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
-            print("Waiting for stack to teardown")
-            time.sleep(30)
 
     if id == source_account:
 
         cfclient = boto3.client('cloudformation')
+
+        stacks = cfclient.describe_stacks()
+        test_stack = [stack for stack in stacks['Stacks'] if stack['StackName'] == 'shelvery-test']
+        print(test_stack)
+        
+        if len(test_stack) > 0:
+            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+
+            if shelvery_status == 'CREATE_COMPLETE':
+                cfclient.delete_stack(
+                    StackName='shelvery-test',
+                    )
+                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+
+            while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
+                print("Waiting for stack to teardown")
+                time.sleep(30)
+                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+
+
         cwd = os.getcwd()
         template_path = f"{cwd}/cloudformation-unittest.yaml"
 
