@@ -123,14 +123,14 @@ def compareBackups(self,backup,backup_engine):
     
     return True
 
-def clusterShareBackups(self, backup, source_client, dest_client):
+def clusterShareBackups(self, backup, service):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
     snapshot_id = backup.backup_id
     print(f"Testing if snapshot {snapshot_id} is shared with {self.share_with_id}")
-    
-    #self.created_snapshots.append(snapshot_id)
+   
+    source_client = AwsHelper.boto3_client(service)
 
     #Get source snapshot
     source_snapshot = source_client.describe_db_cluster_snapshots(
@@ -138,30 +138,17 @@ def clusterShareBackups(self, backup, source_client, dest_client):
         DBClusterSnapshotIdentifier=snapshot_id
     )
 
-    print("SOURCE")
-    print(source_snapshot)
+    attributes = source_client.describe_db_cluster_snapshot_attributes(
+        DBClusterSnapshotIdentifier=snapshot_id
+    )['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
 
-    #Create snapshot id (rds needs to be modular to cluster type?)
-    dest_snapshot_id = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster-snapshot:{snapshot_id}"
-    print("dest snapshot id:" + dest_snapshot_id)
-
-    #Get destination snapshot
-    dest_snapshot = dest_client.describe_db_cluster_snapshots(
-        DBClusterSnapshotIdentifier=dest_snapshot_id,
-        IncludeShared=True
-    )
+    restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBClusterSnapshots']) >=1)
+    self.assertTrue(len(source_snapshot['DBClusterSnapshots']) ==1)
 
-    #Assert shared snapshots exist in dest
-    self.assertTrue(len(dest_snapshot['DBClusterSnapshots']) >=1)
-
-    #Add checks below comparing properties of source vs dest 
-    #
-    #
-    #
-    #
+    #Assert that snapshot is shared with dest account
+    self.assertTrue(destination_account in restore_attribute)
 
     return True
 
@@ -175,7 +162,7 @@ def clusterCleanupBackups(self, backup, backup_engine, resource_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBClusterSnapshots']) >=1)
+    self.assertTrue(len(source_snapshot['DBClusterSnapshots']) ==1)
 
     snapshot_arn = source_snapshot['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
 
@@ -199,37 +186,32 @@ def clusterCleanupBackups(self, backup, backup_engine, resource_client):
 
     return True
 
-def instanceShareBackups(self,backup,source_client,dest_client):
+def instanceShareBackups(self,backup):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
     snapshot_id = backup.backup_id
     print(f"Testing if snapshot {snapshot_id} is shared with {self.share_with_id}")
     
-    #self.created_snapshots.append(snapshot_id)
+    source_client = AwsHelper.boto3_client('rds')
 
     #Get source snapshot
     source_snapshot = source_client.describe_db_snapshots(
         DBInstanceIdentifier=backup.entity_id,
         DBSnapshotIdentifier=snapshot_id
     )
-    #Create snapshot id
-    dest_snapshot_id = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:snapshot:{snapshot_id}"
-    print("dest snapshot id:" + dest_snapshot_id)
+    
+    attributes = source_client.describe_db_snapshot_attributes(
+        DBSnapshotIdentifier=snapshot_id
+    )['DBSnapshotAttributesResult']['DBSnapshotAttributes']
 
-    #Get destination snapshot
-    dest_snapshot = dest_client.describe_db_snapshots(
-        DBSnapshotIdentifier=dest_snapshot_id,
-        IncludeShared=True
-    )
+    restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
     
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBSnapshots']) >=1)
+    self.assertTrue(len(source_snapshot['DBSnapshots']) ==1)
 
-    #Assert shared snapshots exist in dest
-    self.assertTrue(len(dest_snapshot['DBSnapshots']) >=1)
-    
-    #Add more checks here (#TODO in cluster share aswell)
+    #Assert that snapshot is shared with dest account
+    self.assertTrue(destination_account in restore_attribute)
 
     return True
 
@@ -243,7 +225,7 @@ def instanceCleanupBackups(self,backup,backup_engine,service_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBSnapshots']) >=1)
+    self.assertTrue(len(source_snapshot['DBSnapshots']) ==1)
 
     sourcepost_snapshot = service_client.describe_db_snapshots(
         DBInstanceIdentifier=backup.entity_id,
@@ -275,49 +257,41 @@ def instanceCleanupBackups(self,backup,backup_engine,service_client):
 
     return True
 
-def ec2ShareBackups(self,backup,source_client,dest_client):
+def ec2ShareBackups(self,backup):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
-    #Why is this backup.name instead of backup.id like rds backups
-    snapshot_id = backup.name
+    snapshot_name = backup.name
     
+    source_client = AwsHelper.boto3_client('ec2')
 
-    print(f"Testing if snapshot {snapshot_id} is shared with {self.share_with_id}")
+    print(f"Testing if snapshot {snapshot_name} is shared with {self.share_with_id}")
 
     #Get source snapshot
     source_snapshot = source_client.describe_snapshots( 
         Filters = [{
             'Name': 'tag:Name',
             'Values': [
-                snapshot_id
+                snapshot_name
             ]
         }]
     )
 
-    #Create snapshot id
-    dest_snapshot_id = source_snapshot['Snapshots'][0]['SnapshotId']
+    snapshot_id = source_snapshot['Snapshots'][0]['SnapshotId']
 
-    #self.created_snapshots.append(dest_snapshot_id)
+    attributes = source_client.describe_snapshot_attribute(
+        Attribute='createVolumePermission',
+        SnapshotId=snapshot_id,
+    )['CreateVolumePermissions']
 
-    print("dest snapshot id:" + dest_snapshot_id)
-
-    #Get destination snapshot
-    dest_snapshot = dest_client.describe_snapshots(
-    SnapshotIds=[
-            dest_snapshot_id
-                ]
-    )
-    print("SOURCE")
-    print(source_snapshot)
-    print("DESTINATION")
-    print(dest_snapshot)
+    restore_attributes = [attr for attr in attributes if attr['UserId'] == destination_account]
 
     #Assert Snapshot(s) exist
     self.assertTrue(len(source_snapshot['Snapshots']) ==1)
 
-    #Assert shared snapshots exist in dest
-    self.assertTrue(len(dest_snapshot['Snapshots']) ==1)
+     #Assert that snapshot is shared with dest account
+    self.assertTrue(len(restore_attributes) == 1)
+
     return True
 
 def ebsCleanupBackups(self,backup,backup_engine,service_client):
@@ -334,7 +308,7 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['Snapshots']) >=1)
+    self.assertTrue(len(source_snapshot['Snapshots']) ==1)
 
     tags= source_snapshot['Snapshots'][0]['Tags']
 
@@ -383,7 +357,7 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['Snapshots']) >=1)
+    self.assertTrue(len(source_snapshot['Snapshots']) ==1)
 
     tags= source_snapshot['Snapshots'][0]['Tags']
 
@@ -485,5 +459,5 @@ def ec2PullBackups(self, service_client, backup_engine):
     for snapshot_id in snapshot_ids:
         pulled_snapshots += [snapshot for snapshot in owned_snapshots if snapshot_id in snapshot['Description']]
     
-    self.assertTrue(len(pulled_snapshots) >= 1)
+    self.assertTrue(len(pulled_snapshots) == 1)
 

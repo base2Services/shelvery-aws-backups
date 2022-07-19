@@ -121,21 +121,16 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         backups = initShareBackups(docdb_cluster_backup_engine, str(self.share_with_id))
 
         print("Shared backups created")
-        
-        #Create source/dest sessions
-        source_session = boto3.Session(profile_name="test-dev")
-        source_client = source_session.client('docdb')
-
-        dest_session = boto3.Session(profile_name="test-ops")
-        dest_client = dest_session.client('docdb')
 
         valid = False
         # validate there is
         for backup in backups:
             valid = clusterShareBackups(self=self,
                                        backup=backup,
-                                       source_client=source_client,
-                                       dest_client=dest_client)
+                                       service='docdb'
+            )
+
+        
 
         self.assertTrue(valid)
    

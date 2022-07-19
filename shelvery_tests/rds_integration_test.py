@@ -108,20 +108,11 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
         
         print("Shared backups created")
 
-        #Create source/dest sessions
-        source_session = boto3.Session(profile_name="test-dev")
-        source_client = source_session.client('rds')
-
-        dest_session = boto3.Session(profile_name="test-ops")
-        dest_client = dest_session.client('rds')
-
         valid = False
         # validate there is
         for backup in backups:
             valid = instanceShareBackups(self=self,
-                                 backup=backup,
-                                 source_client=source_client,
-                                 dest_client=dest_client
+                                 backup=backup
                                  )
 
         self.assertTrue(valid)
