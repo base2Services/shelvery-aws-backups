@@ -33,7 +33,6 @@ class DataBucketIntegrationTestCase(unittest.TestCase):
 
         bucket_name = f"shelvery.data.{id}-ap-southeast-2.base2tools"
 
-
         response = s3client.get_bucket_policy(
             Bucket=bucket_name
         )['Policy']
