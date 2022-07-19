@@ -33,25 +33,28 @@ def setup(request):
 
         cfclient = boto3.client('cloudformation')
 
-        stacks = cfclient.describe_stacks()
-        test_stack = [stack for stack in stacks['Stacks'] if stack['StackName'] == 'shelvery-test']
-        print(test_stack)
+        #Need to add perms for describestack?
+
+        # stacks = cfclient.describe_stacks()
+
+        # #Check whether stack aleady exists
+        # test_stack = [stack for stack in stacks['Stacks'] if stack['StackName'] == 'shelvery-test']
         
-        if len(test_stack) > 0:
-            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+        # if len(test_stack) > 0:
+        #     shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-            if shelvery_status == 'CREATE_COMPLETE':
-                cfclient.delete_stack(
-                    StackName='shelvery-test',
-                    )
-                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+        #     if shelvery_status == 'CREATE_COMPLETE':
+        #         cfclient.delete_stack(
+        #             StackName='shelvery-test',
+        #             )
+        #         shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-            while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
-                print("Waiting for stack to teardown")
-                time.sleep(30)
-                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+        #     while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
+        #         print("Waiting for stack to teardown")
+        #         time.sleep(30)
+        #         shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-
+        #Create stack from template
         cwd = os.getcwd()
         template_path = f"{cwd}/cloudformation-unittest.yaml"
 
@@ -67,6 +70,7 @@ def setup(request):
 
         shelvery_status = ""
 
+        #Wait till stack is created
         while shelvery_status != 'CREATE_COMPLETE':
             print("Creating Stack...")
             time.sleep(30)
@@ -74,6 +78,7 @@ def setup(request):
 
         print('STACK CREATED')
         
+        #Cleanup snapshots after stack is created
         cleanupSnapshots()
 
         def teardown():
@@ -84,5 +89,6 @@ def setup(request):
         
         request.addfinalizer(teardown)
 
+    #Cleanup snapshots in destination account
     else:
         cleanupSnapshots()
