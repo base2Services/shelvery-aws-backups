@@ -28,6 +28,16 @@ def setup(request):
 
     sts = AwsHelper.boto3_client('sts')
     id = str(sts.get_caller_identity()['Account'])
+    cfclient = boto3.client('cloudformation')
+
+    test_stack = cfclient.describe_stacks(StackName='shelvery-test')
+    
+    if len(test_stack['Stacks']) > 0:
+        shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+
+        while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
+            print("Waiting for stack to teardown")
+            time.sleep(30)
 
     if id == source_account:
 
@@ -50,7 +60,7 @@ def setup(request):
         while shelvery_status != 'CREATE_COMPLETE':
             print("Creating Stack...")
             time.sleep(30)
-            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test' )['Stacks'][0]['StackStatus']
+            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
         print('STACK CREATED')
         
