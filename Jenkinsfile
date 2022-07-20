@@ -54,7 +54,7 @@ pipeline {
           //Destination Account  
             sh "pwd"
             dir ('shelvery_tests'){
-              def pytestStatus = sh script: "pytest -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              def pytestStatus = sh script: "pytest -s -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
               junit 'pytest_unit.xml'
 
               if (pytestStatus != 0) {
