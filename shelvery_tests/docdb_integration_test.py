@@ -43,6 +43,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
             'ap-southeast-1': [],
             'ap-southeast-2': []
         }
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
 
         # Complete initial setup and create service client
         initSetup(self,'docdb')

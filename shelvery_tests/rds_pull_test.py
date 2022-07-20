@@ -37,7 +37,7 @@ class ShelveryRDSPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullRdsBackup(self):
-
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
         cleanRdsSnapshots()
 
         source_aws_id = source_account

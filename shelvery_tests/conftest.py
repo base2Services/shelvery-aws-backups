@@ -51,28 +51,29 @@ def setup(request):
                 if error.response["Error"]["Code"] == "ValidationError":
                     shelvery_status = "NONE"  
 
+        if shelvery_status == "NONE":
         # Create stack from template
-        cwd = os.getcwd()
-        template_path = f"{cwd}/cloudformation-unittest.yaml"
+            cwd = os.getcwd()
+            template_path = f"{cwd}/cloudformation-unittest.yaml"
 
-        template = ""
-        with open(template_path, "r") as file:
-            template = file.read()
+            template = ""
+            with open(template_path, "r") as file:
+                template = file.read()
 
-        create_response = cfclient.create_stack(
-            StackName='shelvery-test',
-            TemplateBody=template
-            
-        )
-        shelvery_status = ""
+            create_response = cfclient.create_stack(
+                StackName='shelvery-test',
+                TemplateBody=template
+                
+            )
+            shelvery_status = ""
 
-        #Wait till stack is created
-        while shelvery_status != 'CREATE_COMPLETE':
-            print("Creating Stack...")
-            time.sleep(30)
-            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+            #Wait till stack is created
+            while shelvery_status != 'CREATE_COMPLETE':
+                print("Creating Stack...")
+                time.sleep(30)
+                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-        print('STACK CREATED')
+            print('STACK CREATED')
         
         #Cleanup any existing snapshots after stack is created
         cleanupSnapshots()

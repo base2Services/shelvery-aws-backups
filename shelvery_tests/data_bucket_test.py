@@ -22,6 +22,7 @@ class DataBucketIntegrationTestCase(unittest.TestCase):
         s3client = AwsHelper.boto3_client('s3', region_name='ap-southeast-2')
         sts = AwsHelper.boto3_client('sts')
         id = str(sts.get_caller_identity()['Account'])
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
 
         share_with_id = destination_account
         os.environ["shelvery_share_aws_account_ids"] = str(share_with_id)

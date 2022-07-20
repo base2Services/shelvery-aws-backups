@@ -33,6 +33,7 @@ class ShelveryEBSPullTestCase(unittest.TestCase):
     @pytest.mark.destination
     def test_PullEBSBackup(self):
 
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
         ebs_client = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2')
         ebs_backup_engine = ShelveryEBSBackup()
 

@@ -37,6 +37,7 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullDocDbBackup(self):
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
       
         cleanDocDBSnapshots()
 

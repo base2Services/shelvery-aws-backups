@@ -45,6 +45,7 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
             'ap-southeast-1': [],
             'ap-southeast-2': []
         }
+        os.environ['SHELVERY_MONO_THREAD'] = '1'
 
         # Create and configure RDS artefact
         initSetup(self,'rds')
