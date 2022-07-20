@@ -93,7 +93,7 @@ def setup(request):
     else:
         cleanupSnapshots()
 
-        def teardown():
-            cleanupSnapshots()
+        # def teardown():
+        #     cleanupSnapshots()
         
-        request.addfinalizer(teardown)
+        # request.addfinalizer(teardown)
