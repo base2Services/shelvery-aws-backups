@@ -337,7 +337,6 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
     print("AFTER")
     print(after_snapshot)
 
-
     #Ensure cleanup removed all snapshots
     self.assertTrue(len(after_snapshot['Snapshots']) == 0)
 
@@ -366,11 +365,6 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
     #Create snapshot id
     snap_id = source_snapshot['Snapshots'][0]['SnapshotId']
     
-    ### TAG AMI!
-
-    print("BEFORE")
-    print(source_snapshot)
-
     #Set cleanup date
     service_client.create_tags(
             Resources=[snap_id,ami_id],
@@ -392,7 +386,6 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
 
     print("AFTER")
     print(after_snapshot)
-
 
     #Ensure cleanup removed all snapshots
     self.assertTrue(len(after_snapshot['Snapshots']) == 0)
@@ -417,8 +410,8 @@ def ebsPullBackups(self, service_client, backup_engine, db_identifier):
 
     pulled_snapshots = []
 
+    #Retrieve all snapshots with 'shelvery-test-ebs' in tags
     for snapshot in owned_snapshots:
-
         if 'Tags' in snapshot:
             tags = snapshot['Tags']
             name = [tag['Value'] for tag in tags if tag['Key'] == 'Name'][0]
@@ -426,6 +419,7 @@ def ebsPullBackups(self, service_client, backup_engine, db_identifier):
             if 'shelvery-test-ebs' in name:
                 pulled_snapshots.append(snapshot)
 
+    #Assert 1 image has been pulled
     print(pulled_snapshots)
     self.assertTrue(len(pulled_snapshots) == 1)
 
@@ -436,30 +430,20 @@ def ec2PullBackups(self, service_client, backup_engine):
 
     source_aws_id = source_account
     os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
-     
-    snapshots =  service_client.describe_snapshots(
-        OwnerIds=[
-        source_account,
-        ]   
-    )['Snapshots']
 
-    snapshot_ids = [snapshot['SnapshotId'] for snapshot in snapshots if 'Created by CreateImage' in snapshot['Description']]
-
-    print("Pulling shared backups")
     backup_engine.pull_shared_backups()
 
-    owned_snapshots = service_client.describe_snapshots( 
-        OwnerIds=[
-        destination_account,
-        ] 
-    )['Snapshots']   
-
-    pulled_snapshots = []
+    search_filter = [{'Name':'tag:ResourceName',
+                      'Values':['shelvery-test-ec2']
+                    }]
+                                  
+    #Retrieve pulled images from shelvery-test stack
+    amis = service_client.describe_images(
+                    Filters=search_filter
+                )['Images']
     
-    for snapshot_id in snapshot_ids:
-        pulled_snapshots += [snapshot for snapshot in owned_snapshots if snapshot_id in snapshot['Description']]
+    print(amis)
 
-    print("EC2 PULLED SNAPS:" + str(pulled_snapshots))
-    
-    self.assertTrue(len(pulled_snapshots) == 1)
+    #Ensure 1 image has been pulled
+    self.assertTrue(len(amis) == 1)
 
