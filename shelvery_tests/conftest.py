@@ -3,6 +3,7 @@ import boto3
 import os
 import time
 from shelvery.aws_helper import AwsHelper
+from botocore.exceptions import ClientError
 
 from shelvery_tests.cleanup_functions import cleanupSnapshots
 
@@ -52,7 +53,14 @@ def setup(request):
             while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
                 print("Waiting for stack to teardown")
                 time.sleep(30)
-                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+
+                try:
+                    shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+                except ClientError as error:
+                    if error.response["Error"]["Code"] == "ValidationError":
+                        shelvery_status = "DELETED"
+                        
+            
 
         # Create stack from template
         cwd = os.getcwd()
