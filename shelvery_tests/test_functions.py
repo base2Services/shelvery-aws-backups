@@ -458,6 +458,8 @@ def ec2PullBackups(self, service_client, backup_engine):
     
     for snapshot_id in snapshot_ids:
         pulled_snapshots += [snapshot for snapshot in owned_snapshots if snapshot_id in snapshot['Description']]
+
+    print("EC2 PULLED SNAPS:" + str(pulled_snapshots))
     
     self.assertTrue(len(pulled_snapshots) == 1)
 

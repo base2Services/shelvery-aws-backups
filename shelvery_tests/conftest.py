@@ -50,7 +50,7 @@ def setup(request):
                     )
                 shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
 
-            while shelvery_status == 'DELETE_IN_PROGRESS' or  shelvery_status == 'DELETE_COMPLETE':
+            while shelvery_status == 'DELETE_IN_PROGRESS' or shelvery_status == 'DELETE_COMPLETE':
                 print("Waiting for stack to teardown")
                 time.sleep(30)
 
