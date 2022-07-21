@@ -142,7 +142,10 @@ def clusterShareBackups(self, backup, service):
         DBClusterSnapshotIdentifier=snapshot_id
     )['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
 
+    #Restore attribute indicating restoreable snapshot
     restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
+
+    print("Attributes: " + str(restore_attribute))
 
     #Assert Snapshot(s) exist
     self.assertTrue(len(source_snapshot['DBClusterSnapshots']) ==1)
@@ -156,15 +159,18 @@ def clusterCleanupBackups(self, backup, backup_engine, resource_client):
     snapshot_id = backup.backup_id
       
     #Get source snapshot
-    source_snapshot = resource_client.describe_db_cluster_snapshots(
+    precleanup_snapshots = resource_client.describe_db_cluster_snapshots(
         DBClusterIdentifier=backup.entity_id,
         DBClusterSnapshotIdentifier=snapshot_id
     )
 
-    #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBClusterSnapshots']) ==1)
+    #Snapshot before cleanup
+    print("Pre-Cleanup Snapshots: " + str(precleanup_snapshots))
 
-    snapshot_arn = source_snapshot['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
+    #Assert Snapshot(s) exist
+    self.assertTrue(len(precleanup_snapshots['DBClusterSnapshots']) ==1)
+
+    snapshot_arn = precleanup_snapshots['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
 
     #Set cleanup date
     resource_client.add_tags_to_resource(
@@ -176,13 +182,17 @@ def clusterCleanupBackups(self, backup, backup_engine, resource_client):
 
     backup_engine.clean_backups()
 
-    sourcepost_snapshot = resource_client.describe_db_cluster_snapshots(
+    #Get post cleanup snapshots
+    postcleanup_snapshots = resource_client.describe_db_cluster_snapshots(
         DBClusterIdentifier=backup.entity_id,
         DBClusterSnapshotIdentifier=snapshot_id
     )
 
+    #Snapshot after cleanup
+    print("Post-Cleanup Snapshots: " + str(postcleanup_snapshots))
+
     #Ensure cleanup removed all snapshots
-    self.assertTrue(len(sourcepost_snapshot['DBClusterSnapshots']) == 0)
+    self.assertTrue(len(postcleanup_snapshots['DBClusterSnapshots']) == 0)
 
     return True
 
@@ -205,8 +215,11 @@ def instanceShareBackups(self,backup):
         DBSnapshotIdentifier=snapshot_id
     )['DBSnapshotAttributesResult']['DBSnapshotAttributes']
 
+    #Restore attribute indicating restoreable snapshot
     restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
     
+    print("Attributes: " + str(restore_attribute))
+
     #Assert Snapshot(s) exist
     self.assertTrue(len(source_snapshot['DBSnapshots']) ==1)
 
@@ -219,20 +232,18 @@ def instanceCleanupBackups(self,backup,backup_engine,service_client):
     snapshot_id = backup.backup_id
       
     #Get source snapshot
-    source_snapshot = service_client.describe_db_snapshots(
+    precleanup_snapshots = service_client.describe_db_snapshots(
         DBInstanceIdentifier=backup.entity_id,
         DBSnapshotIdentifier=snapshot_id
     )
+
+    #Snapshot before cleanup
+    print("Pre-Cleanup Snapshots: " + str(precleanup_snapshots))
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['DBSnapshots']) ==1)
+    self.assertTrue(len(precleanup_snapshots['DBSnapshots']) ==1)
 
-    sourcepost_snapshot = service_client.describe_db_snapshots(
-        DBInstanceIdentifier=backup.entity_id,
-        DBSnapshotIdentifier=snapshot_id
-    )
-
-    snapshot_arn = source_snapshot['DBSnapshots'][0]['DBSnapshotArn']
+    snapshot_arn = precleanup_snapshots['DBSnapshots'][0]['DBSnapshotArn']
     
     #Set cleanup date
     service_client.add_tags_to_resource(
@@ -244,16 +255,17 @@ def instanceCleanupBackups(self,backup,backup_engine,service_client):
 
     backup_engine.clean_backups()
 
-    sourcepost_snapshot = service_client.describe_db_snapshots(
+    #Get post cleanup snapshots
+    postcleanup_snapshots = service_client.describe_db_snapshots(
         DBInstanceIdentifier=backup.entity_id,
         DBSnapshotIdentifier=snapshot_id
     )
 
-    print("POSTOPS")
-    print(sourcepost_snapshot)
+    #Snapshot after cleanup
+    print("Post-Cleanup Snapshots: " + str(postcleanup_snapshots))
 
     #Ensure cleanup removed all snapshots
-    self.assertTrue(len(sourcepost_snapshot['DBSnapshots']) == 0)
+    self.assertTrue(len(postcleanup_snapshots['DBSnapshots']) == 0)
 
     return True
 
@@ -284,21 +296,24 @@ def ec2ShareBackups(self,backup):
         SnapshotId=snapshot_id,
     )['CreateVolumePermissions']
 
-    restore_attributes = [attr for attr in attributes if attr['UserId'] == destination_account]
+    #Restore attribute indicating restoreable snapshot
+    restore_attribute = [attr for attr in attributes if attr['UserId'] == destination_account]
+
+    print("Attributes: " + str(restore_attribute))
 
     #Assert Snapshot(s) exist
     self.assertTrue(len(source_snapshot['Snapshots']) ==1)
 
      #Assert that snapshot is shared with dest account
-    self.assertTrue(len(restore_attributes) == 1)
+    self.assertTrue(len(restore_attribute) == 1)
 
     return True
 
 def ebsCleanupBackups(self,backup,backup_engine,service_client):
     snapshot_id = backup.name
       
-    #Get source snapshot
-    source_snapshot = service_client.describe_snapshots(
+    #Get pre-cleanup snapshots
+    precleanup_snapshots = service_client.describe_snapshots(
         Filters = [{
             'Name': 'tag:Name',
             'Values': [
@@ -308,12 +323,10 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['Snapshots']) ==1)
-
-    tags= source_snapshot['Snapshots'][0]['Tags']
+    self.assertTrue(len(precleanup_snapshots['Snapshots']) ==1)
 
     #Create snapshot id
-    snap_id = source_snapshot['Snapshots'][0]['SnapshotId']
+    snap_id = precleanup_snapshots['Snapshots'][0]['SnapshotId']
     
     #Set cleanup date
     service_client.create_tags(
@@ -325,7 +338,8 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
 
     backup_engine.clean_backups()
 
-    after_snapshot = service_client.describe_snapshots(
+    #Get Snapshots after cleanup
+    postcleanup_snapshots = service_client.describe_snapshots(
         Filters = [{
             'Name': 'tag:Name',
             'Values': [
@@ -334,19 +348,19 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
         }]
     )
 
-    print("AFTER")
-    print(after_snapshot)
+    #Snapshot after cleanup
+    print("Post-Cleanup Snapshots: " + str(postcleanup_snapshots))
 
     #Ensure cleanup removed all snapshots
-    self.assertTrue(len(after_snapshot['Snapshots']) == 0)
+    self.assertTrue(len(postcleanup_snapshots['Snapshots']) == 0)
 
     return True
 
 def ec2CleanupBackups(self,backup,backup_engine,service_client):
     snapshot_id = backup.name
       
-    #Get source snapshot
-    source_snapshot = service_client.describe_snapshots(
+    #Get pre-cleanup snapshots
+    precleanup_snapshots = service_client.describe_snapshots(
         Filters = [{
             'Name': 'tag:Name',
             'Values': [
@@ -356,14 +370,14 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
     )
 
     #Assert Snapshot(s) exist
-    self.assertTrue(len(source_snapshot['Snapshots']) ==1)
+    self.assertTrue(len(precleanup_snapshots['Snapshots']) ==1)
 
-    tags= source_snapshot['Snapshots'][0]['Tags']
+    tags= precleanup_snapshots['Snapshots'][0]['Tags']
 
     ami_id = [tag['Value'] for tag in tags if tag['Key'] == 'shelvery:ami_id'][0]
 
     #Create snapshot id
-    snap_id = source_snapshot['Snapshots'][0]['SnapshotId']
+    snap_id = precleanup_snapshots['Snapshots'][0]['SnapshotId']
     
     #Set cleanup date
     service_client.create_tags(
@@ -375,7 +389,8 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
 
     backup_engine.clean_backups()
 
-    after_snapshot = service_client.describe_snapshots(
+    #Get Snapshots after cleanup
+    postcleanup_snapshots = service_client.describe_snapshots(
         Filters = [{
             'Name': 'tag:Name',
             'Values': [
@@ -384,11 +399,11 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
         }]
     )
 
-    print("AFTER")
-    print(after_snapshot)
+    #Snapshot after cleanup
+    print("Post-Cleanup Snapshots: " + str(postcleanup_snapshots))
 
     #Ensure cleanup removed all snapshots
-    self.assertTrue(len(after_snapshot['Snapshots']) == 0)
+    self.assertTrue(len(postcleanup_snapshots['Snapshots']) == 0)
 
     return True
    
@@ -396,17 +411,21 @@ def ebsPullBackups(self, service_client, backup_engine, db_identifier):
      
     cleanEC2Snapshots()
 
+    #Set environment variables
     source_aws_id = source_account
     os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
 
     print("Pulling shared backups")
     backup_engine.pull_shared_backups()
 
+    #Get owned snapshots
     owned_snapshots = service_client.describe_snapshots( 
         OwnerIds=[
         destination_account,
         ] 
     )['Snapshots']   
+
+    print("Owned Snapshots: " + str(owned_snapshots))
 
     pulled_snapshots = []
 
@@ -423,11 +442,11 @@ def ebsPullBackups(self, service_client, backup_engine, db_identifier):
     print(pulled_snapshots)
     self.assertTrue(len(pulled_snapshots) == 1)
 
-
 def ec2PullBackups(self, service_client, backup_engine):
 
     cleanEC2Snapshots()
 
+     #Set environment variables
     source_aws_id = source_account
     os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
 
@@ -442,7 +461,7 @@ def ec2PullBackups(self, service_client, backup_engine):
                     Filters=search_filter
                 )['Images']
     
-    print(amis)
+    print("AMI's: " + str(amis))
 
     #Ensure 1 image has been pulled
     self.assertTrue(len(amis) == 1)

@@ -60,7 +60,7 @@ def setup(request):
             with open(template_path, "r") as file:
                 template = file.read()
 
-            create_response = cfclient.create_stack(
+            cfclient.create_stack(
                 StackName='shelvery-test',
                 TemplateBody=template
                 

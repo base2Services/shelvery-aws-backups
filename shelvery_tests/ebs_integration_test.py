@@ -57,9 +57,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         #Get ebs volume
         ebs_volume = ec2client.describe_volumes(Filters = search_filter)
 
-        print(ebs_volume)
+        print("Volumes: " + str(ebs_volume))
 
-        #Get instance id, looks dodgy is there a better way?
         volume_id = ebs_volume['Volumes'][0]['VolumeId']
 
         createBackupTags(ec2client,[volume_id],"shelvery-test-ebs")

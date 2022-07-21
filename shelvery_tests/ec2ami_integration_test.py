@@ -62,7 +62,7 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
         #Get ec2 instance
         ec2_instance = ec2client.describe_instances(Filters = search_filter)
 
-        #Get instance id, looks dodgy is there a better way?
+        #Get instance id
         instance_id = ec2_instance['Reservations'][0]['Instances'][0]['InstanceId']
         print("INSTANCE ID: " + str(instance_id))
 

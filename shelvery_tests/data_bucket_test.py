@@ -40,14 +40,17 @@ class DataBucketIntegrationTestCase(unittest.TestCase):
 
         policy = json.loads(response)['Statement']
 
+        print("Policy: " + str(policy))
+
         valid = False
+
+        #Add other checks on policy?
 
         for statement in policy:
             if statement['Effect'] == "Allow" and str(share_with_id) in statement['Principal']['AWS']:
                 valid = True
 
-        assert(valid)
-
+        self.assertTrue(valid)
 
 
 
