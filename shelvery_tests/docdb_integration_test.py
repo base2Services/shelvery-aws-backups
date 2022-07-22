@@ -54,7 +54,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         waiter = docdbclient.get_waiter('db_instance_available')
         try:
             waiter.wait(
-                DBClusterIdentifier='shelvery-test-docdb',
+                DBInstanceIdentifier='shelvery-test-docdb',
                 WaiterConfig={
                     'Delay': 30,
                     'MaxAttempts': 50
