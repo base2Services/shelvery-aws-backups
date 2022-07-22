@@ -1,5 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
+Parameters:
+  Ami:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
 Resources:
 
   RDSInstance:
@@ -31,7 +36,8 @@ Resources:
   EC2AmiInstance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-07620139298af599e
+      ImageId:
+        Ref: Ami
       Tags:
         - Key : "Name"
           Value : "shelvery-test-ec2"

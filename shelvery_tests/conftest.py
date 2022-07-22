@@ -3,7 +3,7 @@ import boto3
 import os
 import time
 from shelvery.aws_helper import AwsHelper
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ValidationError
 
 from shelvery_tests.cleanup_functions import cleanupSnapshots
 
@@ -23,7 +23,32 @@ def pytest_configure(config):
     destination_account = config.getoption('--destination')
 
 #Add some check here on if the stack aleady exists (eg: deleting/creating/available)
+def create_stack(cfclient):
+    create_waiter = cfclient.get_waiter('stack_create_complete')
+    cwd = os.getcwd()
+    template_path = f"{cwd}/cloudformation-unittest.yaml"
+
+    template = ""
+    with open(template_path, "r") as file:
+        template = file.read()
+
+    cfclient.create_stack(
+        StackName='shelvery-test',
+        TemplateBody=template
         
+    )
+
+    #Wait till stack is created
+    create_waiter.wait(
+                StackName='shelvery-test',
+                WaiterConfig={
+                    'Delay': 5,
+                    'MaxAttempts': 3
+                     }
+            )
+    print('STACK CREATED')
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup(request):
 
@@ -32,49 +57,6 @@ def setup(request):
 
     if id == source_account:
 
-        cfclient = boto3.client('cloudformation')
-
-        #Check whether stack aleady exists
-        try:
-            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
-        except ClientError as error:
-            if error.response["Error"]["Code"] == "ValidationError":
-                shelvery_status = "NONE"
-
-        # If stack aleady exists (Deleting from previous run)
-        while shelvery_status == 'DELETE_IN_PROGRESS' or shelvery_status == 'DELETE_COMPLETE':
-            print("Waiting for stack to teardown")
-            time.sleep(30)
-            try:
-                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
-            except ClientError as error:
-                if error.response["Error"]["Code"] == "ValidationError":
-                    shelvery_status = "NONE"  
-
-        if shelvery_status == "NONE":
-        # Create stack from template
-            cwd = os.getcwd()
-            template_path = f"{cwd}/cloudformation-unittest.yaml"
-
-            template = ""
-            with open(template_path, "r") as file:
-                template = file.read()
-
-            cfclient.create_stack(
-                StackName='shelvery-test',
-                TemplateBody=template
-                
-            )
-            shelvery_status = ""
-
-            #Wait till stack is created
-            while shelvery_status != 'CREATE_COMPLETE':
-                print("Creating Stack...")
-                time.sleep(30)
-                shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
-
-            print('STACK CREATED')
-        
         #Cleanup any existing snapshots after stack is created
         cleanupSnapshots()
 
@@ -85,6 +67,41 @@ def setup(request):
                 )
         
         request.addfinalizer(teardown)
+
+
+        cfclient = boto3.client('cloudformation')
+        exists_waiter = cfclient.get_waiter('stack_exists')
+        delete_waiter = cfclient.get_waiter('stack_delete_complete')
+
+        #Check whether stack aleady exists
+        try:
+            exists_waiter.wait(
+                StackName='shelvery-test',
+                WaiterConfig={
+                    'Delay': 5,
+                    'MaxAttempts': 3
+                     }
+            )
+
+            #Stack exists so wait till it finishes deleting
+            shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
+            
+            if shelvery_status == 'DELETE_IN_PROGRESS' or shelvery_status == 'DELETE_COMPLETE':
+                delete_waiter.wait(
+                    StackName='shelvery-test',
+                    WaiterConfig={
+                        'Delay': 20,
+                        'MaxAttempts': 50
+                    }
+                )
+
+                #Finished deleting stack -> Create new stack
+                create_stack(cfclient=cfclient)
+
+        #Stack doesn't exist
+        except ValidationError as error:
+        # Create stack from template
+            create_stack(cfclient=cfclient)        
 
     #Cleanup snapshots in destination account
     else:
