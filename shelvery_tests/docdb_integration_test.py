@@ -9,6 +9,7 @@ import os
 import time
 import botocore
 from datetime import datetime
+from botocore.exceptions import WaiterError
 
 from shelvery_tests.test_functions import addBackupTags, clusterCleanupBackups, clusterShareBackups, compareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
 
@@ -51,13 +52,17 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
 
         #Wait till db is ready
         waiter = docdbclient.get_waiter('db_cluster_available')
-        waiter.wait(
-            DBClusterIdentifier='shelvery-test-docdb',
-            WaiterConfig={
-                'Delay': 30,
-                'MaxAttempts': 50
-            }
-        )
+        try:
+            waiter.wait(
+                DBClusterIdentifier='shelvery-test-docdb',
+                WaiterConfig={
+                    'Delay': 30,
+                    'MaxAttempts': 50
+                }
+            )
+        except WaiterError as error:
+            print("Waiting for DB Cluster Failed")
+            raise error
  
         #Get cluster name
         clustername = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster:shelvery-test-docdb"
