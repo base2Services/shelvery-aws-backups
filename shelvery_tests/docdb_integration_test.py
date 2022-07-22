@@ -49,12 +49,13 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         # Complete initial setup and create service client
         initSetup(self,'docdb')
         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
+        rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
 
         #Wait till db is ready
-        waiter = docdbclient.get_waiter('db_instance_available')
+        waiter = rdsclient.get_waiter('db_cluster_available')
         try:
             waiter.wait(
-                DBInstanceIdentifier='shelvery-test-docdb',
+                DBClusterIdentifier='shelvery-test-docdb',
                 WaiterConfig={
                     'Delay': 30,
                     'MaxAttempts': 50
@@ -62,6 +63,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
             )
         except WaiterError as error:
             print("Waiting for DB Cluster Failed")
+            print(error)
             raise error
 
  
