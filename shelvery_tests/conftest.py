@@ -91,7 +91,7 @@ def setup(request):
                     delete_waiter.wait(
                         StackName='shelvery-test',
                         WaiterConfig={
-                            'Delay': 20,
+                            'Delay': 30,
                             'MaxAttempts': 50
                         }
                     )
