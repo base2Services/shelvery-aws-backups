@@ -42,8 +42,8 @@ def create_stack(cfclient):
     create_waiter.wait(
                 StackName='shelvery-test',
                 WaiterConfig={
-                    'Delay': 5,
-                    'MaxAttempts': 3
+                    'Delay': 30,
+                    'MaxAttempts': 50
                      }
             )
     print('STACK CREATED')
