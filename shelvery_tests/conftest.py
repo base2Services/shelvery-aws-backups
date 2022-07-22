@@ -87,16 +87,18 @@ def setup(request):
             shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
             
             if shelvery_status == 'DELETE_IN_PROGRESS' or shelvery_status == 'DELETE_COMPLETE':
-                delete_waiter.wait(
-                    StackName='shelvery-test',
-                    WaiterConfig={
-                        'Delay': 20,
-                        'MaxAttempts': 50
-                    }
-                )
-
-                #Finished deleting stack -> Create new stack
-                create_stack(cfclient=cfclient)
+                try:
+                    delete_waiter.wait(
+                        StackName='shelvery-test',
+                        WaiterConfig={
+                            'Delay': 20,
+                            'MaxAttempts': 50
+                        }
+                    )
+                    #Finished deleting stack -> Create new stack
+                    create_stack(cfclient=cfclient)
+                except WaiterError as error:
+                    raise error
 
         #Stack doesn't exist
         except WaiterError as error:
