@@ -3,7 +3,7 @@ import boto3
 import os
 import time
 from shelvery.aws_helper import AwsHelper
-from botocore.exceptions import ClientError, ValidationError
+from botocore.exceptions import ClientError, ValidationError, WaiterError
 
 from shelvery_tests.cleanup_functions import cleanupSnapshots
 
@@ -99,7 +99,7 @@ def setup(request):
                 create_stack(cfclient=cfclient)
 
         #Stack doesn't exist
-        except ValidationError as error:
+        except WaiterError as error:
         # Create stack from template
             create_stack(cfclient=cfclient)        
 
