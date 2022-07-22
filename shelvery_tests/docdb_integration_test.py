@@ -50,19 +50,15 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
 
         #Wait till db is ready
-        status = docdbclient.describe_db_clusters(
-            DBClusterIdentifier='shelvery-test-docdb'
-        )['DBClusters'][0]['Status']
-
-        while str(status).lower() != 'available':
-            time.sleep(20)
-            status = docdbclient.describe_db_clusters(
-            DBClusterIdentifier='shelvery-test-docdb'
-            )['DBClusters'][0]['Status']
-
-            print("Waiting till DocDB Cluster is ready")
-
-
+        waiter = docdbclient.get_waiter('db_cluster_available')
+        waiter.wait(
+            DBClusterIdentifier='shelvery-test-docdb',
+            WaiterConfig={
+                'Delay': 30,
+                'MaxAttempts': 50
+            }
+        )
+ 
         #Get cluster name
         clustername = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster:shelvery-test-docdb"
 
