@@ -51,7 +51,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
 
         #Wait till db is ready
-        waiter = docdbclient.get_waiter('db_cluster_available')
+        waiter = docdbclient.get_waiter('db_instance_available')
         try:
             waiter.wait(
                 DBClusterIdentifier='shelvery-test-docdb',
@@ -63,6 +63,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         except WaiterError as error:
             print("Waiting for DB Cluster Failed")
             raise error
+
  
         #Get cluster name
         clustername = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster:shelvery-test-docdb"
