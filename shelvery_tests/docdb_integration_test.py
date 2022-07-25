@@ -62,7 +62,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
                 }
             )
         except WaiterError as error:
-            print("Waiting for DB Cluster Failed")
+            print("Waiting for Doc DB Cluster Failed")
             print(error)
             raise error
 
