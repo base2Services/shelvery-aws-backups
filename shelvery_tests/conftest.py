@@ -86,7 +86,7 @@ def setup(request):
                     #Finished deleting stack -> Create new stack
                     create_stack(cfclient=cfclient)
 
-        except ValidationError as error:
+        except ClientError as error:
             #Stack does not exist so create 
             create_stack(cfclient=cfclient) 
 
