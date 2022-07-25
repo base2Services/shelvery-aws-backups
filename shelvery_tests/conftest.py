@@ -68,26 +68,14 @@ def setup(request):
         
         request.addfinalizer(teardown)
 
-
         cfclient = boto3.client('cloudformation')
-        exists_waiter = cfclient.get_waiter('stack_exists')
         delete_waiter = cfclient.get_waiter('stack_delete_complete')
 
-        #Check whether stack aleady exists
+        #Get status of stack
         try:
-            exists_waiter.wait(
-                StackName='shelvery-test',
-                WaiterConfig={
-                    'Delay': 5,
-                    'MaxAttempts': 3
-                     }
-            )
-
-            #Stack exists so wait till it finishes deleting
             shelvery_status = cfclient.describe_stacks(StackName='shelvery-test')['Stacks'][0]['StackStatus']
-            
             if shelvery_status == 'DELETE_IN_PROGRESS' or shelvery_status == 'DELETE_COMPLETE':
-                try:
+                #Stack is deleting so wait till deleted
                     delete_waiter.wait(
                         StackName='shelvery-test',
                         WaiterConfig={
@@ -97,13 +85,10 @@ def setup(request):
                     )
                     #Finished deleting stack -> Create new stack
                     create_stack(cfclient=cfclient)
-                except WaiterError as error:
-                    raise error
 
-        #Stack doesn't exist
-        except WaiterError as error:
-        # Create stack from template
-            create_stack(cfclient=cfclient)        
+        except ValidationError as error:
+            #Stack does not exist so create 
+            create_stack(cfclient=cfclient) 
 
     #Cleanup snapshots in destination account
     else:
