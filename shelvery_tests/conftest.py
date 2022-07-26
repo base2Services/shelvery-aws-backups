@@ -89,7 +89,9 @@ def setup(request):
         except ClientError as error:
             if error.response['Error']['Code'] == 'ValidationError':
                 #Stack does not exist so create 
-                create_stack(cfclient=cfclient) 
+                create_stack(cfclient=cfclient)
+            else:
+                raise error
 
     #Cleanup snapshots in destination account
     else:
