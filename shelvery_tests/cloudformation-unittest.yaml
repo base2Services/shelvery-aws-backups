@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Ami:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+Resources:
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      DBInstanceClass:  db.t3.small
+      DBInstanceIdentifier: shelvery-test-rds
+      Engine: postgres
+      MasterUsername: asdf9876lkjh4312
+      MasterUserPassword: azxcv0987poiu4321
+      AllocatedStorage: '100'
+
+  RDSClusterInstance:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      MasterUsername: asdf9876lkjh4312
+      MasterUserPassword: azxcv0987poiu4321
+      DBClusterIdentifier: shelvery-test-rds-cluster
+  
+  DocDBInstance:
+    Type: AWS::DocDB::DBCluster
+    Properties:
+      MasterUsername: asdf9876lkjh4312
+      MasterUserPassword: azxcv0987poiu4321
+      StorageEncrypted: false
+      DBClusterIdentifier: shelvery-test-docdb
+  
+  EC2AmiInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: Ami
+      Tags:
+        - Key : "Name"
+          Value : "shelvery-test-ec2"
+
+  EBSInstance:
+    Type: AWS::EC2::Volume
+    Properties: 
+      Encrypted: False
+      VolumeType: gp2
+      AvailabilityZone: !GetAtt EC2AmiInstance.AvailabilityZone
+      Size: 1
+      Tags:
+        - Key : "Name"
+          Value : "shelvery-test-ebs"
+        

@@ -86,6 +86,8 @@ class ShelveryEngine:
         except ClientError as error:
             if error.response["Error"]["Code"] == "NoSuchBucketPolicy":
                 current_policy = None
+            else:
+                raise error
         
         shelvery_bucket_policy = AwsHelper.get_shelvery_bucket_policy(
             self.account_id,

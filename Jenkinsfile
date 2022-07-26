@@ -33,18 +33,37 @@ pipeline {
     stage('Unit Tests') {
       steps {
         script {
-          withAWS(role: env.SHELVERY_TEST_ROLE, region: 'us-east-1') {
-            def pytestStatus = sh script: "python -m pytest --junit-xml=pytest_unit.xml shelvery_tests", returnStatus: true
-            
-            junit 'pytest_unit.xml'
+          //Source Account
+          withAWS(role: env.SHELVERY_TEST_ROLE, region: 'ap-southeast-2') {
 
-            if (pytestStatus != 0) {
-              currentBuild.result = 'FAILURE'
-              error("Shelvery unit tests failed with exit code ${pytestStatus}")
+            sh "pwd"
+            dir ('shelvery_tests'){
+              def pytestStatus = sh script: "pytest -s -v -m source --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              junit 'pytest_unit.xml'
+            
+
+              if (pytestStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
             }
           }
         }
+        script {
+          withAWS(role: env.SHELVERY_TEST_ROLE, roleAccount: env.DEV_ACCOUNT_ID, region: 'ap-southeast-2') {
+          //Destination Account  
+            sh "pwd"
+            dir ('shelvery_tests'){
+              def pytestStatus = sh script: "pytest -s -v -m destination --source ${env.OPS_ACCOUNT_ID} --destination ${env.DEV_ACCOUNT_ID} --junit-xml=pytest_unit.xml", returnStatus: true
+              junit 'pytest_unit.xml'
 
+              if (pytestStatus != 0) {
+                currentBuild.result = 'FAILURE'
+                error("Shelvery unit tests failed with exit code ${pytestStatus}")
+              }
+            }
+          }
+        }
       }
     }
 

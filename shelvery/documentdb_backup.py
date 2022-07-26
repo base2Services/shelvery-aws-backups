@@ -236,7 +236,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = snap['TagList']
+            tags = docdb_client.list_tags_for_resource(ResourceName=snap['DBClusterSnapshotArn'])['TagList']
             self.logger.info(f"Checking DocumentDb Snapshot {snap['DBClusterSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
@@ -288,7 +288,7 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
             try:
                 self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
                 docdb_instance = docdb_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
-                tags = docdb_instance['TagList']
+                tags = docdb_client.list_tags_for_resource(ResourceName=docdb_instance['DBClusterArn'])['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 docdb_entity = EntityResource(cluster_id,
                                               local_region,

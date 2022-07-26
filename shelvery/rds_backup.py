@@ -267,7 +267,8 @@ class ShelveryRDSBackup(ShelveryEngine):
         for instance_id in instance_ids:
             try:
                 rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
-                tags = rds_instance['DBSnapshots'][0]['TagList']
+                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+                d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(instance_id,
                                             local_region,
