@@ -118,7 +118,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.6
+        ShelveryVersion: 0.9.7
 
       Environment:
         Variables:
