@@ -134,7 +134,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             kms_key = source_backup.resource_properties['KmsKeyId']
             self.logger.info(f"Snapshot {source_backup.backup_id} is encrypted with the kms key {kms_key}")
             
-            copy_kms_key = RuntimeConfig.get_copy_kms_key_id(backup_resource.entity_resource.tags, self)
+            copy_kms_key = RuntimeConfig.get_copy_kms_key_id(source_backup.tags, self)
             # if a new key is provided by config encypt the copy with the new kms key
             if copy_kms_key is not None:
                 self.logger.info(f"Snapshot {source_backup.backup_id} will be copied and encrypted with the kms key {copy_kms_key}")
@@ -143,8 +143,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             params['KmsKeyId'] = kms_key
         else:
             # if the backup is not encrypted and the encrypt_copy is enabled, encrypted the backup with the provided kms key
-            if RuntimeConfig.get_encrypt_copy(backup_resource.entity_resource.tags, self):
-                kms_key = RuntimeConfig.get_copy_kms_key_id(backup_resource.entity_resource.tags, self)
+            if RuntimeConfig.get_encrypt_copy(source_backup.tags, self):
+                kms_key = RuntimeConfig.get_copy_kms_key_id(source_backup.tags, self)
                 if kms_key is not None:
                     self.logger.info(f"Snapshot {source_backup.backup_id} is not encrypted. Encrypting the copy with KMS key {kms_key}")
                     params['KmsKeyId'] = kms_key
@@ -156,7 +156,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
-        tags = rds_client.list_tags_for_resource(ResourceName=snapshot['DBClusterSnapshotArn'])['TagList']
+        tags = snapshot['TagList']
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -178,7 +178,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         # collect tags in check if instance tagged with marker tag
 
         for instance in db_clusters:
-            tags = rds_client.list_tags_for_resource(ResourceName=instance['DBClusterArn'])['TagList']
+            tags = instance['TagList']
 
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
@@ -221,7 +221,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         all_backups = []
         marker_tag = f"{backup_tag_prefix}:{BackupResource.BACKUP_MARKER_TAG}"
         for snap in all_snapshots:
-            tags = rds_client.list_tags_for_resource(ResourceName=snap['DBClusterSnapshotArn'])['TagList']
+            tags = snap['TagList']
             self.logger.info(f"Checking RDS Snap {snap['DBClusterSnapshotIdentifier']}")
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if marker_tag in d_tags:
@@ -271,7 +271,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             try:
                 self.logger.info(f"Collecting tags from DB cluster {cluster_id} ...")
                 rds_instance = rds_client.describe_db_clusters(DBClusterIdentifier=cluster_id)['DBClusters'][0]
-                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBClusterArn'])['TagList']
+                tags = rds_instance['TagList']
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(cluster_id,
                                             local_region,

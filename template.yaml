@@ -111,14 +111,14 @@ Resources:
     Properties:
       FunctionName: ShelveryBackups
       Handler: shelvery_lambda/lambda_handler.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       CodeUri: ./lib
       Timeout: 900
 
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.6
+        ShelveryVersion: 0.9.7
 
       Environment:
         Variables:
@@ -317,6 +317,12 @@ Resources:
                 - s3:PutObject
                 - s3:PutObjectAcl
                 - s3:DeleteObject
+                - s3:PutPublicAccessBlock
+                - s3:GetBucketPolicyStatus
+                - s3:GetBucketPublicAccessBlock
+                - s3:PutBucketPublicAccessBlock
+                - s3:GetAccountPublicAccessBlock
+                - s3:PutAccountPublicAccessBlock
               Resource: '*'
             - Effect: Allow
               Action:

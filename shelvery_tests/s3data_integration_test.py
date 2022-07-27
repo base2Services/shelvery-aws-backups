@@ -6,6 +6,7 @@ import boto3
 import os
 import time
 import botocore
+import pytest
 from datetime import datetime
 
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +72,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         # TODO wait until volume is 'available'
         self.share_with_id = int(self.id['Account']) + 1
         os.environ['shelvery_select_entity'] = self.volume['VolumeId']
-    
+
     def tearDown(self):
         ec2client = AwsHelper.boto3_client('ec2')
         ec2client.delete_volume(VolumeId=self.volume['VolumeId'])
@@ -93,7 +94,8 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                     ec2regional.delete_snapshot(SnapshotId=snapid)
                 except Exception as e:
                     print(f"Failed to delete {snapid}:{str(e)}")
-    
+                    
+    @pytest.mark.source
     def test_CreateBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -129,15 +131,15 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 bucket = boto3.resource('s3').Bucket(s3bucket)
                 object = bucket.Object(s3path)
                 content = object.get()['Body'].read()
-                restored_br = yaml.load(content)
-                self.assertEquals(restored_br.backup_id, engine_backup.backup_id)
-                self.assertEquals(restored_br.name, engine_backup.name)
-                self.assertEquals(restored_br.region, engine_backup.region)
+                restored_br = yaml.load(content, Loader=yaml.Loader)
+                self.assertEqual(restored_br.backup_id, engine_backup.backup_id)
+                self.assertEqual(restored_br.name, engine_backup.name)
+                self.assertEqual(restored_br.region, engine_backup.region)
                 print(f"Tags restored: \n{yaml.dump(restored_br.tags)}\n")
                 print(f"Tags backup: \n{yaml.dump(engine_backup.tags)}\n")
-                self.assertEquals(restored_br.tags['Name'], engine_backup.tags['Name'])
+                self.assertEqual(restored_br.tags['Name'], engine_backup.tags['Name'])
                 for tag in ['name','date_created','entity_id','region','retention_type']:
-                    self.assertEquals(
+                    self.assertEqual(
                         restored_br.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"],
                         engine_backup.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"]
                     )
@@ -145,6 +147,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
     
+    @pytest.mark.source
     def test_CreateSharingInfo(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -167,20 +170,22 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 bucket = boto3.resource('s3').Bucket(s3bucket)
                 object = bucket.Object(s3path)
                 content = object.get()['Body'].read()
-                restored_br = yaml.load(content)
+                restored_br = yaml.load(content, Loader=yaml.Loader)
                 engine_backup = ebs_backups_engine.get_backup_resource(backup.region, backup.backup_id)
-                self.assertEquals(restored_br.backup_id, engine_backup.backup_id)
-                self.assertEquals(restored_br.name, engine_backup.name)
-                self.assertEquals(restored_br.region, engine_backup.region)
+                self.assertEqual(restored_br.backup_id, engine_backup.backup_id)
+                self.assertEqual(restored_br.name, engine_backup.name)
+                self.assertEqual(restored_br.region, engine_backup.region)
+                print(engine_backup.name)
                 for tag in ['name','date_created','entity_id','region','retention_type']:
-                    self.assertEquals(
+                    self.assertEqual(
                         restored_br.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"],
                         engine_backup.tags[f"{RuntimeConfig.get_tag_prefix()}:{tag}"]
                     )
                 valid = True
         
         self.assertTrue(valid)
-    
+
+    @pytest.mark.source
     def test_CleanBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -218,12 +223,12 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 bucket = boto3.resource('s3').Bucket(s3bucket)
                 object = bucket.Object(s3path)
                 content = object.get()['Body'].read()
-                restored_br = yaml.load(content)
-                self.assertEquals(restored_br.backup_id, backup.backup_id)
-                self.assertEquals(restored_br.name, backup.name)
-                self.assertEquals(restored_br.region, backup.region)
+                restored_br = yaml.load(content, Loader=yaml.Loader)
+                self.assertEqual(restored_br.backup_id, backup.backup_id)
+                self.assertEqual(restored_br.name, backup.name)
+                self.assertEqual(restored_br.region, backup.region)
                 self.assertIsNotNone(restored_br.date_deleted)
-                self.assertEquals(restored_br.date_created, datetime(2000, 1, 1))
+                self.assertEqual(restored_br.date_created, datetime(2000, 1, 1))
                 valid = True
         
         self.assertTrue(valid)

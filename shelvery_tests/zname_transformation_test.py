@@ -6,7 +6,9 @@ import boto3
 import os
 import time
 import botocore
+import pytest
 from datetime import datetime
+
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -28,12 +30,14 @@ print(f"Python lib path:\n{sys.path}")
 NAME_WITH_SPECIAL_CHARACTERS = 'shelvery&#^--_auto_mate_d_tests'
 NAME_TRANSFORMED = 'shelvery-auto-mate-d-tests'
 
+
 class ShelveryNameTransformationTestCase(unittest.TestCase):
     """Shelvery EBS Backups Integration shelvery_tests"""
     
     def id(self):
         return str(self.__class__)
     
+    @pytest.mark.source
     def setUp(self):
         self.volume = None
         self.created_snapshots = []
@@ -73,6 +77,7 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
         self.share_with_id = int(self.id['Account']) + 1
         os.environ['shelvery_select_entity'] = self.volume['VolumeId']
     
+    @pytest.mark.source
     def tearDown(self):
         ec2client = AwsHelper.boto3_client('ec2')
         ec2client.delete_volume(VolumeId=self.volume['VolumeId'])
@@ -95,6 +100,7 @@ class ShelveryNameTransformationTestCase(unittest.TestCase):
                 except Exception as e:
                     print(f"Failed to delete {snapid}:{str(e)}")
     
+    @pytest.mark.source
     def test_NameTransformed(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:

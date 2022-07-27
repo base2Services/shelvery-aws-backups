@@ -3,7 +3,7 @@ service:
 
 provider:
   name: aws
-  runtime: python3.6
+  runtime: python3.8
   iamRoleStatements:
     # read only ec2, rds
     - Effect: Allow
@@ -96,7 +96,7 @@ functions:
   shelvery:
     handler: shelvery_lambda/lambda_handler.lambda_handler
     name: shelvery
-    runtime: python3.6
+    runtime: python3.8
     timeout: 300
     events:
 
