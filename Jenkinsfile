@@ -115,7 +115,7 @@ pipeline {
       steps {
         input 'Release to PyPI'
         script {
-          withCredentials([usernamePassword(credentialsId: 'base2-pypi', usernameVariable: 'PYPICREDS_USR', passwordVariable: 'PYPICREDS_PSW')]) {
+          withCredentials([usernamePassword(credentialsId: '/ci2/jenkins/credentials/base2-pypi', usernameVariable: 'PYPICREDS_USR', passwordVariable: 'PYPICREDS_PSW')]) {
                         sh """#!/bin/bash
 cat << EOT > /root/.pypirc
 [distutils]
