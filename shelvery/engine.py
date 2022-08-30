@@ -210,15 +210,16 @@ class ShelveryEngine:
         backup_resources = []
         current_retention_type = RuntimeConfig.get_current_retention_type(self)
         for r in resources:
-            retention_value = r.calculate_retention_type()
-            self.logger.info("Ret Type: " + str(retention_value))
-            
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
                 entity_resource=r,
                 copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
                 exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
+            
+            retention_value = backup_resource.calculate_retention_type()
+            self.logger.info("Ret Type: " + str(retention_value))
+            
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
                 backup_resource.set_retention_type(current_retention_type)
