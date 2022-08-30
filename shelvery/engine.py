@@ -195,6 +195,8 @@ class ShelveryEngine:
             )
 
         self.logger.info(f"{len(resources)} resources of type {resource_type} collected for backup")
+        
+        self.logger.info("resources: " + str(resources))
 
         # create and collect backups
         backup_resources = []
@@ -209,6 +211,8 @@ class ShelveryEngine:
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
                 backup_resource.set_retention_type(current_retention_type)
+                
+            self.logger.info("retention type: " + str(current_retention_type))
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
