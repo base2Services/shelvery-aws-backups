@@ -7,7 +7,7 @@ Parameters:
     Default: "0 0 ? * * *"
   CreateBackupSchedule:
     Type: String
-    Default: "*/10 * ? * * *"
+    Default: "0 1 ? * * *"
   CleanBackupsSchedule:
     Type: String
     Default: "0 2 ? * * *"

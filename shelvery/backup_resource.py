@@ -159,7 +159,18 @@ class BackupResource:
 
     def entity_resource_tags(self):
         return self.entity_resource.tags if self.entity_resource is not None else {}
-
+    
+    def calculate_retention_type(self):
+        if self.date_created.day == 1:
+            if self.date_created.month == 1:
+                return self.RETENTION_YEARLY
+            else:
+                return  self.RETENTION_MONTHLY
+        elif self.date_created.weekday() == 6:
+            return self.RETENTION_WEEKLY
+        else:
+            return self.RETENTION_DAILY
+    
     def calculate_expire_date(self, engine, custom_retention_types=None):
         """Determine expire date, based on 'retention_type' tag"""
         if self.retention_type == BackupResource.RETENTION_DAILY:

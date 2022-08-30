@@ -34,6 +34,10 @@ class ShelveryEngine:
     DEFAULT_KEEP_WEEKLY = 8
     DEFAULT_KEEP_MONTHLY = 12
     DEFAULT_KEEP_YEARLY = 10
+    CREATE_DAILY = True
+    CREATE_WEEKLY = True
+    CREATE_MONTHLY = True
+    CREATE_YEARLY = True
 
     BACKUP_RESOURCE_TAG = 'create_backup'
 
@@ -206,6 +210,9 @@ class ShelveryEngine:
         backup_resources = []
         current_retention_type = RuntimeConfig.get_current_retention_type(self)
         for r in resources:
+            retention_value = r.calculate_retention_type()
+            self.logger.info("Ret Type: " + str(retention_value))
+            
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
                 entity_resource=r,
