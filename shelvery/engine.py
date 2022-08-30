@@ -210,30 +210,34 @@ class ShelveryEngine:
             # get retention type of backup resource
             retention_value = backup_resource.retention_type
             self.logger.info("Ret Type: " + str(retention_value))
-            self.logger.info("Create Daily: " + str(RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self)))
             
             CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
-            CREATE_WEEKLY = RuntimeConfig.get_keep_weekly() != 0
-            CREATE_MONTHLY = RuntimeConfig.get_keep_monthly() != 0
-            CREATE_YEARLY = RuntimeConfig.get_keep_yearly() != 0
+            CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
+            CREATE_MONTHLY= RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
+            CREATE_YEARLY = RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
+            
+            self.logger.info("Create Daily: " + str(CREATE_DAILY))
+            self.logger.info("Create Weekly: " + str(CREATE_WEEKLY))
+            self.logger.info("Create Monthly: " + str(CREATE_MONTHLY))
+            self.logger.info("Create Yearly: " + str(CREATE_YEARLY))
                     
             # check whether we should create a backup for this retention type
             if retention_value == backup_resource.RETENTION_DAILY:
                 if not CREATE_DAILY:
                     self.logger.info(f"Skipping {backup_resource.RETENTION_DAILY} backup as specified in configuration ")
                     continue
-            # if retention_value == backup_resource.RETENTION_WEEKLY:
-            #     if not self.CREATE_WEEKLY:
-            #         self.logger.info(f"Skipping {backup_resource.RETENTION_WEEKLY} backup as specified in configuration ")
-            #         continue
-            # if retention_value == backup_resource.RETENTION_MONTHLY:
-            #     if not self.CREATE_MONTHLY:
-            #         self.logger.info(f"Skipping {backup_resource.RETENTION_MONTHLY} backup as specified in configuration ")
-            #         continue
-            # if retention_value == backup_resource.RETENTION_YEARLY:
-            #     if not self.CREATE_YEARLY:
-            #         self.logger.info(f"Skipping {backup_resource.RETENTION_YEARLY} backup as specified in configuration ")
-            #         continue
+            if retention_value == backup_resource.RETENTION_WEEKLY:
+                if not CREATE_WEEKLY:
+                    self.logger.info(f"Skipping {backup_resource.RETENTION_WEEKLY} backup as specified in configuration ")
+                    continue
+            if retention_value == backup_resource.RETENTION_MONTHLY:
+                if not CREATE_MONTHLY:
+                    self.logger.info(f"Skipping {backup_resource.RETENTION_MONTHLY} backup as specified in configuration ")
+                    continue
+            if retention_value == backup_resource.RETENTION_YEARLY:
+                if not CREATE_YEARLY:
+                    self.logger.info(f"Skipping {backup_resource.RETENTION_YEARLY} backup as specified in configuration ")
+                    continue
             
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
