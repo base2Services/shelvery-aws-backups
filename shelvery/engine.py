@@ -187,6 +187,8 @@ class ShelveryEngine:
         for res in resources:
             print("Tags:" + str(res.resource_id))
             print("Tags:" + str(res.tags))
+            print("Payload:" + str(self.lambda_payload))
+            print("Context:" + str(self.lambda_context))
 
         # allows user to select single entity to be backed up
         if RuntimeConfig.get_shelvery_select_entity(self) is not None:
