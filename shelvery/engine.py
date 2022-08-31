@@ -173,7 +173,7 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
-    def _verify_retention(self,backup_resource: BackupResource,retention_value):
+    def _verify_retention(self,backup_resource: BackupResource):        
         # Get boolean value whether we should create backup for retention type
         CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
         CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
@@ -188,7 +188,7 @@ class ShelveryEngine:
             backup_resource.RETENTION_YEARLY : CREATE_YEARLY,
         }
         
-        return True if retention[retention_value] else False              
+        return True if retention[backup_resource.retention_type] else False              
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:
@@ -222,12 +222,9 @@ class ShelveryEngine:
                 copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
                 exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
-
-            # get retention type of backup resource
-            retention_value = backup_resource.retention_type
             
-            if not self._verify_retention(backup_resource=backup_resource,retention_value=retention_value):
-                self.logger.info(f"Skipping backup as retention type {retention_value} is disabled")
+            if not self._verify_retention(backup_resource=backup_resource):
+                self.logger.info(f"Skipping backup as retention type {backup_resource.retention_type} is disabled")
                 continue
             
             # if retention is explicitly given by runtime environment
