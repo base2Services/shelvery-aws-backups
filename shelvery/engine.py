@@ -173,6 +173,24 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
+    def _verify_retention(self,backup_resource: BackupResource,retention_value):
+        # Get boolean value whether we should create backup for retention type
+        CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
+        CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
+        CREATE_MONTHLY= RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
+        CREATE_YEARLY = RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
+        
+        # Dict mapping retention type to boolean
+        retention = {
+            backup_resource.RETENTION_DAILY : CREATE_DAILY,
+            backup_resource.RETENTION_WEEKLY : CREATE_WEEKLY,
+            backup_resource.RETENTION_MONTHLY : CREATE_MONTHLY,
+            backup_resource.RETENTION_YEARLY : CREATE_YEARLY,
+        }
+        self.logger.info("Retention:" + str(retention))
+        self.logger.info(f"Retention Type: {retention_value} with value {retention[retention_value]}")
+        
+        return True if retention[retention_value] else False              
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:
@@ -209,35 +227,10 @@ class ShelveryEngine:
 
             # get retention type of backup resource
             retention_value = backup_resource.retention_type
-            self.logger.info("Ret Type: " + str(retention_value))
             
-            CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
-            CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
-            CREATE_MONTHLY= RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
-            CREATE_YEARLY = RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
-            
-            self.logger.info("Create Daily: " + str(CREATE_DAILY))
-            self.logger.info("Create Weekly: " + str(CREATE_WEEKLY))
-            self.logger.info("Create Monthly: " + str(CREATE_MONTHLY))
-            self.logger.info("Create Yearly: " + str(CREATE_YEARLY))
-                    
-            # check whether we should create a backup for this retention type
-            if retention_value == backup_resource.RETENTION_DAILY:
-                if not CREATE_DAILY:
-                    self.logger.info(f"Skipping {backup_resource.RETENTION_DAILY} backup as specified in configuration ")
-                    continue
-            if retention_value == backup_resource.RETENTION_WEEKLY:
-                if not CREATE_WEEKLY:
-                    self.logger.info(f"Skipping {backup_resource.RETENTION_WEEKLY} backup as specified in configuration ")
-                    continue
-            if retention_value == backup_resource.RETENTION_MONTHLY:
-                if not CREATE_MONTHLY:
-                    self.logger.info(f"Skipping {backup_resource.RETENTION_MONTHLY} backup as specified in configuration ")
-                    continue
-            if retention_value == backup_resource.RETENTION_YEARLY:
-                if not CREATE_YEARLY:
-                    self.logger.info(f"Skipping {backup_resource.RETENTION_YEARLY} backup as specified in configuration ")
-                    continue
+            if not self._verify_retention(backup_resource=backup_resource,retention_value=retention_value):
+                self.logger.info(f"Skipping backup as retention type {retention_value} is disabled")
+                continue
             
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
