@@ -187,8 +187,6 @@ class ShelveryEngine:
             backup_resource.RETENTION_MONTHLY : CREATE_MONTHLY,
             backup_resource.RETENTION_YEARLY : CREATE_YEARLY,
         }
-        self.logger.info("Retention:" + str(retention))
-        self.logger.info(f"Retention Type: {retention_value} with value {retention[retention_value]}")
         
         return True if retention[retention_value] else False              
 
@@ -235,8 +233,6 @@ class ShelveryEngine:
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
                 backup_resource.set_retention_type(current_retention_type)
-                
-            self.logger.info("retention type: " + str(current_retention_type))
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
