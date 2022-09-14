@@ -2,6 +2,7 @@ import abc
 import logging
 import time
 import sys
+from unittest import skip
 
 import botocore
 import yaml
@@ -34,6 +35,13 @@ class ShelveryEngine:
     DEFAULT_KEEP_WEEKLY = 8
     DEFAULT_KEEP_MONTHLY = 12
     DEFAULT_KEEP_YEARLY = 10
+    
+    RETENTION_TYPE_PRECEDENCE = {
+        BackupResource.RETENTION_YEARLY : BackupResource.RETENTION_MONTHLY,
+        BackupResource.RETENTION_MONTHLY : BackupResource.RETENTION_WEEKLY,
+        BackupResource.RETENTION_WEEKLY :  BackupResource.RETENTION_DAILY,
+        BackupResource.RETENTION_DAILY : None
+    }
 
     BACKUP_RESOURCE_TAG = 'create_backup'
 
@@ -58,7 +66,7 @@ class ShelveryEngine:
     def set_lambda_environment(self, payload, context):
         self.lambda_payload   = payload
         self.lambda_context   = context
-        self.aws_request_id   = context.aws_request_id
+        self.aws_request_id   = context. aws_request_id
         self.role_arn         = RuntimeConfig.get_role_arn(self)
         self.role_external_id = RuntimeConfig.get_role_external_id(self)
         if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
@@ -175,6 +183,9 @@ class ShelveryEngine:
 
     def _verify_retention(self,backup_resource: BackupResource):        
         # Get boolean value whether we should create backup for retention type
+        
+        self.logger.info("Checking type:" + str(backup_resource.retention_type))
+        
         CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
         CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
         CREATE_MONTHLY= RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
@@ -222,9 +233,22 @@ class ShelveryEngine:
                 copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
                 exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
-            
-            if not self._verify_retention(backup_resource=backup_resource):
-                self.logger.info(f"Skipping backup as retention type {backup_resource.retention_type} is disabled")
+                        
+            # Check whether current retention is allowed, if not try next retention type by precedence
+            skip_backup = False
+            while not self._verify_retention(backup_resource):
+               self.logger.info(f"Skipping retention type: {backup_resource.retention_type} as it is disabled")
+               new_retention_type = self.RETENTION_TYPE_PRECEDENCE[backup_resource.retention_type]
+               if new_retention_type:
+                   backup_resource.set_retention_type(new_retention_type)
+               else:
+                   #Set skip backup to true as daily is set to 0
+                   skip_backup = True
+                   break
+               
+            #Skip current backup
+            if skip_backup:
+                self.logger.info(f"Skipping backup as retention type: {backup_resource.retention_type} is disabled")
                 continue
             
             # if retention is explicitly given by runtime environment

@@ -35,8 +35,6 @@ class BackupResource:
         self.account_id = AwsHelper.local_account_id()
 
         # determine retention period
-        # Spoof monthly for testing (#TODO Remove this)
-        
         if self.date_created.day == 1:
             if self.date_created.month == 1:
                 self.retention_type = self.RETENTION_YEARLY
@@ -46,8 +44,6 @@ class BackupResource:
             self.retention_type = self.RETENTION_WEEKLY
         else:
             self.retention_type = self.RETENTION_DAILY
-            
-        self.retention_type = self.RETENTION_WEEKLY
 
         # determine backup name. Hash of resource id is added to support creating backups
         # with resources having a same name
@@ -201,11 +197,12 @@ class BackupResource:
         self.__region = region
 
     def set_retention_type(self, retention_type: str):
+        self.retention_type = retention_type
         self.name = '-'.join(self.name.split('-')[0:-1]) + f"-{retention_type}"
         self.tags[f"{self.tags['shelvery:tag_name']}:name"] = self.name
         self.tags['Name'] = self.name
         self.tags[f"{self.tags['shelvery:tag_name']}:retention_type"] = retention_type
-
+    
     @property
     def boto3_tags(self):
         tags = self.tags
