@@ -35,6 +35,10 @@ class BackupResource:
         self.account_id = AwsHelper.local_account_id()
 
         # determine retention period
+        # Spoof monthly for testing (#TODO Remove this)
+        
+        self.date_created.day = 1
+        self.date_created.month = 2
         if self.date_created.day == 1:
             if self.date_created.month == 1:
                 self.retention_type = self.RETENTION_YEARLY
