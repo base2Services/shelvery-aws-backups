@@ -37,8 +37,6 @@ class BackupResource:
         # determine retention period
         # Spoof monthly for testing (#TODO Remove this)
         
-        self.date_created.day = 1
-        self.date_created.month = 2
         if self.date_created.day == 1:
             if self.date_created.month == 1:
                 self.retention_type = self.RETENTION_YEARLY
@@ -48,6 +46,8 @@ class BackupResource:
             self.retention_type = self.RETENTION_WEEKLY
         else:
             self.retention_type = self.RETENTION_DAILY
+            
+        self.retention_type = self.RETENTION_WEEKLY
 
         # determine backup name. Hash of resource id is added to support creating backups
         # with resources having a same name
