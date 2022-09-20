@@ -66,7 +66,7 @@ class ShelveryEngine:
     def set_lambda_environment(self, payload, context):
         self.lambda_payload   = payload
         self.lambda_context   = context
-        self.aws_request_id   = context. aws_request_id
+        self.aws_request_id   = context.aws_request_id
         self.role_arn         = RuntimeConfig.get_role_arn(self)
         self.role_external_id = RuntimeConfig.get_role_external_id(self)
         if ('arguments' in payload) and (LAMBDA_WAIT_ITERATION in payload['arguments']):
