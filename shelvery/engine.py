@@ -181,25 +181,18 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
-    def _verify_retention(self,backup_resource: BackupResource):        
-        # Get boolean value whether we should create backup for retention type
+    def _verify_retention(self,backup_resource: BackupResource) -> bool:
+        if backup_resource.retention_type == backup_resource.RETENTION_DAILY:
+            return RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_WEEKLY:
+            return RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_MONTHLY:
+            return RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_YEARLY:
+            return RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
         
-        self.logger.info("Checking type:" + str(backup_resource.retention_type))
-        
-        CREATE_DAILY = RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
-        CREATE_WEEKLY = RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
-        CREATE_MONTHLY= RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
-        CREATE_YEARLY = RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
-        
-        # Dict mapping retention type to boolean
-        retention = {
-            backup_resource.RETENTION_DAILY : CREATE_DAILY,
-            backup_resource.RETENTION_WEEKLY : CREATE_WEEKLY,
-            backup_resource.RETENTION_MONTHLY : CREATE_MONTHLY,
-            backup_resource.RETENTION_YEARLY : CREATE_YEARLY,
-        }
-        
-        return True if retention[backup_resource.retention_type] else False              
+        # fail open
+        return True         
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:
@@ -236,19 +229,22 @@ class ShelveryEngine:
                         
             # Check whether current retention is allowed, if not try next retention type by precedence
             skip_backup = False
-            while not self._verify_retention(backup_resource):
-               self.logger.info(f"Skipping retention type: {backup_resource.retention_type} as it is disabled")
-               new_retention_type = self.RETENTION_TYPE_PRECEDENCE[backup_resource.retention_type]
-               if new_retention_type:
-                   backup_resource.set_retention_type(new_retention_type)
-               else:
-                   #Set skip backup to true as daily is set to 0
-                   skip_backup = True
-                   break
-               
-            #Skip current backup
+
+            # skip validation if custom retention type
+            if backup_resource.retention_type in self.RETENTION_TYPE_PRECEDENCE:
+                # Check whether current retention is allowed, if not try next retention type by precedence
+                while not self._verify_retention(backup_resource):
+                    new_retention_type = self.RETENTION_TYPE_PRECEDENCE[backup_resource.retention_type]
+                    
+                    if new_retention_type:
+                        backup_resource.set_retention_type(new_retention_type)
+                    else:
+                        #Set skip backup to true as daily is set to 0
+                        skip_backup = True
+                        break
+
+            # Skip current backup
             if skip_backup:
-                self.logger.info(f"Skipping backup as retention type: {backup_resource.retention_type} is disabled")
                 continue
             
             # if retention is explicitly given by runtime environment
