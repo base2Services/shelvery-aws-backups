@@ -219,6 +219,7 @@ class ShelveryEngine:
         # create and collect backups
         backup_resources = []
         current_retention_type = RuntimeConfig.get_current_retention_type(self)
+        self.logger.info(f"Current Retention Type: {current_retention_type}")
         for r in resources:
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
@@ -226,6 +227,10 @@ class ShelveryEngine:
                 copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
                 exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
+            
+            # if retention is explicitly given by runtime environment
+            if current_retention_type is not None:
+                backup_resource.set_retention_type(current_retention_type)
                         
             # Check whether current retention is allowed, if not try next retention type by precedence
             skip_backup = False
@@ -234,22 +239,21 @@ class ShelveryEngine:
             if backup_resource.retention_type in self.RETENTION_TYPE_PRECEDENCE:
                 # Check whether current retention is allowed, if not try next retention type by precedence
                 while not self._verify_retention(backup_resource):
+                    self.logger.info(f"Retention Type: {backup_resource.retention_type} disabled")
                     new_retention_type = self.RETENTION_TYPE_PRECEDENCE[backup_resource.retention_type]
-                    
+                    self.logger.info(f"Checking whether retention type: {new_retention_type} is permitted")
                     if new_retention_type:
                         backup_resource.set_retention_type(new_retention_type)
                     else:
                         #Set skip backup to true as daily is set to 0
                         skip_backup = True
-                        break
+                        break 
+            else:
+                self.logger.info(f"Skipping retention check as custom retention type {backup_resource.retention_type} was detected")
 
             # Skip current backup
             if skip_backup:
                 continue
-            
-            # if retention is explicitly given by runtime environment
-            if current_retention_type is not None:
-                backup_resource.set_retention_type(current_retention_type)
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
