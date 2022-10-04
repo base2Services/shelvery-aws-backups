@@ -219,7 +219,6 @@ class ShelveryEngine:
         # create and collect backups
         backup_resources = []
         current_retention_type = RuntimeConfig.get_current_retention_type(self)
-        self.logger.info(f"Current Retention Type: {current_retention_type}")
         for r in resources:
             backup_resource = BackupResource(
                 tag_prefix=RuntimeConfig.get_tag_prefix(),
