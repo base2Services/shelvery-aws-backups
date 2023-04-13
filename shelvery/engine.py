@@ -685,6 +685,12 @@ class ShelveryEngine:
                 new_backup_resource = self.get_backup_resource(backup_region, new_resource_id)
                 backup_resource = new_backup_resource
                 self.logger.info(f"Created new backup {backup_resource}")
+                # wait till new snapshot is available
+                if not self.wait_backup_available(backup_region=backup_region,
+                                              backup_id=backup_resource.backup_id,
+                                              lambda_method='do_share_backup',
+                                              lambda_args=kwargs):
+                    return
             else:
                 self.logger.info(f"No re-encrypt key detected")
 
