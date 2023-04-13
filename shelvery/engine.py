@@ -684,7 +684,7 @@ class ShelveryEngine:
                 new_resource_id = self.copy_backup_to_region(backup_id, backup_region)
                 new_backup_resource = self.get_backup_resource(backup_region, new_resource_id)
                 backup_resource = new_backup_resource
-                self.logger.info(f"Created new backup {backup_resource}")
+                self.logger.info(f"Created new encrypted backup {backup_resource.backup_id}")
                 # wait till new snapshot is available
                 if not self.wait_backup_available(backup_region=backup_region,
                                               backup_id=backup_resource.backup_id,

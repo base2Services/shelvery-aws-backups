@@ -107,13 +107,23 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
-        rds_client.copy_db_snapshot(
-            SourceDBSnapshotIdentifier=snapshot['DBSnapshotArn'],
-            TargetDBSnapshotIdentifier=backup_id,
-            SourceRegion=local_region,
+        backup_resource = self.get_backup_resource(local_region, backup_id)
+        kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
+        rds_client_params = {
+            'SourceDBSnapshotIdentifier': snapshot['DBSnapshotArn'],
+            'TargetDBSnapshotIdentifier': backup_id,
+            'SourceRegion': local_region,
             # tags are created explicitly
-            CopyTags=False
-        )
+            'CopyTags': False
+        }
+         # add kms key to params if reencrypt key is defined and rename backup
+        if kms_key is not None:
+            backup_id = f'{backup_id}-re-encrypted'
+            rds_client_params['KmsKeyId'] = kms_key
+            rds_client_params['CopyTags'] = True
+            rds_client_params['TargetDBSnapshotIdentifier'] = backup_id
+            
+        rds_client.copy_db_snapshot(**rds_client_params)
         return backup_id
 
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
