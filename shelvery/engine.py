@@ -675,8 +675,17 @@ class ShelveryEngine:
 
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
-            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
             backup_resource = self.get_backup_resource(backup_region, backup_id)
+            
+            reencrypt_kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
+            # if a re-encrypt key is provided, create a new re-encrypted snapshot before sharing
+            if reencrypt_kms_key is not None:
+                new_resource_id = self.copy_backup_to_region(backup_id, backup_region)
+                new_backup_resource = self.get_backup_resource(backup_region, new_resource_id)
+                backup_resource = new_backup_resource
+            
+            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            
             self._write_backup_data(
                 backup_resource,
                 self._get_data_bucket(backup_region),

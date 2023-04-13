@@ -108,10 +108,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=region)
         snapshots = client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
+        backup_resource = self.get_backup_resource(local_region, backup_id)
+        kms_key = RuntimeConfig.get_copy_kms_key_id(backup_resource.tags, self)
         rds_client.copy_db_cluster_snapshot(
             SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotArn'],
             TargetDBClusterSnapshotIdentifier=backup_id,
             SourceRegion=local_region,
+            KmsKeyId=kms_key,
             # tags are created explicitly
             CopyTags=False
         )
