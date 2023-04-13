@@ -680,10 +680,14 @@ class ShelveryEngine:
             reencrypt_kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
             # if a re-encrypt key is provided, create a new re-encrypted snapshot before sharing
             if reencrypt_kms_key is not None:
+                self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {reencrypt_kms_key}")
                 new_resource_id = self.copy_backup_to_region(backup_id, backup_region)
                 new_backup_resource = self.get_backup_resource(backup_region, new_resource_id)
                 backup_resource = new_backup_resource
-            
+                self.logger.info(f"Created new backup {backup_resource}")
+            else:
+                self.logger.info(f"No re-encrypt key detected")
+
             self.share_backup_with_account(backup_region, backup_id, destination_account_id)
             
             self._write_backup_data(
