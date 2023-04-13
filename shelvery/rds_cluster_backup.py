@@ -110,7 +110,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         snapshot = snapshots['DBClusterSnapshots'][0]
         backup_resource = self.get_backup_resource(local_region, backup_id)
         kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
-        # add kms key to params if reencrypt key is defined
+        # add kms key to params if reencrypt key is defined and rename backup
         rds_client_params = {
             'SourceDBClusterSnapshotIdentifier': snapshot['DBClusterSnapshotArn'],
             'TargetDBClusterSnapshotIdentifier': backup_id,
@@ -118,8 +118,10 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             'CopyTags': False
         }
         if kms_key is not None:
+            backup_id = f'{backup_id}-re-encrypted'
             rds_client_params['KmsKeyId'] = kms_key
-        
+            rds_client_params['TargetDBClusterSnapshotIdentifier'] = backup_id
+                
         rds_client.copy_db_cluster_snapshot(**rds_client_params)
         return backup_id
 
