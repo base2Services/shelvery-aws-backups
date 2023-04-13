@@ -688,7 +688,7 @@ class ShelveryEngine:
             else:
                 self.logger.info(f"No re-encrypt key detected")
 
-            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            self.share_backup_with_account(backup_region, backup_resource.backup_id, destination_account_id)
             
             self._write_backup_data(
                 backup_resource,
@@ -705,12 +705,12 @@ class ShelveryEngine:
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidDBSnapshotState':
                 # This will occasionally happen due to AWS eventual consistency model
-                self.logger.warn(f"Retrying to share backup {backup_id} ({backup_region}) with account {destination_account_id} due to exception InvalidDBSnapshotState")
+                self.logger.warn(f"Retrying to share backup {backup_resource.backup_id} ({backup_region}) with account {destination_account_id} due to exception InvalidDBSnapshotState")
                 self.share_backup(backup_resource, destination_account_id)
 
             elif e.response['Error']['Code'] == 'InvalidParameterValue':
                 # Some backups may fail to be shared due to AWS limitations
-                self.logger.warn(f"Attempt to share backup '{backup_id}' in ({backup_region}) with account {destination_account_id} failed: {str(e)}")
+                self.logger.warn(f"Attempt to share backup '{backup_resource.backup_id}' in ({backup_region}) with account {destination_account_id} failed: {str(e)}")
             else:
                 self.snspublisher_error.notify({
                     'Operation': 'ShareBackup',
@@ -721,7 +721,7 @@ class ShelveryEngine:
                     'DestinationAccount': kwargs['AwsAccountId']
                 })
                 self.logger.exception(
-                    f"Failed to share backup {backup_id} ({backup_region}) with account {destination_account_id}")
+                    f"Failed to share backup {backup_resource.backup_id} ({backup_region}) with account {destination_account_id}")
 
     def store_backup_data(self, backup_resource: BackupResource):
         """
