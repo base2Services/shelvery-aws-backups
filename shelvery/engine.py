@@ -678,24 +678,33 @@ class ShelveryEngine:
             backup_resource = self.get_backup_resource(backup_region, backup_id)
             
             reencrypt_kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
-            # if a re-encrypt key is provided, create a new re-encrypted snapshot before sharing
+            reencrypt_complete = False
+            
+            # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
             if reencrypt_kms_key is not None:
                 self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {reencrypt_kms_key}")
+                original_backup_resource = backup_resource
                 new_resource_id = self.copy_backup_to_region(backup_id, backup_region)
                 new_backup_resource = self.get_backup_resource(backup_region, new_resource_id)
                 backup_resource = new_backup_resource
                 self.logger.info(f"Created new encrypted backup {backup_resource.backup_id}")
                 # wait till new snapshot is available
                 if not self.wait_backup_available(backup_region=backup_region,
-                                              backup_id=backup_resource.backup_id,
-                                              lambda_method='do_share_backup',
-                                              lambda_args=kwargs):
+                    backup_id=backup_resource.backup_id,
+                    lambda_method='do_share_backup',
+                    lambda_args=kwargs):
                     return
+                reencrypt_complete = True
             else:
                 self.logger.info(f"No re-encrypt key detected")
 
             self.share_backup_with_account(backup_region, backup_resource.backup_id, destination_account_id)
             
+            # if re-encryption occured, clean up old snapshot
+            if reencrypt_complete:
+                # delete old snapshot
+                self.delete_backup(original_backup_resource)
+                
             self._write_backup_data(
                 backup_resource,
                 self._get_data_bucket(backup_region),
@@ -723,7 +732,7 @@ class ShelveryEngine:
                     'Status': 'ERROR',
                     'ExceptionInfo': e.__dict__,
                     'BackupType': self.get_engine_type(),
-                    'BackupId': backup_id,
+                    'BackupId': backup_resource.backup_id,
                     'DestinationAccount': kwargs['AwsAccountId']
                 })
                 self.logger.exception(
