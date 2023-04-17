@@ -171,7 +171,9 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             rds_client_params['CopyTags'] = True
         
         #Overwrite any params as needed
-        rds_client_params.update(kwargs)               
+        rds_client_params.update(kwargs)          
+        
+        self.logger.info(rds_client_params)     
                 
         rds_client.copy_db_cluster_snapshot(**rds_client_params)
         return backup_id    
