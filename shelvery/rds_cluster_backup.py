@@ -126,7 +126,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         if created_new_encrypted_snapshot:
             # delete old snapshot
             self.delete_backup(backup_resource)
-            
+            self.logger.info(f"Cleaning up un-encrypted backup: {backup_resource.backup_id}")
+        
         return backup_id
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
