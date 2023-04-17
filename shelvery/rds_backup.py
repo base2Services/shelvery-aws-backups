@@ -100,24 +100,24 @@ class ShelveryRDSBackup(ShelveryEngine):
         
         # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
         if kms_key:
-            self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {kms_key}")
+            self.logger.info(f"Re-encrypt KMS Key found, creating new encrypted backup with supplied re-encrypt key")
             # create re-encrypted backup
-            backup_id = self.copy_backup_to_region(backup_id, backup_region)
-            self.logger.info(f"Creating new encrypted backup {backup_id}")
+            new_backup_id = self.copy_backup_to_region(backup_id, backup_region)
+            self.logger.info(f"Creating new encrypted backup {new_backup_id}")
             # wait till new snapshot is available
             if not self.wait_backup_available(backup_region=backup_region,
-                backup_id=backup_id,
+                backup_id=new_backup_id,
                 lambda_method='do_share_backup',
                 lambda_args={}):
                 return
-            self.logger.info(f"New encrypted backup {backup_id} created")
+            self.logger.info(f"New encrypted backup {new_backup_id} created")
             created_new_encrypted_snapshot = True
         else:
             self.logger.info(f"No re-encrypt key detected")
             created_new_encrypted_snapshot = False 
         
         rds_client.modify_db_snapshot_attribute(
-            DBSnapshotIdentifier=backup_id,
+            DBSnapshotIdentifier=new_backup_id,
             AttributeName='restore',
             ValuesToAdd=[aws_account_id]
         )
@@ -125,6 +125,13 @@ class ShelveryRDSBackup(ShelveryEngine):
         if created_new_encrypted_snapshot:
             # delete old snapshot
             self.delete_backup(backup_resource)
+            
+            # re-name snapshot to old name
+            rds_client.modify_db_snapshot_attribute(
+                DBSnapshotIdentifier=new_backup_id,
+                AttributeName='dbSnapshotIdentifier',
+                ValuesToAdd=[aws_account_id]
+            )
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
