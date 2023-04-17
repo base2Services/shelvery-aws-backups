@@ -102,8 +102,10 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
         if kms_key:
             self.logger.info(f"Re-encrypt KMS Key found, creating new encrypted backup with supplied re-encrypt key")
-            # create re-encrypted backup
-            new_backup_id = self.copy_backup_to_region(backup_id, backup_region)
+            # create re-encrypted backup            
+            encrypted_backup_params = {'TargetDBClusterSnapshotIdentifier': backup_id+"-re-encrypted"}
+            new_backup_id = self.create_encrypted_backup(backup_id, backup_region)
+            new_backup_resource = self.get_backup_resource(backup_region, new_backup_id)
             self.logger.info(f"Creating new encrypted backup {new_backup_id}")
             # wait till new snapshot is available
             if not self.wait_backup_available(backup_region=backup_region,
@@ -127,14 +129,29 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             # delete old snapshot
             self.delete_backup(backup_resource)
             
-            # re-name snapshot to old name
-            rds_client.modify_db_cluster_snapshot_attribute(
-                DBClusterSnapshotIdentifier=backup_id,
-                AttributeName='dbClusterSnapshotIdentifier',
-                ValuesToAdd=[backup_id]
-            )
-            
+            # create new snapshot to with original name
+            encrypted_backup_params = {'TargetDBClusterSnapshotIdentifier': backup_id}
+            self.create_encrypted_backup(backup_id, backup_region, encrypted_backup_params)
+        
+            # delete previous snapshot
+            self.delete_backup(new_backup_resource)
+    
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
+        local_region = boto3.session.Session().region_name
+        client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
+        rds_client = AwsHelper.boto3_client('rds', region_name=region)
+        snapshots = client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
+        snapshot = snapshots['DBClusterSnapshots'][0]
+        rds_client.copy_db_cluster_snapshot(
+            SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotArn'],
+            TargetDBClusterSnapshotIdentifier=backup_id,
+            SourceRegion=local_region,
+            # tags are created explicitly
+            CopyTags=False
+        )
+        return backup_id
+    
+    def create_encrypted_backup(self, backup_id: str, region: str, **kwargs) -> str:
         local_region = boto3.session.Session().region_name
         client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
         rds_client = AwsHelper.boto3_client('rds', region_name=region)
@@ -150,13 +167,14 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         }
         # add kms key params if re-encrypt key is defined
         if kms_key is not None:
-            backup_id = f'{backup_id}-re-encrypted'
             rds_client_params['KmsKeyId'] = kms_key
             rds_client_params['CopyTags'] = True
-            rds_client_params['TargetDBClusterSnapshotIdentifier'] = backup_id
-                       
+        
+        #Overwrite any params as needed
+        rds_client_params.update(kwargs)               
+                
         rds_client.copy_db_cluster_snapshot(**rds_client_params)
-        return backup_id
+        return backup_id    
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
         rds_client = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
