@@ -96,6 +96,25 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
+        
+        backup_resource = self.get_backup_resource(backup_region, backup_id)
+        kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
+        
+        # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
+        if kms_key:
+            self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {kms_key}")
+        
+            backup_id = self.copy_backup_to_region(backup_id, backup_region)
+            self.logger.info(f"Created new encrypted backup {backup_id}")
+            # wait till new snapshot is available
+            if not self.wait_backup_available(backup_region=backup_region,
+                backup_id=backup_id,
+                lambda_method='do_share_backup',
+                lambda_args={}):
+                return
+        else:
+            self.logger.info(f"No re-encrypt key detected")
+
         rds_client.modify_db_cluster_snapshot_attribute(
             DBClusterSnapshotIdentifier=backup_id,
             AttributeName='restore',
@@ -116,13 +135,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             'SourceRegion': local_region,
             'CopyTags': False
         }
-        # add kms key to params if reencrypt key is defined and rename backup
+        # add kms key to params if re-encrypt key is defined
         if kms_key is not None:
             backup_id = f'{backup_id}-re-encrypted'
             rds_client_params['KmsKeyId'] = kms_key
             rds_client_params['CopyTags'] = True
             rds_client_params['TargetDBClusterSnapshotIdentifier'] = backup_id
-                
+                       
         rds_client.copy_db_cluster_snapshot(**rds_client_params)
         return backup_id
 
