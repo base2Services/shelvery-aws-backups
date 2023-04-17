@@ -675,7 +675,9 @@ class ShelveryEngine:
 
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
-            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            new_backup_id = self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            #assign new backup id if new snapshot is created (eg: re-encrypted rds snapshot)
+            backup_id = new_backup_id if new_backup_id else backup_id
             backup_resource = self.get_backup_resource(backup_region, backup_id)
             self._write_backup_data(
                 backup_resource,
