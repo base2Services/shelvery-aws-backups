@@ -95,11 +95,36 @@ class ShelveryRDSBackup(ShelveryEngine):
 
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
+        backup_resource = self.get_backup_resource(backup_region, backup_id)
+        kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
+        
+        # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
+        if kms_key:
+            self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {kms_key}")
+            # create re-encrypted backup
+            backup_id = self.copy_backup_to_region(backup_id, backup_region)
+            self.logger.info(f"Creating new encrypted backup {backup_id}")
+            # wait till new snapshot is available
+            if not self.wait_backup_available(backup_region=backup_region,
+                backup_id=backup_id,
+                lambda_method='do_share_backup',
+                lambda_args={}):
+                return
+            self.logger.info(f"New encrypted backup {backup_id} created")
+            created_new_encrypted_snapshot = True
+        else:
+            self.logger.info(f"No re-encrypt key detected")
+            created_new_encrypted_snapshot = False 
+        
         rds_client.modify_db_snapshot_attribute(
             DBSnapshotIdentifier=backup_id,
             AttributeName='restore',
             ValuesToAdd=[aws_account_id]
         )
+        # if re-encryption occured, clean up old snapshot
+        if created_new_encrypted_snapshot:
+            # delete old snapshot
+            self.delete_backup(backup_resource)
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
@@ -116,7 +141,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             # tags are created explicitly
             'CopyTags': False
         }
-         # add kms key to params if reencrypt key is defined and rename backup
+         # add kms key params if reencrypt key is defined
         if kms_key is not None:
             backup_id = f'{backup_id}-re-encrypted'
             rds_client_params['KmsKeyId'] = kms_key
