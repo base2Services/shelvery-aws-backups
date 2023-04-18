@@ -118,6 +118,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             snapshot_arn = snapshots['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
            
             #Update tags with '-re-encrypted' suffix
+            self.logger.info(f"Updating tags for new snapshot - {backup_id}")
             tags = self.get_backup_resource(backup_region, backup_id).tags
             tags.update({'Name': backup_id, 'shelvery:name': backup_id})
             tag_list = [{'Key': key, 'Value': value} for key, value in tags.items()]

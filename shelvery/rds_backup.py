@@ -111,6 +111,20 @@ class ShelveryRDSBackup(ShelveryEngine):
                 lambda_args={}):
                 return
             self.logger.info(f"New encrypted backup {backup_id} created")
+            
+            #Get new snapshot ARN
+            snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
+            snapshot_arn = snapshots['DBSnapshots'][0]['DBSnapshotArn']
+            
+            #Update tags with '-re-encrypted' suffix
+            self.logger.info(f"Updating tags for new snapshot - {backup_id}")
+            tags = self.get_backup_resource(backup_region, backup_id).tags
+            tags.update({'Name': backup_id, 'shelvery:name': backup_id})
+            tag_list = [{'Key': key, 'Value': value} for key, value in tags.items()]
+            rds_client.add_tags_to_resource(
+                ResourceName=snapshot_arn,
+                Tags=tag_list
+            )
             created_new_encrypted_snapshot = True
         else:
             self.logger.info(f"No re-encrypt key detected")
