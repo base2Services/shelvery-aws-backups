@@ -50,7 +50,7 @@ class ShelveryRDSClusterIntegrationTestCase(unittest.TestCase):
 
        # Complete initial setup and create service client
         initSetup(self,'rds')
-        rdsclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
+        rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
 
 
         #Get cluster name
