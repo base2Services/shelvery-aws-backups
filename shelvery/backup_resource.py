@@ -159,7 +159,7 @@ class BackupResource:
 
     def entity_resource_tags(self):
         return self.entity_resource.tags if self.entity_resource is not None else {}
-
+    
     def calculate_expire_date(self, engine, custom_retention_types=None):
         """Determine expire date, based on 'retention_type' tag"""
         if self.retention_type == BackupResource.RETENTION_DAILY:
@@ -197,11 +197,12 @@ class BackupResource:
         self.__region = region
 
     def set_retention_type(self, retention_type: str):
+        self.retention_type = retention_type
         self.name = '-'.join(self.name.split('-')[0:-1]) + f"-{retention_type}"
         self.tags[f"{self.tags['shelvery:tag_name']}:name"] = self.name
         self.tags['Name'] = self.name
         self.tags[f"{self.tags['shelvery:tag_name']}:retention_type"] = retention_type
-
+    
     @property
     def boto3_tags(self):
         tags = self.tags

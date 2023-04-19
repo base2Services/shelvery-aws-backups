@@ -2,6 +2,7 @@ import abc
 import logging
 import time
 import sys
+from unittest import skip
 
 import botocore
 import yaml
@@ -34,6 +35,13 @@ class ShelveryEngine:
     DEFAULT_KEEP_WEEKLY = 8
     DEFAULT_KEEP_MONTHLY = 12
     DEFAULT_KEEP_YEARLY = 10
+    
+    RETENTION_TYPE_PRECEDENCE = {
+        BackupResource.RETENTION_YEARLY : BackupResource.RETENTION_MONTHLY,
+        BackupResource.RETENTION_MONTHLY : BackupResource.RETENTION_WEEKLY,
+        BackupResource.RETENTION_WEEKLY :  BackupResource.RETENTION_DAILY,
+        BackupResource.RETENTION_DAILY : None
+    }
 
     BACKUP_RESOURCE_TAG = 'create_backup'
 
@@ -173,6 +181,18 @@ class ShelveryEngine:
         self.logger.info(f"Wrote meta for backup {backup.name} of type {self.get_engine_type()} to" +
                          f" s3://{bucket.name}/{s3key}")
 
+    def _verify_retention(self,backup_resource: BackupResource) -> bool:
+        if backup_resource.retention_type == backup_resource.RETENTION_DAILY:
+            return RuntimeConfig.get_keep_daily(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_WEEKLY:
+            return RuntimeConfig.get_keep_weekly(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_MONTHLY:
+            return RuntimeConfig.get_keep_monthly(backup_resource.entity_resource_tags(),self) != 0
+        elif backup_resource.retention_type == backup_resource.RETENTION_YEARLY:
+            return RuntimeConfig.get_keep_yearly(backup_resource.entity_resource_tags(),self) != 0
+        
+        # fail open
+        return True         
 
     ### Top level methods, invoked externally ####
     def create_backups(self) -> List[BackupResource]:
@@ -183,7 +203,7 @@ class ShelveryEngine:
         self.logger.info(f"Collecting entities of type {resource_type} tagged with "
                          f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
         resources = self.get_entities_to_backup(f"{RuntimeConfig.get_tag_prefix()}:{self.BACKUP_RESOURCE_TAG}")
-
+        
         # allows user to select single entity to be backed up
         if RuntimeConfig.get_shelvery_select_entity(self) is not None:
             entity_id = RuntimeConfig.get_shelvery_select_entity(self)
@@ -206,9 +226,33 @@ class ShelveryEngine:
                 copy_resource_tags=RuntimeConfig.copy_resource_tags(self),
                 exluded_resource_tag_keys=RuntimeConfig.get_exluded_resource_tag_keys(self)
             )
+            
             # if retention is explicitly given by runtime environment
             if current_retention_type is not None:
                 backup_resource.set_retention_type(current_retention_type)
+                        
+            # Check whether current retention is allowed, if not try next retention type by precedence
+            skip_backup = False
+
+            # skip validation if custom retention type
+            if backup_resource.retention_type in self.RETENTION_TYPE_PRECEDENCE:
+                # Check whether current retention is allowed, if not try next retention type by precedence
+                while not self._verify_retention(backup_resource):
+                    self.logger.info(f"Retention Type: {backup_resource.retention_type} disabled")
+                    new_retention_type = self.RETENTION_TYPE_PRECEDENCE[backup_resource.retention_type]
+                    self.logger.info(f"Checking whether retention type: {new_retention_type} is permitted")
+                    if new_retention_type:
+                        backup_resource.set_retention_type(new_retention_type)
+                    else:
+                        #Set skip backup to true as daily is set to 0
+                        skip_backup = True
+                        break 
+            else:
+                self.logger.info(f"Skipping retention check as custom retention type {backup_resource.retention_type} was detected")
+
+            # Skip current backup
+            if skip_backup:
+                continue
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
@@ -631,7 +675,10 @@ class ShelveryEngine:
 
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
-            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            new_backup_id = self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            #assign new backup id if new snapshot is created (eg: re-encrypted rds snapshot)
+            backup_id = new_backup_id if new_backup_id else backup_id
+            self.logger.info(f"Shared backup {backup_id} ({backup_region}) with {destination_account_id}")
             backup_resource = self.get_backup_resource(backup_region, backup_id)
             self._write_backup_data(
                 backup_resource,
