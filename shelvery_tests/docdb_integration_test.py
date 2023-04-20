@@ -3,7 +3,6 @@ import sys
 import unittest
 import pytest
 import os
-import traceback
 import boto3
 from botocore.exceptions import WaiterError
 from shelvery.engine import ShelveryEngine
@@ -36,14 +35,6 @@ class TestResourceClass():
     def add_backup_tags(self):
         pass
     
-    @abstractmethod
-    def create_backups(self):
-        pass
-    
-    @abstractmethod
-    def clean_backups(self):
-        pass
-
 class DocDBTestClass(TestResourceClass):
     
     def __init__(self):
@@ -64,20 +55,7 @@ class DocDBTestClass(TestResourceClass):
                     }
                 ]
         )
-        
-    def create_backups(self):
-        try:
-            backups = self.backups_engine.create_backups()
-        except Exception as e:
-            print(e)
-            print(f"Failed with {e}")
-            traceback.print_exc(file=sys.stdout)
-            raise e        
-        return backups
-    
-    def clean_backups(self):
-        self.backups_engine.clean_backups()
-        
+                
     def wait_for_resource(self):
         #TODO Check if this works, else go back to rds waiter for docdb cluster...
         try:
@@ -93,9 +71,7 @@ class DocDBTestClass(TestResourceClass):
             print(error)
             raise error
 
-
 ######## Test Case
-
 class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
     """Shelvery DocDB Backups Integration shelvery tests"""
     
@@ -104,7 +80,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
 
     def setUp(self):
         # Complete initial setup
-        setup(self,'docdb')
+        setup(self, service_name='docdb')
 
         # Instantiate resource test class
         test_resource_class = DocDBTestClass()
@@ -152,7 +128,6 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
        # Create test resource class
         test_resource_class = DocDBTestClass()
         backups_engine = test_resource_class.backups_engine
-        client = boto3.client('docdb')# DocDBTestClass().client()
         
         # Create backups
         backups =  backups_engine.create_backups() 
@@ -176,7 +151,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         # Create test resource class
         test_resource_class = DocDBTestClass()
         backups_engine = test_resource_class.backups_engine
-        client = boto3.client('docdb')# DocDBTestClass().client()
+        client = DocDBTestClass().client()
         
         print("Creating Shared Backups")
         backups = backups_engine.create_backups()
