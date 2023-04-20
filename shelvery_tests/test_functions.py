@@ -11,7 +11,7 @@ import boto3
 import time
 import yaml
 from shelvery_tests.conftest import destination_account, source_account
-from shelvery_tests.cleanup_functions import cleanEC2Snapshots, clea
+from shelvery_tests.cleanup_functions import cleanEC2Snapshots
 
 def add_backup_tags(client,resource_name,tag_value):
     response = client.add_tags_to_resource(
