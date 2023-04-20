@@ -57,9 +57,9 @@ class DocDBTestClass(ResourceClass):
         )
                 
     def wait_for_resource(self):
-        #TODO Check if this works, else go back to rds waiter for docdb cluster...
+        waiter = AwsHelper.boto3_client('rds', region_name='ap-southeast-2').get_waiter('db_cluster_available')
         try:
-            self.client.get_waiter('db_cluster_available').wait(
+            waiter.wait(
                 DBClusterIdentifier=self.resource_name,
                 WaiterConfig={
                     'Delay': 30,
