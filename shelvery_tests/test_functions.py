@@ -36,7 +36,6 @@ def createBackupTags(client,resource_list,tag_value):
 
 def setup_test(self):
     print(f"Setting up integration test")
-    self.created_snapshots = []
     self.share_with_id = destination_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
