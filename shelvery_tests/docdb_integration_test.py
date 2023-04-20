@@ -10,7 +10,7 @@ from shelvery.runtime_config import RuntimeConfig
 from shelvery_tests.resources import DOCDB_RESOURCE_NAME
 from shelvery_tests.conftest import destination_account
 
-from shelvery_tests.test_functions import setup_test, compare_backups
+from shelvery_tests.test_functions import setup_source, compare_backups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -81,21 +81,21 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
     def setUp(self):
         # Complete initial setup
         self.created_snapshots = []
-        setup_test(self)
+        setup_source(self)
         # Instantiate resource test class
-        test_resource_class = DocDBTestClass()
+        docdb_test_class = DocDBTestClass()
         # Wait till DocDB Cluster is in an available state
-        test_resource_class.wait_for_resource()
+        docdb_test_class.wait_for_resource()
         # Add tags to indicate backup
-        test_resource_class.add_backup_tags()
+        docdb_test_class.add_backup_tags()
 
     @pytest.mark.source
     def test_CleanupDocDbBackup(self):
         print(f"Doc DB - Running cleanup test")
         # Create test resource class
-        test_resource_class = DocDBTestClass()
-        backups_engine = test_resource_class.backups_engine
-        client = boto3.client('docdb')# DocDBTestClass().client()
+        docdb_test_class = DocDBTestClass()
+        backups_engine = docdb_test_class.backups_engine
+        client = docdb_test_class.client()
         # Create backups
         backups =  backups_engine.create_backups() 
         # Clean backups
@@ -105,7 +105,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
             snapshot
             for backup in backups
             for snapshot in client.describe_db_cluster_snapshots(
-                DBClusterIdentifier=test_resource_class.resource_name,
+                DBClusterIdentifier=docdb_test_class.resource_name,
                 DBClusterSnapshotIdentifier=backup.backup_id
             )["DBClusterSnapshots"]
         ]
@@ -115,65 +115,62 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
 
     @pytest.mark.source
     def test_CreateDocDbBackup(self):
-        print(f"Doc DB - Running backup test")
-       # Create test resource class
-        test_resource_class = DocDBTestClass()
-        backups_engine = test_resource_class.backups_engine
-        # Create backups
-        backups =  backups_engine.create_backups() 
-        print("Created Doc DB Cluster backups")
-        valid = False
+        # Instantiate test resource class
+        docdb_test_class = DocDBTestClass()
+        backups_engine = docdb_test_class.backups_engine
         
+        # Create backups
+        backups = backups_engine.create_backups()
+        print(f"Created {len(backups)} backups for Doc DB cluster")
+        
+        # Compare backups
         for backup in backups:
-            valid = compare_backups(self=self,
-                           backup=backup,
-                           backup_engine=backups_engine
-                           )
-            self.assertTrue(valid)
+            valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
+            self.assertTrue(valid, f"Backup {backup} is not valid")
 
     @pytest.mark.source
     @pytest.mark.share
     def test_ShareDocDbBackup(self):
-        print(f"Doc DB - Running share backup test")
-        # Create test resource class
-        test_resource_class = DocDBTestClass()
-        backups_engine = test_resource_class.backups_engine
-        client = test_resource_class.client
-        print("Creating Shared Backups")
+        print("Running Doc DB share backup test")
+
+        # Instantiate test resource class
+        docdb_test_class = DocDBTestClass()
+        backups_engine = docdb_test_class.backups_engine
+        client = docdb_test_class.client
+
+        print("Creating shared backups")
         backups = backups_engine.create_backups()
-        print("Shared backups created")
- 
+        print(f"{len(backups)} shared backups created")
+
         for backup in backups:
             snapshot_id = backup.backup_id
-            print(f"Testing if snapshot {snapshot_id} is shared with {self.share_with_id}")
-            # Retrieve snapshots
-            snapshots = [
-                snapshot
-                for backup in backups
-                for snapshot in client.describe_db_cluster_snapshots(
-                    DBClusterIdentifier=test_resource_class.resource_name,
-                    DBClusterSnapshotIdentifier=backup.backup_id
-                )["DBClusterSnapshots"]
-            ]
+            print(f"Checking if snapshot {snapshot_id} is shared with {self.share_with_id}")
 
-            print(f"Snapshots: {snapshots}")
+            # Retrieve snapshots
+            snapshots = client.describe_db_cluster_snapshots(
+                DBClusterIdentifier=docdb_test_class.resource_name,
+                DBClusterSnapshotIdentifier=backup.backup_id
+            )["DBClusterSnapshots"]
+
             # Get attributes of snapshot
             attributes = client.describe_db_cluster_snapshot_attributes(
                 DBClusterSnapshotIdentifier=snapshot_id
             )['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
-            # Validate Restore attribute exists indicating restoreable snapshot
-            restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
-            print(f"Attributes: {restore_attribute}")
-
-            #Assert Snapshot exist
-            self.assertTrue(len(snapshots['DBClusterSnapshots']) == 1)
-            #Assert that snapshot is shared with dest account
-            self.assertTrue(destination_account in restore_attribute)
             
+            # Check if snapshot is shared with destination account
+            shared_with_destination = any(
+                attr['AttributeName'] == 'restore' and self.share_with_id in attr['AttributeValues']
+                for attr in attributes
+            )
+            
+            # Assertions
+            self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
+            self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
+        
     def tearDown(self):
         print("doc db - tear down doc db snapshot")
-        test_resource_class = DocDBTestClass()
-        client = test_resource_class.client
+        docdb_test_class = DocDBTestClass()
+        client = docdb_test_class.client
         for snapid in self.created_snapshots:
             print(f"Deleting snapshot {snapid}")
             try:

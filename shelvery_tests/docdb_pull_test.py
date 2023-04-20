@@ -1,70 +1,50 @@
-# import sys
-# import traceback
-# import unittest
-# import pytest
-# import yaml
+import sys
+import unittest
+import os
+import pytest
 
-# import boto3
-# import os
-# import time
-# import botocore
-# from datetime import datetime
+pwd = os.path.dirname(os.path.abspath(__file__))
 
-# from shelvery_tests.test_functions import addBackupTags
+sys.path.append(f"{pwd}/..")
+sys.path.append(f"{pwd}/../shelvery")
+sys.path.append(f"{pwd}/shelvery")
+sys.path.append(f"{pwd}/lib")
+sys.path.append(f"{pwd}/../lib")
 
-# pwd = os.path.dirname(os.path.abspath(__file__))
+from shelvery_tests.docdb_integration_test import DocDBTestClass
+from shelvery_tests.test_functions import setup_destination
 
-# sys.path.append(f"{pwd}/..")
-# sys.path.append(f"{pwd}/../shelvery")
-# sys.path.append(f"{pwd}/shelvery")
-# sys.path.append(f"{pwd}/lib")
-# sys.path.append(f"{pwd}/../lib")
-
-# from shelvery.documentdb_backup import ShelveryDocumentDbBackup
-# from shelvery.engine import ShelveryEngine
-# from shelvery.engine import S3_DATA_PREFIX
-# from shelvery.runtime_config import RuntimeConfig
-# from shelvery.backup_resource import BackupResource
-# from shelvery.aws_helper import AwsHelper
-# from shelvery_tests.conftest import source_account
-# from shelvery_tests.cleanup_functions import cleanDocDBSnapshots
-
-# #Need to add 'source acc' to env 
-# #Call create_data_bucket
-# #How to cleanup source account after running in dest?
-
-# class ShelveryDocDBPullTestCase(unittest.TestCase):
+class ShelveryDocDBPullTestCase(unittest.TestCase):
     
-#     # @pytest.mark.destination
-#     def test_PullDocDbBackup(self):
-#         os.environ['SHELVERY_MONO_THREAD'] = '1'
-      
-#         cleanDocDBSnapshots()
-
-#         source_aws_id = source_account
-#         os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
+    @pytest.mark.destination
+    def test_PullDocDbBackup(self):
         
-#         print(f"doc db - Running pull shared backups test")
+        print(f"Doc DB - Running pull shared backups test")
+        setup_destination()
     
-#         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
-#         docdb_cluster_backup_engine = ShelveryDocumentDbBackup()
- 
-#         print("Pulling shared backups")
-#         docdb_cluster_backup_engine.pull_shared_backups()
+        # Instantiate test resource class
+        docdb_test_class = DocDBTestClass()
+        backups_engine = docdb_test_class.backups_engine
+        client = docdb_test_class.client
 
-#         #Get post-pull snapshot count
-#         pulled_snapshot = docdbclient.describe_db_cluster_snapshots(
-#             DBClusterIdentifier='shelvery-test-docdb',
-#             SnapshotType='Manual'
-#         )
-       
-#         print("PULLED:" + str(pulled_snapshot))
+        # Pull shared backups
+        backups_engine.pull_shared_backups()
 
-#         self.assertTrue(len(pulled_snapshot['DBClusterSnapshots']) == 1)
+        # Get post-pull snapshot count
+        pulled_snapshots = client.describe_db_cluster_snapshots(
+            DBClusterIdentifier='shelvery-test-docdb',
+            SnapshotType='Manual'
+        )
 
-#     # @pytest.mark.cleanup
-#     def test_cleanup(self):
-#         cleanDocDBSnapshots()
+        # Verify that only one snapshot was pulled
+        self.assertEqual(len(pulled_snapshots['DBClusterSnapshots']), 1)
 
+    @pytest.mark.cleanup
+    def test_cleanup(self):
+        # Instantiate test resource class
+        test_resource_class = DocDBTestClass()
+        backups_engine = test_resource_class.backups_engine
+
+        backups_engine.clean_backups()
 
     

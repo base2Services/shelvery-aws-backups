@@ -1,21 +1,21 @@
 from shelvery.aws_helper import AwsHelper
+from shelvery_tests.resources import DOCDB_RESOURCE_NAME
 
 def cleanDocDBSnapshots():
     print("Cleaning up DocDB Snapshots")
 
-    docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
+    client = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
 
-    snapshots = docdbclient.describe_db_cluster_snapshots(
-        DBClusterIdentifier='shelvery-test-docdb',
+    snapshots = client.describe_db_cluster_snapshots(
+        DBClusterIdentifier=DOCDB_RESOURCE_NAME,
         SnapshotType='Manual'
     )['DBClusterSnapshots']
 
     for snapshot in snapshots:
         snapid = snapshot['DBClusterSnapshotIdentifier']
-
         try:
             print(f"Deleting snapshot: {snapid}")
-            docdbclient.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapid)
+            client.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapid)
         except Exception as e:
             print(f"Failed to delete {snapid}:{str(e)}")
 
