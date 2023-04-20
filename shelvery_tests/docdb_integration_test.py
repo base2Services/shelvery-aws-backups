@@ -8,7 +8,7 @@ import boto3
 from botocore.exceptions import WaiterError
 from shelvery.engine import ShelveryEngine
 from shelvery.runtime_config import RuntimeConfig
-from resources import DOCDB_RESOURCE_NAME
+from shelvery_tests.resources import DOCDB_RESOURCE_NAME
 from shelvery_tests.conftest import destination_account
 
 from shelvery_tests.test_functions import setup, compare_backups
