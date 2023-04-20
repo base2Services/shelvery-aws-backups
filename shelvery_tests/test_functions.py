@@ -11,7 +11,7 @@ import boto3
 import time
 import yaml
 from shelvery_tests.conftest import destination_account, source_account
-from shelvery_tests.cleanup_functions import cleanEC2Snapshots, cleanDocDBSnapshots
+from shelvery_tests.cleanup_functions import cleanEC2Snapshots, clea
 
 def add_backup_tags(client,resource_name,tag_value):
     response = client.add_tags_to_resource(
@@ -36,7 +36,8 @@ def createBackupTags(client,resource_list,tag_value):
 
 def setup_source(self):
     print(f"Setting up integration test")
-    os.environ["shelvery_share_aws_account_ids"] = destination_account
+    self.share_with_id = destination_account
+    os.environ["shelvery_share_aws_account_ids"] = source_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
     os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
@@ -48,12 +49,13 @@ def setup_source(self):
 
 def setup_destination(self):
     print(f"Setting up integration test")
-    os.environ["shelvery_source_aws_account_ids"] = source_account
+
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
     os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
     os.environ['shelvery_current_retention_type'] = 'shortLived'
-
+    os.environ["shelvery_source_aws_account_ids"] = source_account
+    
     sts = AwsHelper.boto3_client('sts')
     self.id = sts.get_caller_identity()
     print(f"Running as user:\n{self.id}\n")

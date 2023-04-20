@@ -95,7 +95,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
         # Create test resource class
         docdb_test_class = DocDBTestClass()
         backups_engine = docdb_test_class.backups_engine
-        client = docdb_test_class.client()
+        client = docdb_test_class.client
         # Create backups
         backups =  backups_engine.create_backups() 
         # Clean backups
