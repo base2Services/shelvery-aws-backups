@@ -17,21 +17,21 @@ Resources:
   #     MasterUserPassword: azxcv0987poiu4321
   #     AllocatedStorage: '100'
 
-  # RDSClusterInstance:
-  #   Type: AWS::RDS::DBCluster
-  #   Properties:
-  #     Engine: aurora-postgresql
-  #     MasterUsername: asdf9876lkjh4312
-  #     MasterUserPassword: azxcv0987poiu4321
-  #     DBClusterIdentifier: shelvery-test-rds-cluster
-  
-  DocDBInstance:
-    Type: AWS::DocDB::DBCluster
+  RDSClusterInstance:
+    Type: AWS::RDS::DBCluster
     Properties:
+      Engine: aurora-postgresql
       MasterUsername: asdf9876lkjh4312
       MasterUserPassword: azxcv0987poiu4321
-      StorageEncrypted: false
-      DBClusterIdentifier: shelvery-test-docdb
+      DBClusterIdentifier: shelvery-test-rds-cluster
+  
+  # DocDBInstance:
+  #   Type: AWS::DocDB::DBCluster
+  #   Properties:
+  #     MasterUsername: asdf9876lkjh4312
+  #     MasterUserPassword: azxcv0987poiu4321
+  #     StorageEncrypted: false
+  #     DBClusterIdentifier: shelvery-test-docdb
   
   # EC2AmiInstance:
   #   Type: AWS::EC2::Instance
