@@ -325,6 +325,9 @@ backups
                                Note that when copying to a new key, the shelvery requires access to both the new key and the original key.
                                The full KMS key ARN should be supplied.
 
+- `shelvery_reencrypt_kms_key_id`  - when it is required to re-encrypt a RDS instance or cluster snapshot with a different KMS key 
+                                than that of the existing resource. Specify the ARN of the KMS Key.
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text

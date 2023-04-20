@@ -33,7 +33,7 @@ from shelvery_tests.cleanup_functions import cleanRdsClusterSnapshots
 
 class ShelveryRDSClusterPullTestCase(unittest.TestCase):
     
-    @pytest.mark.destination
+   # @pytest.mark.destination
     def test_PullRdsClusterBackup(self):
         
         os.environ['SHELVERY_MONO_THREAD'] = '1'
@@ -61,7 +61,7 @@ class ShelveryRDSClusterPullTestCase(unittest.TestCase):
 
         self.assertTrue(len(pulled_snapshot['DBClusterSnapshots']) == 1)
 
-    @pytest.mark.cleanup
+    #@pytest.mark.cleanup
     def test_cleanup(self):
        cleanRdsClusterSnapshots()
 

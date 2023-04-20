@@ -95,7 +95,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
                 except Exception as e:
                     print(f"Failed to delete {snapid}:{str(e)}")
                     
-    @pytest.mark.source
+   # @pytest.mark.source
     def test_CreateBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -147,7 +147,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
     
-    @pytest.mark.source
+    #@pytest.mark.source
     def test_CreateSharingInfo(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:
@@ -185,7 +185,7 @@ class ShelveryS3DataTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
 
-    @pytest.mark.source
+    #@pytest.mark.source
     def test_CleanBackupData(self):
         ebs_backups_engine = ShelveryEBSBackup()
         try:

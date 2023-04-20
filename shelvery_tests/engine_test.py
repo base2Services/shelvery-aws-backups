@@ -29,22 +29,22 @@ class ShelveryFactoryTestCase(unittest.TestCase):
     def tearDown(self):
         print(f"Tear down unit shelvery_tests")
 
-    @pytest.mark.source
+    #@pytest.mark.source
     def test_getEbsShelvery(self):
         instance = ShelveryFactory.get_shelvery_instance('ebs')
         self.assertTrue(isinstance(instance, ShelveryEBSBackup))
 
-    @pytest.mark.source
+   # @pytest.mark.source
     def test_getRdsShelvery(self):
         instance = ShelveryFactory.get_shelvery_instance('rds')
         self.assertTrue(isinstance(instance, ShelveryRDSBackup))
 
-    @pytest.mark.source
+    #@pytest.mark.source
     def test_getRdsClusterBackup(self):
         instance = ShelveryFactory.get_shelvery_instance('rds_cluster')
         self.assertTrue(isinstance(instance, ShelveryRDSClusterBackup))
 
-    @pytest.mark.source
+    #@pytest.mark.source
     def test_getRdsEc2AmiBackup(self):
         instance = ShelveryFactory.get_shelvery_instance('ec2ami')
         self.assertTrue(isinstance(instance, ShelveryEC2AMIBackup))

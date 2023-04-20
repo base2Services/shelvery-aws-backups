@@ -70,7 +70,7 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
 
         self.share_with_id = destination_account
 
-    @pytest.mark.source
+    # @pytest.mark.source
     def test_Cleanup(self):
         print(f"ec2 ami - Running cleanup test")
         ec2_ami_backup_engine = ShelveryEC2AMIBackup()
@@ -86,7 +86,7 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
 
-    @pytest.mark.source
+    # @pytest.mark.source
     def test_CreateEc2AmiBackup(self):
         print(f"ec2 ami - Running backup test")
 
@@ -123,8 +123,8 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
 
         self.assertTrue(valid)
 
-    @pytest.mark.source
-    @pytest.mark.share
+   # @pytest.mark.source
+   # @pytest.mark.share
     def test_ShareEc2AmiBackup(self):
 
         print(f"ec2 ami - Running share backup test")

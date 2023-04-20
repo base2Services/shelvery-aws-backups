@@ -1,17 +1,17 @@
+from abc import abstractmethod
 import sys
-import traceback
 import unittest
 import pytest
-import yaml
-
-import boto3
 import os
-import time
-import botocore
-from datetime import datetime
+import traceback
+import boto3
 from botocore.exceptions import WaiterError
+from shelvery.engine import ShelveryEngine
+from shelvery.runtime_config import RuntimeConfig
+from resources import DOCDB_RESOURCE_NAME
+from shelvery_tests.conftest import destination_account
 
-from shelvery_tests.test_functions import addBackupTags, clusterCleanupBackups, clusterShareBackups, compareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
+from shelvery_tests.test_functions import setup, compare_backups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -22,40 +22,67 @@ sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
 from shelvery.documentdb_backup import ShelveryDocumentDbBackup
-from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
-from shelvery.runtime_config import RuntimeConfig
-from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper
-from shelvery_tests.conftest import destination_account
 
 print(f"Python lib path:\n{sys.path}")
+class TestResourceClass():
+    
+    def __init__(self):
+        self.resource_name = None
+        self.backups_engine = None
+        self.client = None
+        
+    @abstractmethod
+    def add_backup_tags(self):
+        pass
+    
+    @abstractmethod
+    def create_backups(self):
+        pass
+    
+    @abstractmethod
+    def clean_backups(self):
+        pass
 
+class DocDBTestClass(TestResourceClass):
+    
+    def __init__(self):
+        self.resource_name = DOCDB_RESOURCE_NAME
+        self.backups_engine = ShelveryDocumentDbBackup()
+        self.client = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
+        self.ARN = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{AwsHelper.local_account_id()}:cluster:{self.resource_name}"
 
-class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
-    """Shelvery DocDB Backups Integration shelvery tests"""
-
-    def id(self):
-        return str(self.__class__)
-
-    def setUp(self):
-        self.created_snapshots = []
-        self.regional_snapshots = {
-            'ap-southeast-1': [],
-            'ap-southeast-2': []
-        }
-        os.environ['SHELVERY_MONO_THREAD'] = '1'
-
-        # Complete initial setup and create service client
-        initSetup(self,'docdb')
-        docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')
-        rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
-
-        #Wait till db is ready
-        waiter = rdsclient.get_waiter('db_cluster_available')
+    def add_backup_tags(self):
+        self.client.add_tags_to_resource(
+            ResourceName=self.ARN,
+            Tags=[{
+                    'Key': f"{RuntimeConfig.get_tag_prefix()}:{ShelveryEngine.BACKUP_RESOURCE_TAG}",
+                    'Value': 'true'
+                    }, 
+                    {'Key': 'Name', 
+                    'Value': self.resource_name
+                    }
+                ]
+        )
+        
+    def create_backups(self):
         try:
-            waiter.wait(
-                DBClusterIdentifier='shelvery-test-docdb',
+            backups = self.backups_engine.create_backups()
+        except Exception as e:
+            print(e)
+            print(f"Failed with {e}")
+            traceback.print_exc(file=sys.stdout)
+            raise e        
+        return backups
+    
+    def clean_backups(self):
+        self.backups_engine.clean_backups()
+        
+    def wait_for_resource(self):
+        #TODO Check if this works, else go back to rds waiter for docdb cluster...
+        try:
+            self.client.get_waiter('db_cluster_available').wait(
+                DBClusterIdentifier=self.resource_name,
                 WaiterConfig={
                     'Delay': 30,
                     'MaxAttempts': 50
@@ -66,79 +93,127 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
             print(error)
             raise error
 
- 
-        #Get cluster name
-        clustername = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster:shelvery-test-docdb"
 
-        #Add tags to indicate backup
-        addBackupTags(docdbclient,
-                      clustername,
-                      "shelvery-test-docdb")
+######## Test Case
 
-        self.share_with_id = destination_account
+class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
+    """Shelvery DocDB Backups Integration shelvery tests"""
+    
+    def id(self):
+        return str(self.__class__)
+
+    def setUp(self):
+        # Complete initial setup
+        setup(self,'docdb')
+
+        # Instantiate resource test class
+        test_resource_class = DocDBTestClass()
+
+        # Wait till DocDB Cluster is in an available state
+        test_resource_class.wait_for_resource()
+
+        # Add tags to indicate backup
+        test_resource_class.add_backup_tags()
 
     @pytest.mark.source
-    def test_Cleanup(self):
-        print(f"doc db - Running cleanup test")
-        docdb_backups_engine = ShelveryDocumentDbBackup()
-        backups = initCleanup(docdb_backups_engine)
-        docdb_client = AwsHelper.boto3_client('docdb')
-
-        valid = False
-        for backup in backups:
-            valid = clusterCleanupBackups(self=self,
-                                  backup=backup,
-                                  backup_engine=docdb_backups_engine,
-                                  resource_client=docdb_client)
-
-            valid = True
+    def test_CleanupDocDbBackup(self):
+        print(f"Doc DB - Running cleanup test")
         
-        self.assertTrue(valid)
+        # Create test resource class
+        test_resource_class = DocDBTestClass()
+        backups_engine = test_resource_class.backups_engine
+        client = boto3.client('docdb')# DocDBTestClass().client()
+        
+        # Create backups
+        backups =  backups_engine.create_backups() 
+        
+        # Clean backups
+        backups_engine.clean_backups()
+        
+        # Retrieve remaining backups 
+        snapshots = [
+            snapshot
+            for backup in backups
+            for snapshot in client.describe_db_cluster_snapshots(
+                DBClusterIdentifier=test_resource_class.resource_name,
+                DBClusterSnapshotIdentifier=backup.backup_id
+            )["DBClusterSnapshots"]
+        ]
+        
+        print(f"Snapshots: {snapshots}")
+        
+        self.assertTrue(len(snapshots) == 0)
 
     @pytest.mark.source
     def test_CreateDocDbBackup(self):
 
-        print(f"docdb - Running backup test")
+        print(f"Doc DB - Running backup test")
 
-        docdb_cluster_backup_engine = ShelveryDocumentDbBackup()
-        print(f"docdb - Shelvery backup initialised")
+       # Create test resource class
+        test_resource_class = DocDBTestClass()
+        backups_engine = test_resource_class.backups_engine
+        client = boto3.client('docdb')# DocDBTestClass().client()
         
-        backups = initCreateBackups(docdb_cluster_backup_engine)
+        # Create backups
+        backups =  backups_engine.create_backups() 
+        
         print("Created Doc DB Cluster backups")
 
         valid = False
         
-        # validate there is
         for backup in backups:
-            valid = compareBackups(self=self,
+            valid = compare_backups(self=self,
                            backup=backup,
-                           backup_engine=docdb_cluster_backup_engine
+                           backup_engine=backups_engine
                            )
-        self.assertTrue(valid)
+            self.assertTrue(valid)
 
     @pytest.mark.source
     @pytest.mark.share
     def test_ShareDocDbBackup(self):
-        print(f"doc db - Running share backup test")
-        docdb_cluster_backup_engine = ShelveryDocumentDbBackup()
-
-        print("Creating shared backups")
-        backups = initShareBackups(docdb_cluster_backup_engine, str(self.share_with_id))
-
-        print("Shared backups created")
-
-        valid = False
-        # validate there is
-        for backup in backups:
-            valid = clusterShareBackups(self=self,
-                                       backup=backup,
-                                       service='docdb'
-            )
-
+        print(f"Doc DB - Running share backup test")
         
+        # Create test resource class
+        test_resource_class = DocDBTestClass()
+        backups_engine = test_resource_class.backups_engine
+        client = boto3.client('docdb')# DocDBTestClass().client()
+        
+        print("Creating Shared Backups")
+        backups = backups_engine.create_backups()
+        print("Shared backups created")
+ 
+        for backup in backups:
+            snapshot_id = backup.backup_id
+            print(f"Testing if snapshot {snapshot_id} is shared with {self.share_with_id}")
+            
+            # Retrieve snapshots
+            snapshots = [
+                snapshot
+                for backup in backups
+                for snapshot in client.describe_db_cluster_snapshots(
+                    DBClusterIdentifier=test_resource_class.resource_name,
+                    DBClusterSnapshotIdentifier=backup.backup_id
+                )["DBClusterSnapshots"]
+            ]
 
-        self.assertTrue(valid)
-   
+            print(f"Snapshots: {snapshots}")
+            
+            # Get attributes of snapshot
+            attributes = client.describe_db_cluster_snapshot_attributes(
+                DBClusterSnapshotIdentifier=snapshot_id
+            )['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
+            
+            # Validate Restore attribute exists indicating restoreable snapshot
+            restore_attribute = [attr for attr in attributes if attr['AttributeName'] == 'restore'][0]['AttributeValues']
+
+            print("Attributes: " + str(restore_attribute))
+
+            #Assert Snapshot exist
+            self.assertTrue(len(snapshots['DBClusterSnapshots']) == 1)
+
+            #Assert that snapshot is shared with dest account
+            self.assertTrue(destination_account in restore_attribute)
+            
     def tearDown(self):
         print("doc db - tear down doc db snapshot")
         docdbclient = AwsHelper.boto3_client('docdb', region_name='ap-southeast-2')

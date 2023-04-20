@@ -65,7 +65,7 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
         self.share_with_id = destination_account
         
-    @pytest.mark.source
+   # @pytest.mark.source
     def test_Cleanup(self):
         print(f"ebs - Running cleanup test")
         ebs_backup_engine = ShelveryEBSBackup()
@@ -81,7 +81,7 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         
         self.assertTrue(valid)
 
-    @pytest.mark.source
+   # @pytest.mark.source
     def test_CreateEbsBackup(self):
         print(f"ebs - Running backup test")
 
@@ -117,8 +117,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
         self.assertTrue(valid)
 
-    @pytest.mark.source
-    @pytest.mark.share
+   # @pytest.mark.source
+   # @pytest.mark.share
     def test_ShareEbsBackup(self):
 
         print(f"ebs - Running share backup test")

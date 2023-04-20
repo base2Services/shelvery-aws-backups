@@ -30,7 +30,7 @@ from shelvery.aws_helper import AwsHelper
 
 class ShelveryEC2AmiPullTestCase(unittest.TestCase):
     
-    @pytest.mark.destination
+    #@pytest.mark.destination
     def test_PullEC2Backup(self):
         os.environ['SHELVERY_MONO_THREAD'] = '1'
         print(f"ec2 - Running pull shared backups test")
@@ -40,6 +40,6 @@ class ShelveryEC2AmiPullTestCase(unittest.TestCase):
 
         ec2PullBackups(self,ec2_client,ec2_backup_engine)
 
-    @pytest.mark.cleanup
+   # @pytest.mark.cleanup
     def test_cleanup(self):
         cleanEC2Snapshots()

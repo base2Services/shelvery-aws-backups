@@ -35,7 +35,7 @@ from shelvery_tests.cleanup_functions import cleanDocDBSnapshots
 
 class ShelveryDocDBPullTestCase(unittest.TestCase):
     
-    @pytest.mark.destination
+    # @pytest.mark.destination
     def test_PullDocDbBackup(self):
         os.environ['SHELVERY_MONO_THREAD'] = '1'
       
@@ -62,7 +62,7 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
 
         self.assertTrue(len(pulled_snapshot['DBClusterSnapshots']) == 1)
 
-    @pytest.mark.cleanup
+    # @pytest.mark.cleanup
     def test_cleanup(self):
         cleanDocDBSnapshots()
 

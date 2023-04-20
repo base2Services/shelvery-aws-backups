@@ -1,8 +1,5 @@
 #Functions used to compare snapshots/clusters/instances 
 from datetime import datetime
-from turtle import back
-from warnings import filters
-from xml.dom import pulldom
 from shelvery.backup_resource import BackupResource
 from shelvery.engine import ShelveryEngine
 from shelvery.runtime_config import RuntimeConfig
@@ -13,14 +10,10 @@ import os
 import boto3
 import time
 import yaml
-import pytest
 from shelvery_tests.conftest import destination_account, source_account
 from shelvery_tests.cleanup_functions import cleanEC2Snapshots
-# Compare backup cluster with aws cluster
 
-# Compare rds snap with backup snap etc
-
-def addBackupTags(client,resource_name,tag_value):
+def add_backup_tags(client,resource_name,tag_value):
     response = client.add_tags_to_resource(
             ResourceName=resource_name,
             Tags=[{
@@ -41,27 +34,20 @@ def createBackupTags(client,resource_list,tag_value):
         )
     return response
 
-def initSetup(self,service_name):
-    print(f"Setting up {service_name} integration test")
+def setup(self,service_name):
+    print(f"Starting {service_name} integration test")
+    self.created_snapshots = []
+    self.share_with_id = destination_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
+    os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
+    os.environ['shelvery_current_retention_type'] = 'shortLived'
     
     sts = AwsHelper.boto3_client('sts')
     self.id = sts.get_caller_identity()
     print(f"Running as user:\n{self.id}\n")
 
-def initCreateBackups(backup_engine):
-    try:
-        backups = backup_engine.create_backups()
-    except Exception as e:
-        print(e)
-        print(f"Failed with {e}")
-        traceback.print_exc(file=sys.stdout)
-        raise e
-
-    return backups
-
-def initShareBackups(backup_engine, share_with_id):
+def share_backups(backup_engine, share_with_id):
         try:
             os.environ["shelvery_share_aws_account_ids"] = str(share_with_id)
             backups = backup_engine.create_backups()
@@ -75,21 +61,12 @@ def initShareBackups(backup_engine, share_with_id):
 
         return backups
 
-def initCleanup(backup_engine):
-    try:
-        backups = backup_engine.create_backups()
-    except Exception as e:
-        print(e)
-        print(f"Failed with {e}")
-        traceback.print_exc(file=sys.stdout)
-        raise e        
 
-    return backups
-
-def compareBackups(self,backup,backup_engine):
+def compare_backups(self,backup,backup_engine):
     print("Inside backup loop" + backup.backup_id)
     snapshot_id = backup.backup_id
     self.created_snapshots.append(snapshot_id)
+    print("Snapshot:" + str(snapshot_id))
 
     # wait for snapshot to become available
     backup_engine.wait_backup_available(backup.region, backup.backup_id, None, None)
@@ -103,7 +80,7 @@ def compareBackups(self,backup,backup_engine):
     account_id = backup_engine.account_id
     s3path = f"backups/{backup_engine.get_engine_type()}/{engine_backup.name}.yaml"
     s3bucket = backup_engine.get_local_bucket_name()
-    print(f"Usingbucket {s3bucket}")
+    print(f"Using bucket {s3bucket}")
     print(f"Using path {s3path}")
     bucket = boto3.resource('s3').Bucket(s3bucket)
     object = bucket.Object(s3path)
@@ -123,7 +100,7 @@ def compareBackups(self,backup,backup_engine):
     
     return True
 
-def clusterShareBackups(self, backup, service):
+def cluster_share_backups(self, backup, service):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
@@ -155,7 +132,7 @@ def clusterShareBackups(self, backup, service):
 
     return True
 
-def clusterCleanupBackups(self, backup, backup_engine, resource_client):
+def cluster_cleanup_backups(self, backup, backup_engine, resource_client):
     snapshot_id = backup.backup_id
       
     #Get source snapshot
@@ -196,7 +173,7 @@ def clusterCleanupBackups(self, backup, backup_engine, resource_client):
 
     return True
 
-def instanceShareBackups(self,backup):
+def instance_share_backups(self,backup):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
@@ -228,7 +205,7 @@ def instanceShareBackups(self,backup):
 
     return True
 
-def instanceCleanupBackups(self,backup,backup_engine,service_client):
+def instance_cleanup_backups(self,backup,backup_engine,service_client):
     snapshot_id = backup.backup_id
       
     #Get source snapshot
@@ -269,7 +246,7 @@ def instanceCleanupBackups(self,backup,backup_engine,service_client):
 
     return True
 
-def ec2ShareBackups(self,backup):
+def ec2_share_backups(self,backup):
     print(f"BackupId={backup.backup_id}")
     print(f"Accountd={backup.account_id}")
 
@@ -309,7 +286,7 @@ def ec2ShareBackups(self,backup):
 
     return True
 
-def ebsCleanupBackups(self,backup,backup_engine,service_client):
+def ebs_cleanup_backups(self,backup,backup_engine,service_client):
     snapshot_id = backup.name
       
     #Get pre-cleanup snapshots
@@ -356,7 +333,7 @@ def ebsCleanupBackups(self,backup,backup_engine,service_client):
 
     return True
 
-def ec2CleanupBackups(self,backup,backup_engine,service_client):
+def ec2_cleanup_backups(self,backup,backup_engine,service_client):
     snapshot_id = backup.name
       
     #Get pre-cleanup snapshots
@@ -407,7 +384,7 @@ def ec2CleanupBackups(self,backup,backup_engine,service_client):
 
     return True
    
-def ebsPullBackups(self, service_client, backup_engine, db_identifier):
+def ebs_pull_backups(self, service_client, backup_engine, db_identifier):
      
     cleanEC2Snapshots()
 
@@ -442,7 +419,7 @@ def ebsPullBackups(self, service_client, backup_engine, db_identifier):
     print(pulled_snapshots)
     self.assertTrue(len(pulled_snapshots) == 1)
 
-def ec2PullBackups(self, service_client, backup_engine):
+def ec2_pull_backups(self, service_client, backup_engine):
 
     cleanEC2Snapshots()
 

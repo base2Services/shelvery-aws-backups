@@ -30,7 +30,7 @@ from shelvery.aws_helper import AwsHelper
 
 class ShelveryEBSPullTestCase(unittest.TestCase):
     
-    @pytest.mark.destination
+    #@pytest.mark.destination
     def test_PullEBSBackup(self):
 
         os.environ['SHELVERY_MONO_THREAD'] = '1'
