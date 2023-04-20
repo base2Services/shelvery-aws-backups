@@ -46,7 +46,7 @@ class RDSInstanceTestClass(ResourceClass):
         waiter = AwsHelper.boto3_client('rds', region_name='ap-southeast-2').get_waiter('db_instance_available')
         try:
             waiter.wait(
-                DBClusterIdentifier=self.resource_name,
+                DBInstanceIdentifier=self.resource_name,
                 WaiterConfig={
                     'Delay': 30,
                     'MaxAttempts': 50
