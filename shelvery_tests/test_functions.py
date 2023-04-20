@@ -34,8 +34,8 @@ def createBackupTags(client,resource_list,tag_value):
         )
     return response
 
-def setup(self,service_name):
-    print(f"Starting {service_name} integration test")
+def setup_test(self):
+    print(f"Setting up integration test")
     self.created_snapshots = []
     self.share_with_id = destination_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'

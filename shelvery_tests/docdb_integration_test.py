@@ -10,7 +10,7 @@ from shelvery.runtime_config import RuntimeConfig
 from shelvery_tests.resources import DOCDB_RESOURCE_NAME
 from shelvery_tests.conftest import destination_account
 
-from shelvery_tests.test_functions import setup, compare_backups
+from shelvery_tests.test_functions import setup_test, compare_backups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,7 +24,7 @@ from shelvery.documentdb_backup import ShelveryDocumentDbBackup
 from shelvery.aws_helper import AwsHelper
 
 print(f"Python lib path:\n{sys.path}")
-class TestResourceClass():
+class ResourceClass():
     
     def __init__(self):
         self.resource_name = None
@@ -35,7 +35,7 @@ class TestResourceClass():
     def add_backup_tags(self):
         pass
     
-class DocDBTestClass(TestResourceClass):
+class DocDBTestClass(ResourceClass):
     
     def __init__(self):
         self.resource_name = DOCDB_RESOURCE_NAME
@@ -80,7 +80,7 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
 
     def setUp(self):
         # Complete initial setup
-        setup(self, service_name='docdb')
+        setup_test(self)
 
         # Instantiate resource test class
         test_resource_class = DocDBTestClass()
