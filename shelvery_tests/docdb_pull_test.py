@@ -19,13 +19,17 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
     @pytest.mark.destination
     def test_PullDocDbBackup(self):
         
+        # Complete initial setup
         print(f"Doc DB - Running pull shared backups test")
-        setup_destination()
+        setup_destination(self)
     
         # Instantiate test resource class
         docdb_test_class = DocDBTestClass()
         backups_engine = docdb_test_class.backups_engine
         client = docdb_test_class.client
+        
+        # Clean residual existing snapshots
+        backups_engine.clean_backups()
 
         # Pull shared backups
         backups_engine.pull_shared_backups()
