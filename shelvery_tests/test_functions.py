@@ -37,7 +37,7 @@ def createBackupTags(client,resource_list,tag_value):
 def setup_source(self):
     print(f"Setting up integration test")
     self.share_with_id = destination_account
-    os.environ["shelvery_share_aws_account_ids"] = source_account
+    os.environ["shelvery_share_aws_account_ids"] = destination_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
     os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
