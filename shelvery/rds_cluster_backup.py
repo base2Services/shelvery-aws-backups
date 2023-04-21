@@ -253,7 +253,16 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         # list of resource models
         db_clusters = []
         # temporary list of api models, as calls are batched
-        temp_clusters = rds_client.describe_db_clusters()
+        temp_clusters = rds_client.describe_db_clusters(
+                Filters=[
+                    {
+                        'Name': 'engine',
+                        'Values': [
+                            '-docdb'
+                        ]
+                    }
+                 ]
+        )
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
