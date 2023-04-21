@@ -1,140 +1,170 @@
-# import sys
-# import traceback
-# from turtle import back
-# import unittest
-# import pytest
-# import yaml
+import sys
+import unittest
+import pytest
+import os
+from botocore.exceptions import WaiterError
+from shelvery.engine import ShelveryEngine
+from shelvery.runtime_config import RuntimeConfig
+from shelvery_tests.test_functions import setup_source, compare_backups
+from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
+from shelvery.aws_helper import AwsHelper
+from shelvery_tests.resources import RDS_CLUSTER_RESOURCE_NAME, ResourceClass
 
-# import boto3
-# import os
-# import time
-# import botocore
-# from datetime import datetime
+pwd = os.path.dirname(os.path.abspath(__file__))
 
-# from shelvery_tests.test_functions import clusterCleanupBackups, clusterShareBackups, compareBackups, initCleanup, initCreateBackups, addBackupTags, initShareBackups, initSetup
+sys.path.append(f"{pwd}/..")
+sys.path.append(f"{pwd}/../shelvery")
+sys.path.append(f"{pwd}/shelvery")
+sys.path.append(f"{pwd}/lib")
+sys.path.append(f"{pwd}/../lib")
 
-# pwd = os.path.dirname(os.path.abspath(__file__))
+print(f"Python lib path:\n{sys.path}")
 
-# sys.path.append(f"{pwd}/..")
-# sys.path.append(f"{pwd}/../shelvery")
-# sys.path.append(f"{pwd}/shelvery")
-# sys.path.append(f"{pwd}/lib")
-# sys.path.append(f"{pwd}/../lib")
+class RDSClusterTestClass(ResourceClass):
+    
+    def __init__(self):
+        self.resource_name = RDS_CLUSTER_RESOURCE_NAME
+        self.backups_engine = ShelveryRDSClusterBackup()
+        self.client = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
+        self.ARN = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{AwsHelper.local_account_id()}:cluster:{self.resource_name}"
 
-# from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
-# from shelvery.engine import ShelveryEngine
-# from shelvery.engine import S3_DATA_PREFIX
-# from shelvery.runtime_config import RuntimeConfig
-# from shelvery.backup_resource import BackupResource
-# from shelvery.aws_helper import AwsHelper
-# from shelvery_tests.conftest import destination_account
+    def add_backup_tags(self):
+        self.client.add_tags_to_resource(
+            ResourceName=self.ARN,
+            Tags=[{
+                    'Key': f"{RuntimeConfig.get_tag_prefix()}:{ShelveryEngine.BACKUP_RESOURCE_TAG}",
+                    'Value': 'true'
+                    }, 
+                    {'Key': 'Name', 
+                    'Value': self.resource_name
+                    }
+                ]
+        )
+                
+    def wait_for_resource(self):
+        waiter = AwsHelper.boto3_client('rds', region_name='ap-southeast-2').get_waiter('db_cluster_available')
+        try:
+            waiter.wait(
+                DBClusterIdentifier=self.resource_name,
+                WaiterConfig={
+                    'Delay': 30,
+                    'MaxAttempts': 50
+                }
+            )
+        except WaiterError as error:
+            print("Waiting for RDS Cluster Failed")
+            print(error)
+            raise error
 
 
-# print(f"Python lib path:\n{sys.path}")
+class ShelveryRDSClusterIntegrationTestCase(unittest.TestCase):
+    """Shelvery RDS Cluster Backups Integration shelvery tests"""
+
+    def id(self):
+        return str(self.__class__)
 
 
-# class ShelveryRDSClusterIntegrationTestCase(unittest.TestCase):
-#     """Shelvery RDS Cluster Backups Integration shelvery tests"""
+    def setUp(self):
+        # Complete initial setup
+        self.created_snapshots = []
+        setup_source(self)
+        # Instantiate resource test class
+        rds_cluster_test_class = RDSClusterTestClass()
+        # Wait till RDS Cluster is in an available state
+        rds_cluster_test_class.wait_for_resource()
+        # Add tags to indicate backup
+        rds_cluster_test_class.add_backup_tags()
 
-#     def id(self):
-#         return str(self.__class__)
-
-
-#     def setUp(self):
-#         self.created_snapshots = []
-#         self.regional_snapshots = {
-#             'ap-southeast-1': [],
-#             'ap-southeast-2': []
-#         }
-#         os.environ['SHELVERY_MONO_THREAD'] = '1'
-
-#        # Complete initial setup and create service client
-#         initSetup(self,'rds')
-#         rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
-
-
-#         #Get cluster name
-#         clustername = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{self.id['Account']}:cluster:shelvery-test-rds-cluster"
-
-#         #Add tags to indicate backup
-#         addBackupTags(rdsclient,
-#                       clustername,
-#                       "shelvery-test-rds-cluster")
-
-#         self.share_with_id = destination_account
-
-#     #@pytest.mark.source
-#     def test_Cleanup(self):
-#         print(f"rds cluster - Running cleanup test")
-#         rdscluster_backups_engine = ShelveryRDSClusterBackup()
-#         backups = initCleanup(rdscluster_backups_engine)
-#         rdscluster_client = AwsHelper.boto3_client('rds')
-
-#         valid = False
-#         for backup in backups:
-#             valid = clusterCleanupBackups(self=self,
-#                                   backup=backup,
-#                                   backup_engine=rdscluster_backups_engine,
-#                                   resource_client=rdscluster_client)
+    @pytest.mark.source
+    def test_CleanupRdsClusterBackup(self):
+        print(f"RDS Cluster - Running cleanup test")
+        # Create test resource class
+        rds_cluster_test_class = RDSClusterTestClass()
+        backups_engine = rds_cluster_test_class.backups_engine
+        client = rds_cluster_test_class.client
+        # Create backups
+        backups =  backups_engine.create_backups() 
+        # Clean backups
+        backups_engine.clean_backups()
+        # Retrieve remaining backups 
+        snapshots = [
+            snapshot
+            for backup in backups
+            for snapshot in client.describe_db_cluster_snapshots(
+                DBClusterIdentifier=rds_cluster_test_class.resource_name,
+                DBClusterSnapshotIdentifier=backup.backup_id
+            )["DBClusterSnapshots"]
+        ]
+        print(f"Snapshots: {snapshots}")
         
-#         self.assertTrue(valid)
+        self.assertTrue(len(snapshots) == 0)
 
-#     #@pytest.mark.source
-#     def test_CreateRdsClusterBackup(self):
-
-#         print(f"rds cluster - Running backup test")
-
-#         rds_cluster_backup_engine = ShelveryRDSClusterBackup()
-#         print(f"rds cluster - Shelvery backup initialised")
+    @pytest.mark.source
+    def test_CreateRdsClusterBackup(self):
+        print("Running RDS Cluster create backup test")
+        # Instantiate test resource class
+        rds_cluster_test_class = RDSClusterTestClass()
+        backups_engine = rds_cluster_test_class.backups_engine
         
-#         backups = initCreateBackups(rds_cluster_backup_engine)
-#         print("Created RDS Cluster backups")
+        # Create backups
+        backups = backups_engine.create_backups()
+        print(f"Created {len(backups)} backups for RDS Cluster")
+        
+        # Compare backups
+        for backup in backups:
+            valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
+            self.assertTrue(valid, f"Backup {backup} is not valid")
 
-#         valid = False
+    @pytest.mark.source
+    @pytest.mark.share
+    def test_ShareRdsClusterBackup(self):
+        print("Running RDS Cluster share backup test")
 
-#         # validate there is
-#         for backup in backups:
-#             valid = compareBackups(self=self,
-#                            backup=backup,
-#                            backup_engine=rds_cluster_backup_engine
-#                            )
-#         self.assertTrue(valid)
+        # Instantiate test resource class
+        rds_cluster_test_class = RDSClusterTestClass()
+        backups_engine = rds_cluster_test_class.backups_engine
+        client = rds_cluster_test_class.client
 
-#     #@pytest.mark.source
-#     #@pytest.mark.share
-#     def test_ShareRdsClusterBackup(self):
+        print("Creating shared backups")
+        backups = backups_engine.create_backups()
+        print(f"{len(backups)} shared backups created")
 
-#         print(f"rds cluster - Running share backup test")
-#         rds_cluster_backup_engine = ShelveryRDSClusterBackup()
+        for backup in backups:
+            snapshot_id = backup.backup_id
+            print(f"Checking if snapshot {snapshot_id} is shared with {self.share_with_id}")
 
-#         print("Creating shared backups")
-#         backups = initShareBackups(rds_cluster_backup_engine, str(self.share_with_id))
+            # Retrieve snapshots
+            snapshots = client.describe_db_cluster_snapshots(
+                DBClusterIdentifier=rds_cluster_test_class.resource_name,
+                DBClusterSnapshotIdentifier=backup.backup_id
+            )["DBClusterSnapshots"]
 
-#         print("Shared backups created")
-
-#         valid = False
-#         # validate there is
-#         for backup in backups:
-#             valid = clusterShareBackups(self=self,
-#                                        backup=backup,
-#                                        service='rds'
-#         )
-
-#         self.assertTrue(valid)
-
-#     def tearDown(self):
-#         print("rds cluster - tear down rds cluster snapshot")
-#         rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
-#         for snapid in self.created_snapshots:
-#             print(f"Deleting snapshot {snapid}")
-#             try:
-#                 rdsclient.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapid)
-#             except Exception as e:
-#                 print(f"Failed to delete {snapid}:{str(e)}")
-
-#         print("rds - snapshot deleted, instance deleting")
+            # Get attributes of snapshot
+            attributes = client.describe_db_cluster_snapshot_attributes(
+                DBClusterSnapshotIdentifier=snapshot_id
+            )['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
+            
+            # Check if snapshot is shared with destination account
+            shared_with_destination = any(
+                attr['AttributeName'] == 'restore' and self.share_with_id in attr['AttributeValues']
+                for attr in attributes
+            )
+            
+            # Assertions
+            self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
+            self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
 
 
+    def tearDown(self):
+        print("RDS Cluster - Cleanup snapshots")
+        rds_cluster_test_class = RDSClusterTestClass()
+        client = rds_cluster_test_class.client
+        for snapid in self.created_snapshots:
+            print(f"Deleting snapshot {snapid}")
+            try:
+                client.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapid)
+            except Exception as e:
+                print(f"Failed to delete {snapid}:{str(e)}")
 
-# if __name__ == '__main__':
-#     unittest.main()
+if __name__ == '__main__':
+    unittest.main()

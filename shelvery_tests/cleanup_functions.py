@@ -1,6 +1,5 @@
 from shelvery.aws_helper import AwsHelper
-from shelvery_tests.resources import DOCDB_RESOURCE_NAME
-
+from shelvery_tests.resources import DOCDB_RESOURCE_NAME, RDS_INSTANCE_RESOURCE_NAME,RDS_CLUSTER_RESOURCE_NAME, EC2_AMI_INSTANCE_RESOURCE_NAME, EBS_INSTANCE_RESOURCE_NAME
 def cleanDocDBSnapshots():
     print("Cleaning up DocDB Snapshots")
 
@@ -24,7 +23,7 @@ def cleanRdsClusterSnapshots():
     rdsclusterclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
 
     snapshots =  rdsclusterclient.describe_db_cluster_snapshots(
-        DBClusterIdentifier='shelvery-test-rds-cluster',
+        DBClusterIdentifier=RDS_CLUSTER_RESOURCE_NAME,
         SnapshotType='Manual'
     )['DBClusterSnapshots']
 
@@ -42,7 +41,7 @@ def cleanRdsSnapshots():
     rdsclient = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
      
     snapshots = rdsclient.describe_db_snapshots(
-        DBInstanceIdentifier='shelvery-test-rds',
+        DBInstanceIdentifier=RDS_INSTANCE_RESOURCE_NAME,
         SnapshotType='Manual',
     )['DBSnapshots']
           
@@ -71,7 +70,7 @@ def cleanEC2Snapshots():
             tags = snapshot['Tags']
             try:
                 name = [tag['Value'] for tag in tags if tag['Key'] == 'Name'][0]
-                if 'shelvery-test-ec2' in name:
+                if EC2_AMI_INSTANCE_RESOURCE_NAME in name:
                     print("Cleaning up EC2 AMI Snapshots")
                     ami_id = [tag['Value'] for tag in tags if tag['Key'] == 'shelvery:ami_id'][0]
                     if ami_id != []:
@@ -79,7 +78,7 @@ def cleanEC2Snapshots():
                         ec2client.deregister_image(ImageId=ami_id)
                     ec2client.delete_snapshot(SnapshotId=snapid)
                     print(f'Deleting EC2 snapshot: {snapid}')
-                if 'shelvery-test-ebs' in name:
+                if EBS_INSTANCE_RESOURCE_NAME in name:
                     print("Cleaning up EBS Snapshots")
                     print(f'Deleting EBS snapshot: {snapid}')
                     ec2client.delete_snapshot(SnapshotId=snapid)
@@ -93,7 +92,7 @@ def cleanEC2Snapshots():
                 search_filter = [{'Name':'block-device-mapping.snapshot-id',
                                   'Values': [snapid],
                                   'Name':'tag:ResourceName',
-                                  'Values':['shelvery-test-ec2']
+                                  'Values':[EC2_AMI_INSTANCE_RESOURCE_NAME]
                                 }]
                                   
                         

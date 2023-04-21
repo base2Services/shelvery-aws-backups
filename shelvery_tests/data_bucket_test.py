@@ -16,7 +16,7 @@ class DataBucketIntegrationTestCase(unittest.TestCase):
 
 
     @pytest.mark.source
-    # @pytest.mark.share
+    @pytest.mark.share
     def test_CreateDataBucket(self):
 
         s3client = AwsHelper.boto3_client('s3', region_name='ap-southeast-2')

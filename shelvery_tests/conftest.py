@@ -1,9 +1,8 @@
 import pytest
 import boto3
 import os
-import time
 from shelvery.aws_helper import AwsHelper
-from botocore.exceptions import ClientError, ValidationError, WaiterError
+from botocore.exceptions import ClientError
 
 from shelvery_tests.cleanup_functions import cleanupSnapshots
 

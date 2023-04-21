@@ -33,7 +33,7 @@ from shelvery_tests.test_functions import setup_destination
 from shelvery_tests.resources import RDS_INSTANCE_RESOURCE_NAME
 class ShelveryRDSPullTestCase(unittest.TestCase):
     
-    #@pytest.mark.destination
+    @pytest.mark.destination
     def test_PullRdsBackup(self):
         
         # Complete initial setup

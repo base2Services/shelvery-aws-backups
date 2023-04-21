@@ -8,7 +8,6 @@ from shelvery.runtime_config import RuntimeConfig
 from shelvery_tests.test_functions import setup_source, compare_backups
 from shelvery.rds_backup import ShelveryRDSBackup
 from shelvery.aws_helper import AwsHelper
-from shelvery_tests.conftest import destination_account
 from shelvery_tests.resources import RDS_INSTANCE_RESOURCE_NAME, ResourceClass
 
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +26,7 @@ class RDSInstanceTestClass(ResourceClass):
         self.resource_name = RDS_INSTANCE_RESOURCE_NAME
         self.backups_engine = ShelveryRDSBackup()
         self.client = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
-        self.ARN = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{AwsHelper.local_account_id()}:instance:{self.resource_name}"
+        self.ARN = f"arn:aws:rds:{os.environ['AWS_DEFAULT_REGION']}:{AwsHelper.local_account_id()}:db:{self.resource_name}"
 
     def add_backup_tags(self):
         self.client.add_tags_to_resource(
@@ -70,7 +69,7 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
         setup_source(self)
         # Instantiate resource test class
         rds_instance_test_class = RDSInstanceTestClass()
-        # Wait till DocDB Cluster is in an available state
+        # Wait till RDS Instance is in an available state
         rds_instance_test_class.wait_for_resource()
         # Add tags to indicate backup
         rds_instance_test_class.add_backup_tags()
@@ -101,6 +100,7 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
         
     @pytest.mark.source
     def test_CreateRdsInstanceBackup(self):
+        print("Running RDS Instance create backup test")
         # Instantiate test resource class
         rds_instance_test_class = RDSInstanceTestClass()
         backups_engine = rds_instance_test_class.backups_engine
