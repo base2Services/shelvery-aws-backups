@@ -251,16 +251,18 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         :return: all RDS instances within region for given boto3 client
         """
         # list of resource models
+        rds_client = boto3.client('rds')
         db_clusters = []
         # temporary list of api models, as calls are batched
         temp_clusters = rds_client.describe_db_clusters()
-        temp_clusters = [cluster for cluster in db_clusters if cluster.get('Engine') != 'docdb']
+        
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
             temp_clusters = rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
 
+        db_clusters = [cluster for cluster in db_clusters if cluster.get('Engine') != 'docdb']
         self.logger.info(f"Found following clusters to backup {db_clusters}")
         return db_clusters
 
