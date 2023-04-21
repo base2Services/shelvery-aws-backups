@@ -260,6 +260,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             temp_clusters = rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
 
+        self.logger.info(f"Found following clusters to backup {db_clusters}")
         return db_clusters
 
     def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, rds_client):
