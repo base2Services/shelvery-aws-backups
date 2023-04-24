@@ -112,12 +112,14 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
         # Compare backups
         for backup in backups:
             valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
+            
+            # Clean backups
+            print(f"Cleaning up RDS Instance Backups")
+            backups_engine.clean_backups()
+            
+            # Validate backups
             self.assertTrue(valid, f"Backup {backup} is not valid")
             
-        # Clean backups
-        print(f"Cleaning up RDS Instance Backups")
-        backups_engine.clean_backups()
-
     @pytest.mark.source
     @pytest.mark.share
     def test_shareRdsInstanceBackup(self):
