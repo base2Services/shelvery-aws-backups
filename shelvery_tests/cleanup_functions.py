@@ -41,9 +41,6 @@ def cleanS3Bucket():
     # Delete all objects in the bucket
     for obj in bucket.objects.all():
         obj.delete()
-        
-    bucket.delete()
-    print("Deleted shelvery bucket")
 
 def cleanupSnapshots():
     os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
