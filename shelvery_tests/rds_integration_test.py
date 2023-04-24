@@ -113,6 +113,10 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
         for backup in backups:
             valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
             self.assertTrue(valid, f"Backup {backup} is not valid")
+            
+        # Clean backups
+        print(f"Cleaning up RDS Instance Backups")
+        backups_engine.clean_backups()
 
     @pytest.mark.source
     @pytest.mark.share
@@ -158,16 +162,16 @@ class ShelveryRDSIntegrationTestCase(unittest.TestCase):
             self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
             self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
         
-    def tearDown(self):
-        print("RDS Instance - Cleanup snapshots")
-        rds_instance_test_class = RDSInstanceTestClass()
-        client = rds_instance_test_class.client
-        for snapid in self.created_snapshots:
-            print(f"Deleting snapshot {snapid}")
-            try:
-                client.delete_db_snapshot(DBSnapshotIdentifier=snapid)
-            except Exception as e:
-                print(f"Failed to delete {snapid}:{str(e)}")
+    # def tearDown(self):
+    #     print("RDS Instance - Cleanup snapshots")
+    #     rds_instance_test_class = RDSInstanceTestClass()
+    #     client = rds_instance_test_class.client
+    #     for snapid in self.created_snapshots:
+    #         print(f"Deleting snapshot {snapid}")
+    #         try:
+    #             client.delete_db_snapshot(DBSnapshotIdentifier=snapid)
+    #         except Exception as e:
+    #             print(f"Failed to delete {snapid}:{str(e)}")
 
 if __name__ == '__main__':
     unittest.main()

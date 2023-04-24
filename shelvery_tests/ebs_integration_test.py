@@ -131,6 +131,10 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         for backup in backups:
             valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
             self.assertTrue(valid, f"Backup {backup} is not valid")
+            
+        # Clean backups
+        print(f"Cleaning up EBS Backups")
+        backups_engine.clean_backups()
 
     @pytest.mark.source
     @pytest.mark.share
@@ -176,24 +180,24 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
             self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
 
 
-    def tearDown(self):
-        ebs_test_class = EBSTestClass()
-        client = ebs_test_class.client
-        for snapid in self.created_snapshots:
+    # def tearDown(self):
+    #     ebs_test_class = EBSTestClass()
+    #     client = ebs_test_class.client
+    #     for snapid in self.created_snapshots:
 
-            print(f"Deleting snapshot {snapid}")
-            try:
-                client.delete_snapshot(SnapshotId=snapid)
-            except Exception as e:
-                print(f"Failed to delete {snapid}:{str(e)}")
+    #         print(f"Deleting snapshot {snapid}")
+    #         try:
+    #             client.delete_snapshot(SnapshotId=snapid)
+    #         except Exception as e:
+    #             print(f"Failed to delete {snapid}:{str(e)}")
 
-        for region in self.regional_snapshots:
-            ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
-            for snapid in self.regional_snapshots[region]:
-                try:
-                    ec2regional.delete_snapshot(SnapshotId=snapid)
-                except Exception as e:
-                    print(f"Failed to delete {snapid}:{str(e)}")
+    #     for region in self.regional_snapshots:
+    #         ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
+    #         for snapid in self.regional_snapshots[region]:
+    #             try:
+    #                 ec2regional.delete_snapshot(SnapshotId=snapid)
+    #             except Exception as e:
+    #                 print(f"Failed to delete {snapid}:{str(e)}")
 
 
 
