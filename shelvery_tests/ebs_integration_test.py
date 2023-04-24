@@ -138,6 +138,8 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
             # Validate Backup
             self.assertTrue(valid, f"Backup {backup} is not valid")
             
+        self.assertEqual(len(backups), 1, f"Expected 1 backup, but found {len(backups)}")
+            
     @pytest.mark.source
     @pytest.mark.share
     def test_ShareEbsBackup(self):

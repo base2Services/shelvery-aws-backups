@@ -121,6 +121,8 @@ class ShelveryRDSClusterIntegrationTestCase(unittest.TestCase):
             # Validate backups
             self.assertTrue(valid, f"Backup {backup} is not valid")
             
+        self.assertEqual(len(backups), 1, f"Expected 1 backup, but found {len(backups)}")
+            
     @pytest.mark.source
     @pytest.mark.share
     def test_ShareRdsClusterBackup(self):
