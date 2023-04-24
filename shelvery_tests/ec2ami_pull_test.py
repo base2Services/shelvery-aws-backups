@@ -1,17 +1,10 @@
 import sys
-import traceback
 import unittest
-import pytest
-import yaml
-
-import boto3
 import os
-import time
-import botocore
-from datetime import datetime
-
-from shelvery_tests.test_functions import cleanEC2Snapshots, compareBackups, createBackupTags, ec2CleanupBackups, ec2PullBackups, ec2ShareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
-
+import pytest
+from shelvery_tests.ec2ami_integration_test import EC2AmiTestClass
+from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.resources import EC2_AMI_INSTANCE_RESOURCE_NAME
 pwd = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.append(f"{pwd}/..")
@@ -20,26 +13,42 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
-from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
-from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
-from shelvery.runtime_config import RuntimeConfig
-from shelvery.backup_resource import BackupResource
-from shelvery.aws_helper import AwsHelper
-
-
 class ShelveryEC2AmiPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullEC2Backup(self):
-        os.environ['SHELVERY_MONO_THREAD'] = '1'
-        print(f"ec2 - Running pull shared backups test")
+        # Complete initial setup
+        print(f"EC2 AMI - Running pull shared backups test")
+        setup_destination(self)
     
-        ec2_client = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2')
-        ec2_backup_engine = ShelveryEC2AMIBackup()
+       # Create test resource class
+        ec2_ami_test_class = EC2AmiTestClass()
+        backups_engine = ec2_ami_test_class.backups_engine
+        client = ec2_ami_test_class.client
+        
+        # Clean residual existing snapshots
+        backups_engine.clean_backups()
 
-        ec2PullBackups(self,ec2_client,ec2_backup_engine)
+        # Pull shared backups
+        backups_engine.pull_shared_backups()
+
+        # Get post-pull snapshot count
+        search_filter = [{'Name':'tag:ResourceName',
+                      'Values':[EC2_AMI_INSTANCE_RESOURCE_NAME]
+                        }]
+                                  
+        #Retrieve pulled images from shelvery-test stack
+        amis = client.describe_images(
+                        Filters=search_filter
+                    )["Images"]
+
+        # Verify that only one snapshot was pulled
+        self.assertEqual(len(amis), 1)
 
     @pytest.mark.cleanup
     def test_cleanup(self):
-        cleanEC2Snapshots()
+        # Create test resource class
+        ec2_ami_test_class = EC2AmiTestClass()
+        backups_engine = ec2_ami_test_class.backups_engine
+         # Clean backups
+        backups_engine.clean_backups()

@@ -1,14 +1,9 @@
 import sys
 import traceback
 import unittest
-import yaml
-import boto3
 import os
 import time
-import botocore
 import pytest
-from datetime import datetime
-
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -20,7 +15,6 @@ sys.path.append(f"{pwd}/../lib")
 
 from shelvery.ebs_backup import ShelveryEBSBackup
 from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.backup_resource import BackupResource
 from shelvery.aws_helper import AwsHelper

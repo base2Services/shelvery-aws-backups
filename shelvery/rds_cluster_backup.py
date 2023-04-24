@@ -1,3 +1,4 @@
+from tracemalloc import Snapshot
 import boto3
 
 from shelvery.runtime_config import RuntimeConfig
@@ -303,6 +304,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
             tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
+            
+        all_snapshots = [snapshot for snapshot in all_snapshots if snapshot.get('Engine') != 'docdb']
 
         self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
         self.populate_snap_entity_resource(all_snapshots)

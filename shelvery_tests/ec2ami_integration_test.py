@@ -1,16 +1,15 @@
 import sys
-import traceback
 import unittest
 import pytest
-import yaml
-
-import boto3
 import os
-import time
-import botocore
-from datetime import datetime
+from botocore.exceptions import WaiterError
+from shelvery.engine import ShelveryEngine
+from shelvery.runtime_config import RuntimeConfig
+from shelvery_tests.test_functions import setup_source, compare_backups
+from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
+from shelvery.aws_helper import AwsHelper
+from shelvery_tests.resources import EC2_AMI_INSTANCE_RESOURCE_NAME, ResourceClass
 
-from shelvery_tests.test_functions import compareBackups, createBackupTags, ec2CleanupBackups, ec2ShareBackups, initCleanup, initCreateBackups, initSetup, initShareBackups
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -20,18 +19,60 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
-from shelvery.ec2ami_backup import ShelveryEC2AMIBackup
-from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
-from shelvery.runtime_config import RuntimeConfig
-from shelvery.backup_resource import BackupResource
-from shelvery.aws_helper import AwsHelper
-from shelvery_tests.conftest import destination_account
-
 print(f"Python lib path:\n{sys.path}")
 
+import boto3
+class EC2AmiTestClass(ResourceClass):
+    
+    def __init__(self):
+        self.resource_name = EC2_AMI_INSTANCE_RESOURCE_NAME
+        self.backups_engine = ShelveryEC2AMIBackup()
+        self.client = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2')
+        self.resource_id = self.get_instance_id()
 
-## Add check for non-terminated ec2am? (because it takes ages to transition from terminated -> deleted)
+    def add_backup_tags(self):
+        self.client.create_tags(
+            Resources=[self.resource_id],
+            Tags=[{
+                    'Key': f"{RuntimeConfig.get_tag_prefix()}:{ShelveryEngine.BACKUP_RESOURCE_TAG}",
+                    'Value': 'true'
+                    }, 
+                    {'Key': 'Name', 
+                   'Value': self.resource_name
+                    }]
+        )
+                
+    def get_instance_id(self):
+        # Find EC2 instance
+        search_filter = [
+            {'Name': 'tag:Name', 'Values': [EC2_AMI_INSTANCE_RESOURCE_NAME]},
+            {'Name': 'instance-state-name', 'Values': ['running']}
+        ]
+
+        # Get EC2 instance
+        ec2_instance = self.client.describe_instances(Filters=search_filter)
+
+        # Get instance ID
+        try:
+            return ec2_instance['Reservations'][0]['Instances'][0]['InstanceId']
+        except (IndexError, KeyError):
+            print("No instance found matching the given criteria.")    
+            return ""        
+            
+    def wait_for_resource(self):
+        waiter = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2').get_waiter('instance_running')
+        try:
+            waiter.wait(
+                InstanceIds=[self.resource_id],
+                WaiterConfig={
+                    'Delay': 30,
+                    'MaxAttempts': 50
+                }
+            )
+        except WaiterError as error:
+            print("Waiting for EC2 Instance Failed")
+            print(error)
+            raise error
 
 class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
     """Shelvery EC2 AMI Backups Integration shelvery tests"""
@@ -40,146 +81,109 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
         return str(self.__class__)
 
     def setUp(self):
+        # Complete initial setup
         self.created_snapshots = []
-        self.regional_snapshots = {
-            'ap-southeast-1': [],
-            'ap-southeast-2': []
-        }
-        os.environ['SHELVERY_MONO_THREAD'] = '1'
-
-        # Create and configure RDS artefact
-        initSetup(self,'ec2')
-        ec2client = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2')
-
-        #Find ec2 instance
-        search_filter = [{'Name':'tag:Name',
-                          'Values': ['shelvery-test-ec2'],
-                          'Name': 'instance-state-name',
-                          'Values': ['running']
-                        }]
-                        
-    
-        #Get ec2 instance
-        ec2_instance = ec2client.describe_instances(Filters = search_filter)
-
-        #Get instance id
-        instance_id = ec2_instance['Reservations'][0]['Instances'][0]['InstanceId']
-        print("INSTANCE ID: " + str(instance_id))
-
-        createBackupTags(ec2client,[instance_id],"shelvery-test-ec2")
-
-        self.share_with_id = destination_account
+        self.regional_snapshots = []
+        setup_source(self)
+        # Instantiate resource test class
+        ec2_ami_test_class = EC2AmiTestClass()
+        # Wait till instance is in an available state
+        ec2_ami_test_class.wait_for_resource()
+        # Add tags to indicate backup
+        ec2_ami_test_class.add_backup_tags()
 
     @pytest.mark.source
-    def test_Cleanup(self):
-        print(f"ec2 ami - Running cleanup test")
-        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
-        backups = initCleanup(ec2_ami_backup_engine)
-        ec2_client = AwsHelper.boto3_client('ec2')
-
-        valid = False
-        for backup in backups:
-            valid = ec2CleanupBackups(self=self,
-                                 backup=backup,
-                                 backup_engine=ec2_ami_backup_engine,
-                                 service_client=ec2_client)
+    def test_CleanupEC2AmiBackup(self):
         
-        self.assertTrue(valid)
+        print(f"EC2 Ami - Running cleanup test")
+        # Create test resource class
+        ec2_ami_test_class = EC2AmiTestClass()
+        backups_engine = ec2_ami_test_class.backups_engine
+        client = ec2_ami_test_class.client
+        # Create backups
+        backups =  backups_engine.create_backups() 
+        # Clean backups
+        backups_engine.clean_backups()
+        # Retrieve remaining backups 
+        snapshots = [
+            snapshot
+            for backup in backups
+            for snapshot in client.describe_snapshots(
+                Filters = [{
+                    'Name': 'tag:Name',
+                    'Values': [backup.name]
+                }]
+            )['Snapshots']
+        ]
+        print(f"Snapshots: {snapshots}")
+        
+        self.assertTrue(len(snapshots) == 0)
 
     @pytest.mark.source
     def test_CreateEc2AmiBackup(self):
-        print(f"ec2 ami - Running backup test")
-
-        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
-        print(f"ec2 ami - Shelvery backup initialised")
-
-        backups = initCreateBackups(ec2_ami_backup_engine)
-
-        ec2_client = AwsHelper.boto3_client('ec2')
-
-        valid = False
-        # validate there is
+        print("Running EC2 AMI create backup test")
+        # Create test resource class
+        ec2_ami_test_class = EC2AmiTestClass()
+        backups_engine = ec2_ami_test_class.backups_engine
+        
+        # Create backups
+        backups = backups_engine.create_backups()
+        print(f"Created {len(backups)} backups for EC2 Instance")
+        
+        # Compare backups
         for backup in backups:
-   
-            #Get source snapshot
-            source_snapshot = ec2_client.describe_snapshots( 
-               Filters = [{
-                   'Name': 'tag:Name',
-                   'Values': [
-                       backup.name
-                   ]
-               }]
-            )  
-
-            #Get snapshot id and add to created snapshot list for removal in teardown later
-            dest_snapshot_id = source_snapshot['Snapshots'][0]['SnapshotId']
-            self.created_snapshots.append(dest_snapshot_id)
-
-            valid = compareBackups(self=self,
-                           backup=backup,
-                           backup_engine=ec2_ami_backup_engine
-                          )
-
-
-        self.assertTrue(valid)
-
+            valid = compare_backups(self=self, backup=backup, backup_engine=backups_engine)
+            
+            # Clean backups
+            print(f"Cleaning up EC2 AMI Backups")
+            backups_engine.clean_backups()
+            
+            #Validate backup
+            self.assertTrue(valid, f"Backup {backup} is not valid")
+            
+        self.assertEqual(len(backups), 1, f"Expected 1 backup, but found {len(backups)}")
+            
     @pytest.mark.source
     @pytest.mark.share
     def test_ShareEc2AmiBackup(self):
-
-        print(f"ec2 ami - Running share backup test")
-        ec2_ami_backup_engine = ShelveryEC2AMIBackup()
+        print("Running EC2 AMI share backup test")
+        # Instantiate test resource classs
+        ec2_ami_test_class = EC2AmiTestClass()
+        backups_engine = ec2_ami_test_class.backups_engine
+        client = boto3.client('ec2')#ec2_ami_test_class.client
 
         print("Creating shared backups")
-        backups = initShareBackups(ec2_ami_backup_engine, str(self.share_with_id))
+        backups = backups_engine.create_backups()
+        print(f"{len(backups)} shared backups created")
 
-        print("Shared backups created")
-
-        valid = False
-        # validate there is
         for backup in backups:
-            valid = ec2ShareBackups(self=self,
-                               backup=backup,
-                               )
-        self.assertTrue(valid)
+            snapshot_id = backup.backup_id
+            print(f"Checking if snapshot {snapshot_id} is shared with {self.share_with_id}")
 
-    def tearDown(self):
-        ec2client = AwsHelper.boto3_client('ec2')
-        # snapshot deletion surrounded with try/except in order
-        # for cases when shelvery cleans / does not clean up behind itself
-        time.sleep(20)
-        for snapid in self.created_snapshots:
-            print(f"Deleting snapshot {snapid}")
-            try:
-                snapshot = ec2client.describe_snapshots(
-                    SnapshotIds = [snapid]
-                )
-                
-                print(snapshot)
+            # Retrieve snapshot
+            snapshots = client.describe_snapshots(
+                Filters = [{
+                    'Name': 'tag:Name',
+                    'Values': [backup.name]
+                }]
+            )['Snapshots']
+            
+            snapshot_id = snapshots[0]['SnapshotId']
 
-                tags = snapshot['Snapshots'][0]['Tags']
+            # retrieve the snapshot attributes
+            response = client.describe_snapshot_attribute(
+                SnapshotId=snapshot_id,
+                Attribute='createVolumePermission'
+            )
 
-                print("TAGS")
-                print(tags)
-
-                ami_id = [tag['Value'] for tag in tags if tag['Key'] == 'shelvery:ami_id'][0]
-
-                print("AMI")
-                print(ami_id)
-
-                ec2client.deregister_image(ImageId=ami_id)
-                ec2client.delete_snapshot(SnapshotId=snapid)
-            except Exception as e:
-                print(f"Failed to delete {snapid}:{str(e)}")
-
-        for region in self.regional_snapshots:
-            ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
-            for snapid in self.regional_snapshots[region]:
-                try:
-                    ec2regional.delete_snapshot(SnapshotId=snapid)
-                except Exception as e:
-                    print(f"Failed to delete {snapid}:{str(e)}")
-
+            # check if the snapshot is shared with the destination account
+            shared_with_destination = any(
+                perm['UserId'] == self.share_with_id for perm in response.get('CreateVolumePermissions', [])
+            )
+            
+            # Assertions
+            self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
+            self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
 
 
 if __name__ == '__main__':
