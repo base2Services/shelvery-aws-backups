@@ -21,7 +21,7 @@ class ShelveryEBSPullTestCase(unittest.TestCase):
     def test_PullEBSBackup(self):
 
         # Complete initial setup
-        print(f"EC2 AMI - Running pull shared backups test")
+        print(f"EBS - Running pull shared backups test")
         setup_destination(self)
     
         # Create test resource class
@@ -37,16 +37,16 @@ class ShelveryEBSPullTestCase(unittest.TestCase):
 
         # Get post-pull snapshot count
         search_filter = [{'Name':'tag:ResourceName',
-                      'Values':[EBS_INSTANCE_RESOURCE_NAME]
+                        'Values':[EBS_INSTANCE_RESOURCE_NAME]
                         }]
                                   
         #Retrieve pulled images from shelvery-test stack
-        amis = client.describe_images(
+        snapshots = client.describe_snapshots(
                         Filters=search_filter
-                    )['Images']
+                    )['Snapshots']
 
         # Verify that only one snapshot was pulled
-        self.assertEqual(len(amis), 1)
+        self.assertEqual(len(snapshots), 1)
     
     @pytest.mark.cleanup
     def test_cleanup(self):

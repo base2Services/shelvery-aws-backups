@@ -163,15 +163,5 @@ class ShelveryDocDBIntegrationTestCase(unittest.TestCase):
             self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
             self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
         
-    # def tearDown(self):
-    #     print("Doc Db - Cleanup snapshots")
-    #     docdb_test_class = DocDBTestClass()
-    #     client = docdb_test_class.client
-    #     for snapid in self.created_snapshots:
-    #         print(f"Deleting snapshot {snapid}")
-    #         try:
-    #             client.delete_db_cluster_snapshot(DBClusterSnapshotIdentifier=snapid)
-    #         except Exception as e:
-    #             print(f"Failed to delete {snapid}:{str(e)}")
 if __name__ == '__main__':
     unittest.main()

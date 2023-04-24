@@ -56,7 +56,8 @@ class EC2AmiTestClass(ResourceClass):
         try:
             return ec2_instance['Reservations'][0]['Instances'][0]['InstanceId']
         except (IndexError, KeyError):
-            print("No instances found matching the given criteria.")            
+            print("No instance found matching the given criteria.")    
+            return ""        
             
     def wait_for_resource(self):
         waiter = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2').get_waiter('instance_running')
@@ -183,34 +184,6 @@ class ShelveryEC2AmiIntegrationTestCase(unittest.TestCase):
             # Assertions
             self.assertEqual(len(snapshots), 1, f"Expected 1 snapshot, but found {len(snapshots)}")
             self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
-
-    # def tearDown(self):
-    #     print("EC2 AMI - Cleanup snapshots")
-    #     ec2_ami_test_class = EC2AmiTestClass()
-    #     client = ec2_ami_test_class.client
-    #     for ami_id in self.created_snapshots:
-    #         print(f"Deleting snapshot {ami_id}")
-    #         try:
-    #             # retrieve information about the AMI
-    #             response = client.describe_images(ImageIds=[ami_id])
-
-    #             # extract the snapshot ID from the response
-    #             snapshot_id = response['Images'][0]['BlockDeviceMappings'][0]['Ebs']['SnapshotId']
-
-    #             print(f"The snapshot associated with AMI {ami_id} is {snapshot_id}")
-    #             client.deregister_image(ImageId=ami_id)
-    #             client.delete_snapshot(SnapshotId=snapshot_id)
-    #         except Exception as e:
-    #             print(f"Failed to delete {ami_id}:{str(e)}")
-
-    #     for region in self.regional_snapshots:
-    #         ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
-    #         for snapid in self.regional_snapshots[region]:
-    #             try:
-    #                 ec2regional.delete_snapshot(SnapshotId=snapid)
-    #             except Exception as e:
-    #                 print(f"Failed to delete {snapid}:{str(e)}")
-
 
 
 if __name__ == '__main__':

@@ -1,17 +1,10 @@
 import sys
-import traceback
 import unittest
 import pytest
-import yaml
-
-import boto3
 import os
-import time
-import botocore
-from datetime import datetime
-from shelvery.rds_backup import ShelveryRDSBackup
-
-from shelvery_tests.cleanup_functions import cleanRdsSnapshots
+from shelvery_tests.rds_integration_test import RDSInstanceTestClass
+from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.resources import RDS_INSTANCE_RESOURCE_NAME
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,16 +14,6 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
-
-from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
-from shelvery.runtime_config import RuntimeConfig
-from shelvery.backup_resource import BackupResource
-from shelvery.aws_helper import AwsHelper
-from shelvery_tests.conftest import source_account
-from shelvery_tests.rds_integration_test import RDSInstanceTestClass
-from shelvery_tests.test_functions import setup_destination
-from shelvery_tests.resources import RDS_INSTANCE_RESOURCE_NAME
 class ShelveryRDSPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
@@ -53,7 +36,7 @@ class ShelveryRDSPullTestCase(unittest.TestCase):
 
         # Get post-pull snapshot count
         pulled_snapshots = client.describe_db_snapshots(
-            DBInstanceIdentifier='RDS_INSTANCE_RESOURCE_NAME',
+            DBInstanceIdentifier=RDS_INSTANCE_RESOURCE_NAME,
             SnapshotType='Manual'
         )
 

@@ -4,7 +4,7 @@ import os
 from shelvery.aws_helper import AwsHelper
 from botocore.exceptions import ClientError
 
-from shelvery_tests.cleanup_functions import cleanupSnapshots
+from shelvery_tests.cleanup_functions import cleanupSnapshots, cleanS3Bucket
 
 source_account = None
 destination_account = None
@@ -58,6 +58,9 @@ def setup(request):
 
         #Cleanup any existing snapshots after stack is created
         cleanupSnapshots()
+        
+        #Cleanup S3 Bucket
+        cleanS3Bucket()
 
         # def teardown():
         #     print ("Initiating Teardown")

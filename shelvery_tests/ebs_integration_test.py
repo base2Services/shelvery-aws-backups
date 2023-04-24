@@ -2,6 +2,7 @@ import sys
 import unittest
 import pytest
 import os
+import time
 from botocore.exceptions import WaiterError
 from shelvery.engine import ShelveryEngine
 from shelvery.runtime_config import RuntimeConfig
@@ -42,18 +43,15 @@ class EBSTestClass(ResourceClass):
               
     def get_instance_id(self):
         # Find EBS Volume
-        search_filter = [
-            {'Name': 'tag:Name', 'Values': [self.resource_name]}
-        ]
-
+        search_filter = [{'Name': 'tag:Name', 'Values': [self.resource_name]}]
         # Get EBS volumes
         ebs_volumes = self.client.describe_volumes(Filters=search_filter)
-
         # Get volume ID
         try:
             return ebs_volumes['Volumes'][0]['VolumeId']
         except (IndexError, KeyError):
-            print("No EBS volumes found matching the given criteria.")          
+            print("No EBS volumes found matching the given criteria.")       
+            return ""   
               
     def wait_for_resource(self):
         waiter = AwsHelper.boto3_client('ec2', region_name='ap-southeast-2').get_waiter('volume_available')
@@ -184,26 +182,9 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
             self.assertTrue(shared_with_destination, f"Snapshot {snapshot_id} is not shared with {self.share_with_id}")
 
 
-    # def tearDown(self):
-    #     ebs_test_class = EBSTestClass()
-    #     client = ebs_test_class.client
-    #     for snapid in self.created_snapshots:
-
-    #         print(f"Deleting snapshot {snapid}")
-    #         try:
-    #             client.delete_snapshot(SnapshotId=snapid)
-    #         except Exception as e:
-    #             print(f"Failed to delete {snapid}:{str(e)}")
-
-    #     for region in self.regional_snapshots:
-    #         ec2regional = AwsHelper.boto3_client('ec2', region_name=region)
-    #         for snapid in self.regional_snapshots[region]:
-    #             try:
-    #                 ec2regional.delete_snapshot(SnapshotId=snapid)
-    #             except Exception as e:
-    #                 print(f"Failed to delete {snapid}:{str(e)}")
-
-
-
+    def tearDown(self):
+        print("Waiting 30s due to EBS Snapshot rate limit...")
+        time.sleep(30) #EBS snapshot create wait limit, so wait 30~
+        
 if __name__ == '__main__':
     unittest.main()

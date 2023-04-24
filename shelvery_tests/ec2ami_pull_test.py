@@ -13,7 +13,6 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
-import boto3
 class ShelveryEC2AmiPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
@@ -25,7 +24,7 @@ class ShelveryEC2AmiPullTestCase(unittest.TestCase):
        # Create test resource class
         ec2_ami_test_class = EC2AmiTestClass()
         backups_engine = ec2_ami_test_class.backups_engine
-        client = boto3.client('ec2') #ec2_ami_test_class.client
+        client = ec2_ami_test_class.client
         
         # Clean residual existing snapshots
         backups_engine.clean_backups()
