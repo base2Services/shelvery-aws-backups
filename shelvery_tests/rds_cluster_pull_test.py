@@ -1,15 +1,10 @@
 import sys
-import traceback
 import unittest
-import pytest
-import yaml
-
-import boto3
 import os
-import time
-import botocore
-from datetime import datetime
-from shelvery.rds_cluster_backup import ShelveryRDSClusterBackup
+import pytest
+from shelvery_tests.rds_cluster_integration_test import RDSClusterTestClass
+from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.resources import RDS_CLUSTER_RESOURCE_NAME
 
 pwd = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,51 +14,43 @@ sys.path.append(f"{pwd}/shelvery")
 sys.path.append(f"{pwd}/lib")
 sys.path.append(f"{pwd}/../lib")
 
-from shelvery.engine import ShelveryEngine
-from shelvery.engine import S3_DATA_PREFIX
-from shelvery.runtime_config import RuntimeConfig
-from shelvery.backup_resource import BackupResource
-from shelvery.aws_helper import AwsHelper
-from shelvery_tests.conftest import source_account
-from shelvery_tests.cleanup_functions import cleanRdsClusterSnapshots
-
-#Need to add 'source acc' to env 
-#Call create_data_bucket
-#How to cleanup source account after running in dest?
-
 class ShelveryRDSClusterPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullRdsClusterBackup(self):
         
-        os.environ['SHELVERY_MONO_THREAD'] = '1'
-        cleanRdsClusterSnapshots()
-
-        source_aws_id = source_account
-        os.environ["shelvery_source_aws_account_ids"] = str(source_aws_id)
-
-        print(f"rds cluster - Running pull shared backups test")
+        # Complete initial setup
+        print(f"RDS Cluster - Running pull shared backups test")
+        setup_destination(self)
     
-        rds_cluster_client = AwsHelper.boto3_client('rds', region_name='ap-southeast-2')
-        rds_cluster_backup_engine = ShelveryRDSClusterBackup()
-
+        # Instantiate test resource class
+        rds_cluster_test_class = RDSClusterTestClass()
+        backups_engine = rds_cluster_test_class.backups_engine
+        client = rds_cluster_test_class.client
         
-        print("Pulling shared backups")
-        rds_cluster_backup_engine.pull_shared_backups()
+        # Clean residual existing snapshots
+        backups_engine.clean_backups()
 
-        #Get post-pull snapshot count
-        pulled_snapshot = rds_cluster_client.describe_db_cluster_snapshots(
-            DBClusterIdentifier='shelvery-test-rds-cluster',
+        # Pull shared backups
+        backups_engine.pull_shared_backups()
+
+        # Get post-pull snapshot count
+        pulled_snapshots = client.describe_db_cluster_snapshots(
+            DBClusterIdentifier=RDS_CLUSTER_RESOURCE_NAME,
             SnapshotType='Manual'
         )
-       
-        print("PULLED:" + str(pulled_snapshot))
 
-        self.assertTrue(len(pulled_snapshot['DBClusterSnapshots']) == 1)
+        # Verify that only one snapshot was pulled
+        self.assertEqual(len(pulled_snapshots['DBClusterSnapshots']), 1)
 
     @pytest.mark.cleanup
     def test_cleanup(self):
-       cleanRdsClusterSnapshots()
+        # Instantiate test resource class
+        rds_cluster_test_class = RDSClusterTestClass()
+        backups_engine = rds_cluster_test_class.backups_engine
+        # Clean backups
+        backups_engine.clean_backups()
+
 
 
         

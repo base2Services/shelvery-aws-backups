@@ -1,3 +1,4 @@
+from tracemalloc import Snapshot
 import boto3
 
 from shelvery.runtime_config import RuntimeConfig
@@ -254,12 +255,14 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         db_clusters = []
         # temporary list of api models, as calls are batched
         temp_clusters = rds_client.describe_db_clusters()
+        
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
             temp_clusters = rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
 
+        db_clusters = [cluster for cluster in db_clusters if cluster.get('Engine') != 'docdb']
         return db_clusters
 
     def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, rds_client):
@@ -301,6 +304,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
             tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
+            
+        all_snapshots = [snapshot for snapshot in all_snapshots if snapshot.get('Engine') != 'docdb']
 
         self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
         self.populate_snap_entity_resource(all_snapshots)

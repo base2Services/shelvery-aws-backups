@@ -97,9 +97,10 @@ pipeline {
           def safebranch = env.BRANCH_NAME.replace("/", "_")
           def releaseFileName = env.BRANCH_NAME == 'master' ? fileName : fileName.replace('.tar.gz',"-${safebranch}.tar.gz")
           env["SHELVERY_S3_RELEASE"] = "https://${env.SHELVERY_DIST_BUCKET}.s3.amazonaws.com/release/${releaseFileName}"
-          
           s3Upload(bucket: env.SHELVERY_DIST_BUCKET, file: "dist/${fileName}", path: "release/${releaseFileName}")
-        }        
+
+        }
+        
       }
       post {
         success {
