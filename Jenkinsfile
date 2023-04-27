@@ -108,39 +108,6 @@ pipeline {
         }
       }
     }
-
-    stage('Release PyPI'){
-      when {
-        branch 'master'
-      }
-      steps {
-        input 'Release to PyPI'
-        script {
-          withCredentials([usernamePassword(credentialsId: '/ci2/jenkins/credentials/base2-pypi', usernameVariable: 'PYPICREDS_USR', passwordVariable: 'PYPICREDS_PSW')]) {
-                        sh """#!/bin/bash
-cat << EOT > /root/.pypirc
-[distutils]
-index-servers =
-  pypi
-  pypitest
-
-[pypi]
-repository=https://pypi.org/pypi
-username=\${PYPICREDS_USR}
-password=\${PYPICREDS_PSW}
-EOT
-
-python setup.py sdist upload -r pypi
-"""
-          }
-        }
-      }
-      post {
-        success {
-          slackSend color: '#00FF00', channel: '#base2-tool-releases', message: "<https://pypi.python.org/pypi/shelvery|New Shelvery Release on PyPI>"
-        }
-      }
-    }
     
   }
 
