@@ -112,11 +112,13 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
                         if 'SnapshotId' in bdm['Ebs']:
                             snapshots.append(bdm['Ebs']['SnapshotId'])
         
+        retry_count = max(block_device_mappings * 20, 20)
+        
         # Then we'll retry a few times here if it takes a bit longer
-        if len(snapshots) < block_device_mappings and retry < 3:
+        if len(snapshots) < block_device_mappings and retry < retry_count:
             retry += 1
             self.logger.info(f"Not all snapshots created yet, will try again. Retry count {retry}")
-            sleep(0.5)
+            sleep(1)
             snapshots = self._get_snapshots_from_ami(backup_resource,retry=retry)
         
         return snapshots
