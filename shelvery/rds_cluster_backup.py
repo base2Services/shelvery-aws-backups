@@ -1,4 +1,3 @@
-from tracemalloc import Snapshot
 import boto3
 
 from shelvery.runtime_config import RuntimeConfig
@@ -97,53 +96,11 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
 
     def share_backup_with_account(self, backup_region: str, backup_id: str, aws_account_id: str):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
-        backup_resource = self.get_backup_resource(backup_region, backup_id)
-        kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
-        
-        # if a re-encrypt key is provided, create new re-encrypted snapshot and share that instead
-        if kms_key:
-            self.logger.info(f"Re-encrypt KMS Key found, creating new backup with {kms_key}")
-            # create re-encrypted backup
-            backup_id = self.copy_backup_to_region(backup_id, backup_region)
-            self.logger.info(f"Creating new encrypted backup {backup_id}")
-            # wait till new snapshot is available
-            if not self.wait_backup_available(backup_region=backup_region,
-                backup_id=backup_id,
-                lambda_method='do_share_backup',
-                lambda_args={}):
-                return
-            self.logger.info(f"New encrypted backup {backup_id} created")
-            
-            #Get new snapshot ARN 
-            snapshots = rds_client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
-            snapshot_arn = snapshots['DBClusterSnapshots'][0]['DBClusterSnapshotArn']
-           
-            #Update tags with '-re-encrypted' suffix
-            self.logger.info(f"Updating tags for new snapshot - {backup_id}")
-            tags = self.get_backup_resource(backup_region, backup_id).tags
-            tags.update({'Name': backup_id, 'shelvery:name': backup_id})
-            tag_list = [{'Key': key, 'Value': value} for key, value in tags.items()]
-            rds_client.add_tags_to_resource(
-                ResourceName=snapshot_arn,
-                Tags=tag_list
-            )
-            created_new_encrypted_snapshot = True
-        else:
-            self.logger.info(f"No re-encrypt key detected")
-            created_new_encrypted_snapshot = False 
-            
         rds_client.modify_db_cluster_snapshot_attribute(
             DBClusterSnapshotIdentifier=backup_id,
             AttributeName='restore',
             ValuesToAdd=[aws_account_id]
         )
-        # if re-encryption occured, clean up old snapshot
-        if created_new_encrypted_snapshot:
-            # delete old snapshot
-            self.delete_backup(backup_resource)
-            self.logger.info(f"Cleaning up un-encrypted backup: {backup_resource.backup_id}")
-        
-        return backup_id
 
     def copy_backup_to_region(self, backup_id: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
@@ -151,22 +108,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=region)
         snapshots = client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBClusterSnapshots'][0]
-        backup_resource = self.get_backup_resource(local_region, backup_id)
-        kms_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self)
-        rds_client_params = {
-            'SourceDBClusterSnapshotIdentifier': snapshot['DBClusterSnapshotArn'],
-            'TargetDBClusterSnapshotIdentifier': backup_id,
-            'SourceRegion': local_region,
-            'CopyTags': False
-        }
-        # add kms key params if re-encrypt key is defined
-        if kms_key is not None:
-            backup_id = f'{backup_id}-re-encrypted'
-            rds_client_params['KmsKeyId'] = kms_key
-            rds_client_params['CopyTags'] = True
-            rds_client_params['TargetDBClusterSnapshotIdentifier'] = backup_id
-                       
-        rds_client.copy_db_cluster_snapshot(**rds_client_params)
+        rds_client.copy_db_cluster_snapshot(
+            SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotArn'],
+            TargetDBClusterSnapshotIdentifier=backup_id,
+            SourceRegion=local_region,
+            # tags are created explicitly
+            CopyTags=False
+        )
         return backup_id
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
@@ -255,14 +203,12 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         db_clusters = []
         # temporary list of api models, as calls are batched
         temp_clusters = rds_client.describe_db_clusters()
-        
         db_clusters.extend(temp_clusters['DBClusters'])
         # collect database instances
         while 'Marker' in temp_clusters:
             temp_clusters = rds_client.describe_db_clusters(Marker=temp_clusters['Marker'])
             db_clusters.extend(temp_clusters['DBClusters'])
 
-        db_clusters = [cluster for cluster in db_clusters if cluster.get('Engine') != 'docdb']
         return db_clusters
 
     def get_shelvery_backups_only(self, all_snapshots, backup_tag_prefix, rds_client):
@@ -304,8 +250,6 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
             self.logger.info(f"Collected {len(tmp_snapshots['DBClusterSnapshots'])} manual snapshots. Continuing collection...")
             tmp_snapshots = rds_client.describe_db_cluster_snapshots(SnapshotType='manual', Marker=tmp_snapshots['Marker'])
             all_snapshots.extend(tmp_snapshots['DBClusterSnapshots'])
-            
-        all_snapshots = [snapshot for snapshot in all_snapshots if snapshot.get('Engine') != 'docdb']
 
         self.logger.info(f"Collected {len(all_snapshots)} manual snapshots.")
         self.populate_snap_entity_resource(all_snapshots)
