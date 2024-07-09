@@ -117,6 +117,17 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         )
         return backup_id
     
+    def snapshot_exists(client, backup_id):
+        try:
+            response = client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
+            snapshots = response.get('DBClusterSnapshots', [])
+            return bool(snapshots)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'DBClusterSnapshotNotFoundFault':
+                return False
+            else:
+                raise e
+    
     def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
         local_region = boto3.session.Session().region_name
         client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
@@ -125,12 +136,8 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         snapshot = snapshots['DBClusterSnapshots'][0]
         backup_id = f'{backup_id}-re-encrypted'
         
-        # check if backup is being created
-        try:
-            if client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id):
-                return backup_id
-        except ClientError as e:
-            pass
+        if self.snapshot_exists(client_local, backup_id):
+            return backup_id
         
         rds_client_params = {
             'SourceDBClusterSnapshotIdentifier': snapshot['DBClusterSnapshotArn'],
