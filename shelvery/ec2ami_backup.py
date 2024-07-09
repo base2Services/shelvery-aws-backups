@@ -221,3 +221,6 @@ class ShelveryEC2AMIBackup(ShelveryEC2Backup):
                                           },
                                           UserIds=[aws_account_id],
                                           OperationType='add')
+                
+    def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
+        return backup_id

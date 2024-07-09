@@ -125,6 +125,10 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             SourceRegion=source_backup.region
         )
         return snap['SnapshotId']
+    
+    def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
+        return backup_id
+    
     # collect all volumes tagged with given tag, in paginated manner
     def collect_volumes(self, tag_name: str):
         load_volumes = True

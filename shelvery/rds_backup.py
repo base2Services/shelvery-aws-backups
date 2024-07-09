@@ -115,6 +115,23 @@ class ShelveryRDSBackup(ShelveryEngine):
             CopyTags=False
         )
         return backup_id
+    
+    def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
+        local_region = boto3.session.Session().region_name
+        client_local = AwsHelper.boto3_client('rds', arn=self.role_arn, external_id=self.role_external_id)
+        rds_client = AwsHelper.boto3_client('rds', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
+        snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
+        snapshot = snapshots['DBSnapshots'][0]
+        backup_id = f'{backup_id}-re-encrypted'
+        rds_client_params = {
+            'SourceDBSnapshotIdentifier': snapshot['DBSnapshotArn'],
+            'TargetDBSnapshotIdentifier': backup_id,
+            'SourceRegion': local_region,
+            'CopyTags': True,
+            'KmsKeyId': kms_key, 
+        }
+        rds_client.copy_db_snapshot(**rds_client_params)
+        return backup_id
 
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
