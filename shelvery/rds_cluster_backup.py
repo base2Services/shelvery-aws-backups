@@ -126,8 +126,11 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         backup_id = f'{backup_id}-re-encrypted'
         
         # check if backup is being created
-        if client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id):
-            return backup_id
+        try:
+            if client_local.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id):
+                return backup_id
+        except ClientError as e:
+            pass
         
         rds_client_params = {
             'SourceDBClusterSnapshotIdentifier': snapshot['DBClusterSnapshotArn'],
