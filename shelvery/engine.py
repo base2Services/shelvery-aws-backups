@@ -668,7 +668,7 @@ class ShelveryEngine:
         destination_account_id = kwargs['AwsAccountId']
         backup_resource = self.get_backup_resource(backup_region, backup_id)
         
-        if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource.tags, self):
+        if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self):
             self.logger.info(f"KMS Key detected during share for {backup_resource.backup_id}")
             backup_id = self.create_encrypted_backup(backup_id, re_encrypt_key, backup_region)
             self.logger.info(f"New backup id: {backup_id}")
