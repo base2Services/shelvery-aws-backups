@@ -677,6 +677,10 @@ class ShelveryEngine:
         try:
             self.share_backup_with_account(backup_region, backup_id, destination_account_id)
             backup_resource = self.get_backup_resource(backup_region, backup_id)
+            
+            self.logger.info(f"Backup Resource: {backup_resource}")
+            self.logger.info(f"Reencrypt KMS Key: {RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource_tags(), self)}")
+            
             self._write_backup_data(
                 backup_resource,
                 self._get_data_bucket(backup_region),

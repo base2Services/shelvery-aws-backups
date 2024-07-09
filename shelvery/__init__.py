@@ -1,4 +1,4 @@
-__version__ = '0.9.9'
+__version__ = '0.9.10'
 LAMBDA_WAIT_ITERATION = 'lambda_wait_iteration'
 S3_DATA_PREFIX = 'backups'
 SHELVERY_DO_BACKUP_TAGS = ['True', 'true', '1', 'TRUE']
