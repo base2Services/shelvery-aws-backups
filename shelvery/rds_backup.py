@@ -123,6 +123,11 @@ class ShelveryRDSBackup(ShelveryEngine):
         snapshots = client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
         backup_id = f'{backup_id}-re-encrypted'
+        
+        # check if backup is being created
+        if client_local.describe_db_snapshots(DBSnapshotIdentifier=backup_id)['Snapshots']:
+            return backup_id
+        
         rds_client_params = {
             'SourceDBSnapshotIdentifier': snapshot['DBSnapshotArn'],
             'TargetDBSnapshotIdentifier': backup_id,
