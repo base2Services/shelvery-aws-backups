@@ -258,7 +258,9 @@ class ShelveryEngine:
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
             
             re_encrypt_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource.tags, self)
-            backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:config:shelvery_reencrypt_kms_key_id"] = re_encrypt_key
+            if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource.tags, self):
+                backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:config:shelvery_reencrypt_kms_key_id"] = re_encrypt_key
+
 
             self.logger.info(f"Processing {resource_type} with id {r.resource_id}")
             self.logger.info(f"Creating backup {backup_resource.name}")
