@@ -671,7 +671,6 @@ class ShelveryEngine:
         if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self):
             self.logger.info(f"KMS Key detected during share for {backup_resource.backup_id}")
             backup_id = self.create_encrypted_backup(backup_id, re_encrypt_key, backup_region)
-            self.logger.info(f"New backup id: {backup_id}")
         
         # if backup is not available, exit and rely on recursive lambda call do share backup
         # in non lambda mode this should never happen

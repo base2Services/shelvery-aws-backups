@@ -118,12 +118,8 @@ class ShelveryRDSBackup(ShelveryEngine):
     
     def snapshot_exists(self, client, backup_id):
         try:
-            print(f"Checking if exists: {backup_id}")
             response = client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
-            print(response)
             snapshots = response.get('DBSnapshots', [])
-            print(f"All Snapshots: {client.describe_db_snapshots()}")
-            print(snapshots)
             return bool(snapshots)
         except ClientError as e:
             if e.response['Error']['Code'] == 'DBSnapshotNotFound':
@@ -140,10 +136,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         snapshot = snapshots['DBSnapshots'][0]
         backup_id = f'{backup_id}-re-encrypted'
 
-        encrypted_snapshot_exists = self.snapshot_exists(rds_client, backup_id)
-            
-        print(f"Encrypted snapshot exists: {encrypted_snapshot_exists}")
-        if encrypted_snapshot_exists:    
+        if self.snapshot_exists(rds_client, backup_id):
             return backup_id
             
         rds_client_params = {

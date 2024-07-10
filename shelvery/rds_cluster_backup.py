@@ -137,10 +137,7 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         snapshot = snapshots['DBClusterSnapshots'][0]
         backup_id = f'{backup_id}-re-encrypted'
         
-        snap_exists = self.snapshot_exists(client_local, backup_id)
-            
-        print(f"Encrypted snapshot exists: {snap_exists}")
-        if snap_exists:    
+        if self.snapshot_exists(rds_client, backup_id):
             return backup_id
         
         rds_client_params = {
