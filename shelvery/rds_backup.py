@@ -122,9 +122,10 @@ class ShelveryRDSBackup(ShelveryEngine):
             snapshots = response.get('Snapshots', [])
             return bool(snapshots)
         except ClientError as e:
-            if e.response['Error']['Code'] == 'DBSnapshotNotFoundFault':
+            if e.response['Error']['Code'] == 'DBSnapshotNotFound':
                 return False
             else:
+                print(e.response['Error']['Code'])
                 raise e
     
     def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
