@@ -121,7 +121,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             print(f"Checking if exists: {backup_id}")
             response = client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
             print(response)
-            snapshots = response.get('Snapshots', [])
+            snapshots = response.get('DBSnapshots', [])
             print(f"All Snapshots: {client.describe_db_snapshots()}")
             print(snapshots)
             return bool(snapshots)
