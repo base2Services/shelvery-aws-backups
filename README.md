@@ -184,8 +184,8 @@ IAM role that Lambda is running under.
 
 ## Runtime environment
 
-Shelvery requires Python3.6 to run. You can run it either from any server or local machine capable of interpreting
-Python3.6 code, or as Amazon Lambda functions. All Shelvery code is written in such way that it supports
+Shelvery requires Python3.11 to run. You can run it either from any server or local machine capable of interpreting
+Python3.11 code, or as Amazon Lambda functions. All Shelvery code is written in such way that it supports
 both CLI and Lambda execution.
 
 ## Backup lifecycle and retention periods

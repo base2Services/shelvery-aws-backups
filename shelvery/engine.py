@@ -256,6 +256,12 @@ class ShelveryEngine:
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
             backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:dr_regions"] = ','.join(dr_regions)
+            
+            re_encrypt_key = RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource.tags, self)
+            if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.entity_resource.tags, self):
+                backup_resource.tags[f"{RuntimeConfig.get_tag_prefix()}:config:shelvery_reencrypt_kms_key_id"] = re_encrypt_key
+
+
             self.logger.info(f"Processing {resource_type} with id {r.resource_id}")
             self.logger.info(f"Creating backup {backup_resource.name}")
 
@@ -661,6 +667,11 @@ class ShelveryEngine:
         backup_region = kwargs['Region']
         destination_account_id = kwargs['AwsAccountId']
         backup_resource = self.get_backup_resource(backup_region, backup_id)
+        
+        if re_encrypt_key := RuntimeConfig.get_reencrypt_kms_key_id(backup_resource.tags, self):
+            self.logger.info(f"KMS Key detected during share for {backup_resource.backup_id}")
+            backup_id = self.create_encrypted_backup(backup_id, re_encrypt_key, backup_region)
+        
         # if backup is not available, exit and rely on recursive lambda call do share backup
         # in non lambda mode this should never happen
         if RuntimeConfig.is_offload_queueing(self):
@@ -675,11 +686,8 @@ class ShelveryEngine:
 
         self.logger.info(f"Do share backup {backup_id} ({backup_region}) with {destination_account_id}")
         try:
-            new_backup_id = self.share_backup_with_account(backup_region, backup_id, destination_account_id)
-            #assign new backup id if new snapshot is created (eg: re-encrypted rds snapshot)
-            backup_id = new_backup_id if new_backup_id else backup_id
-            self.logger.info(f"Shared backup {backup_id} ({backup_region}) with {destination_account_id}")
-            backup_resource = self.get_backup_resource(backup_region, backup_id)
+            self.share_backup_with_account(backup_region, backup_id, destination_account_id)
+            backup_resource = self.get_backup_resource(backup_region, backup_id)                        
             self._write_backup_data(
                 backup_resource,
                 self._get_data_bucket(backup_region),
@@ -839,4 +847,10 @@ class ShelveryEngine:
     def get_backup_resource(self, backup_region: str, backup_id: str) -> BackupResource:
         """
         Get Backup Resource within region, identified by its backup_id
+        """
+        
+    @abstractmethod
+    def create_encrypted_backup(self, backup_id: str, kms_key: str,  backup_region: str) -> str:
+        """
+        Re-encrypt an existing backup with a new KMS key, returns the new backup id
         """

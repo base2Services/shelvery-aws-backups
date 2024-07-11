@@ -67,7 +67,11 @@ Parameters:
     Description: Duing the pull backup task, Kms key id to encrypt snapshots with
     Type: String
     Default: ''
-    
+  ShelveryReencryptKmsKeyId:
+    Description: During the share task, Kms key id to encrypt snapshots with
+    Type: String
+    Default: ''
+
 Resources:
 
   SnsTopic:
@@ -118,7 +122,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.9
+        ShelveryVersion: 0.9.10
 
       Environment:
         Variables:
@@ -138,6 +142,7 @@ Resources:
           shelvery_sqs_queue_wait_period: 300
           shelvery_encrypt_copy: !Ref ShelveryEncryptCopy
           shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
+          shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
 
       Events:
 

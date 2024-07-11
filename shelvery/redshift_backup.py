@@ -215,6 +215,9 @@ class ShelveryRedshiftBackup(ShelveryEngine):
 							"using EnableSnapshotCopy API Call.")
 		pass
 
+	def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
+		return backup_id
+
 	def is_backup_available(self, backup_region: str, backup_id: str) -> bool:
 		"""
 		Determine whether backup has completed and is available to be copied

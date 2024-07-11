@@ -121,6 +121,9 @@ class ShelveryDocumentDbBackup(ShelveryEngine):
             CopyTags=False
         )
         return backup_id
+    
+    def create_encrypted_backup(self, backup_id: str, kms_key: str, region: str) -> str:
+        return backup_id
 
     def copy_shared_backup(self, source_account: str, source_backup: BackupResource):
         docdb_client = AwsHelper.boto3_client('docdb', arn=self.role_arn, external_id=self.role_external_id)

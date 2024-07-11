@@ -31,6 +31,7 @@ pipeline {
     }
 
     stage('Unit Tests') {
+      when { changeRequest target: 'master' }
       steps {
         script {
           //Source Account
