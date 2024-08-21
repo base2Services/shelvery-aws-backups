@@ -122,7 +122,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.10
+        ShelveryVersion: 0.9.11
 
       Environment:
         Variables:

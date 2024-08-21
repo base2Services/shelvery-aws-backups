@@ -153,7 +153,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         rds_client = AwsHelper.boto3_client('rds', region_name=backup_region, arn=self.role_arn, external_id=self.role_external_id)
         snapshots = rds_client.describe_db_snapshots(DBSnapshotIdentifier=backup_id)
         snapshot = snapshots['DBSnapshots'][0]
-        tags = snapshot['TagList']
+        tags = snapshot.get('TagList', [])
         d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
         resource = BackupResource.construct(d_tags['shelvery:tag_name'], backup_id, d_tags)
         resource.resource_properties = snapshot
@@ -174,7 +174,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         for instance in db_instances:
             # collect tags in check if instance tagged with marker tag
-            tags = instance['TagList']
+            tags = instance.get('TagList', [])
             # convert api response to dictionary
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             if 'DBClusterIdentifier' in instance:
@@ -222,7 +222,7 @@ class ShelveryRDSBackup(ShelveryEngine):
 
         for snap in all_snapshots:
             #collect tags
-            tags = snap['TagList']
+            tags = snap.get('TagList', [])
             d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
             self.logger.info(f"Checking RDS Snap {snap['DBSnapshotIdentifier']}")
 
@@ -300,7 +300,7 @@ class ShelveryRDSBackup(ShelveryEngine):
         for instance_id in instance_ids:
             try:
                 rds_instance = rds_client.describe_db_instances(DBInstanceIdentifier=instance_id)['DBInstances'][0]
-                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn'])['TagList']
+                tags = rds_client.list_tags_for_resource(ResourceName=rds_instance['DBInstanceArn']).get('TagList', [])
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 d_tags = dict(map(lambda t: (t['Key'], t['Value']), tags))
                 rds_entity = EntityResource(instance_id,
