@@ -117,13 +117,13 @@ class ShelveryRDSClusterBackup(ShelveryEngine):
         )
         return backup_id
     
-    def snapshot_exists(client, backup_id):
+    def snapshot_exists(self, client, backup_id):
         try:
             response = client.describe_db_cluster_snapshots(DBClusterSnapshotIdentifier=backup_id)
             snapshots = response.get('DBClusterSnapshots', [])
             return bool(snapshots)
         except ClientError as e:
-            if e.response['Error']['Code'] == 'DBClusterSnapshotNotFound':
+            if e.response['Error']['Code'] == 'DBClusterSnapshotNotFound' or e.response['Error']['Code'] == 'DBClusterSnapshotNotFoundFault':
                 return False
             else:
                 print(e.response['Error']['Code'])
