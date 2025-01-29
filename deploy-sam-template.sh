@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SHELVERY_VERSION=0.9.11
+SHELVERY_VERSION=0.9.12
 
 # set DOCKERUSERID to current user. could be changed with -u uid
 DOCKERUSERID="-u $(id -u)"
