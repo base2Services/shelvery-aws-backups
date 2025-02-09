@@ -122,7 +122,7 @@ class ShelveryRDSBackup(ShelveryEngine):
             snapshots = response.get('DBSnapshots', [])
             return bool(snapshots)
         except ClientError as e:
-            if e.response['Error']['Code'] == 'DBSnapshotNotFound':
+            if e.response['Error']['Code'] == 'DBSnapshotNotFound' or e.response['Error']['Code'] == 'DBSnapshotNotFoundFault':
                 return False
             else:
                 print(e.response['Error']['Code'])
