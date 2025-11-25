@@ -361,7 +361,7 @@ class ShelveryEngine:
                         'BackupName': backup.name,
                     })
                 
-                # If re-encrypt backup is older than 72 hours, clean up the backup
+                # If re-encrypt backup is older than re-encrypt backup cleanup hours, clean up the backup
                 elif '-re-encrypted' in backup.backup_id:
                     # Get tag prefix to check for cross-account copy
                     tag_prefix = backup.tags.get('shelvery:tag_name', RuntimeConfig.get_tag_prefix())
@@ -371,11 +371,11 @@ class ShelveryEngine:
                     if is_cross_account_copy:
                         self.logger.info(f"Re-encrypted backup {backup.name} is a cross-account copy eg: databunker, skipping cleanup")
                     else:
-                        # Check if backup is older than 72 hours
+                        # Check if backup is older than re-encrypt backup cleanup hours
                         age_hours = (datetime.now(timezone.utc) - backup.date_created).total_seconds() / 3600
-                        if age_hours > 72:
+                        if age_hours > RuntimeConfig.get_reencrypt_backup_cleanup_hours(self):
                             self.logger.info(
-                                f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (> 72 hours), cleaning up")
+                                f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (> {RuntimeConfig.get_reencrypt_backup_cleanup_hours(self)} hours), cleaning up")
                             self.delete_backup(backup)
                             # backup.date_deleted = datetime.now(timezone.utc)
                             # self._archive_backup_metadata(backup, self._get_data_bucket(), RuntimeConfig.get_share_with_accounts(self))
@@ -387,7 +387,7 @@ class ShelveryEngine:
                             #     'AgeHours': age_hours
                             #})
                         else:
-                            self.logger.info(f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (< 72 hours), keeping")
+                            self.logger.info(f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (< {RuntimeConfig.get_reencrypt_backup_cleanup_hours(self)} hours), keeping")
                     
                 else:
                     self.logger.info(f"{backup.retention_type} backup {backup.name} is valid "
