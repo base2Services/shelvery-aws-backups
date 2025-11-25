@@ -8,7 +8,7 @@ import botocore
 import yaml
 import boto3
 from botocore.exceptions import ClientError
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from typing import List, Dict
 from abc import abstractmethod
@@ -369,7 +369,7 @@ class ShelveryEngine:
                     
                     # Only delete if it's not a cross-account copy
                     if is_cross_account_copy:
-                        self.logger.info(f"Re-encrypted backup {backup.name} is a cross-account copy eg: databunker, skipping cleanup")
+                        self.logger.info(f"Re-encrypted backup {backup.name} is a cross-account copy e.g., databunker, skipping cleanup")
                     else:
                         # Check if backup is older than re-encrypt backup cleanup hours
                         current_time = datetime.now(timezone.utc).replace(tzinfo=None)
