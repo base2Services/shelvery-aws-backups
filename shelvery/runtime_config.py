@@ -63,6 +63,7 @@ class RuntimeConfig:
     shelvery_copy_kms_key_id - when copying a shared snapshot, you can specify a different kms key used to encrypt the original snapshot.
                                Note that when copying to a new key, the shelvery requires access to both the new key and the original key.
     shelvery_reencrypt_kms_key_id - when re-encrypting a snapshot with a new KMS key before sharing it to a new account.               
+    shelvery_reencrypt_backup_cleanup_hours - number of hours to keep re-encrypted backups before cleaning up. Defaults to 72 hours.
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -104,7 +105,8 @@ class RuntimeConfig:
         'shelvery_ignore_invalid_resource_state': False,
         'shelvery_encrypt_copy': False,
         'shelvery_copy_kms_key_id': None,
-        'shelvery_reencrypt_kms_key_id': None
+        'shelvery_reencrypt_kms_key_id': None,
+        'shelvery_reencrypt_backup_cleanup_hours': 72
     }
 
     @classmethod
@@ -341,3 +343,7 @@ class RuntimeConfig:
     @classmethod
     def get_reencrypt_kms_key_id(cls, resource_tags, engine):
         return cls.get_conf_value('shelvery_reencrypt_kms_key_id', resource_tags, engine.lambda_payload)
+    
+    @classmethod
+    def get_reencrypt_backup_cleanup_hours(cls, resource_tags, engine):
+        return int(cls.get_conf_value('shelvery_reencrypt_backup_cleanup_hours', resource_tags, engine.lambda_payload))

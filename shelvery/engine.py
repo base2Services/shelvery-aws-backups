@@ -8,7 +8,7 @@ import botocore
 import yaml
 import boto3
 from botocore.exceptions import ClientError
-from datetime import datetime
+from datetime import datetime, timezone
 
 from typing import List, Dict
 from abc import abstractmethod
@@ -352,7 +352,7 @@ class ShelveryEngine:
                     self.logger.info(
                         f"{backup.retention_type} backup {backup.name} has expired on {backup.expire_date}, cleaning up")
                     self.delete_backup(backup)
-                    backup.date_deleted = datetime.utcnow()
+                    backup.date_deleted = datetime.now(timezone.utc).replace(tzinfo=None)
                     self._archive_backup_metadata(backup, self._get_data_bucket(), RuntimeConfig.get_share_with_accounts(self))
                     self.snspublisher.notify({
                         'Operation': 'DeleteBackup',
@@ -360,6 +360,37 @@ class ShelveryEngine:
                         'BackupType': self.get_engine_type(),
                         'BackupName': backup.name,
                     })
+                
+                # If re-encrypt backup is older than re-encrypt backup cleanup hours, clean up the backup
+                elif '-re-encrypted' in backup.backup_id:
+                    # Get tag prefix to check for cross-account copy
+                    tag_prefix = backup.tags.get('shelvery:tag_name', RuntimeConfig.get_tag_prefix())
+                    is_cross_account_copy = backup.tags.get(f"{tag_prefix}:cross_account_copy") == 'true'
+                    
+                    # Only delete if it's not a cross-account copy
+                    if is_cross_account_copy:
+                        self.logger.info(f"Re-encrypted backup {backup.name} is a cross-account copy e.g., databunker, skipping cleanup")
+                    else:
+                        # Check if backup is older than re-encrypt backup cleanup hours
+                        current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                        age_hours = (current_time - backup.date_created).total_seconds() / 3600
+                        cleanup_hours = RuntimeConfig.get_reencrypt_backup_cleanup_hours(backup.tags, self)
+                        if age_hours > cleanup_hours:
+                            self.logger.info(
+                                f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (> {cleanup_hours} hours), cleaning up")
+                            self.delete_backup(backup)
+                            backup.date_deleted = datetime.now(timezone.utc).replace(tzinfo=None)
+                            self._archive_backup_metadata(backup, self._get_data_bucket(), RuntimeConfig.get_share_with_accounts(self))
+                            self.snspublisher.notify({
+                                'Operation': 'DeleteReencryptedBackup',
+                                'Status': 'OK',
+                                'BackupType': self.get_engine_type(),
+                                'BackupName': backup.name,
+                                'AgeHours': age_hours
+                            })
+                        else:
+                            self.logger.info(f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (< {cleanup_hours} hours), keeping")
+                    
                 else:
                     self.logger.info(f"{backup.retention_type} backup {backup.name} is valid "
                                      f"until {backup.expire_date}, keeping this backup")
