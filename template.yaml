@@ -71,6 +71,13 @@ Parameters:
     Description: During the share task, Kms key id to encrypt snapshots with
     Type: String
     Default: ''
+  ShelveryEnableEbsArchive:
+    Description: Enable archiving monthly/yearly EBS snapshots to archive tier
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
 
 Resources:
 
@@ -122,7 +129,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.13
+        ShelveryVersion: 0.9.14
 
       Environment:
         Variables:
@@ -143,6 +150,7 @@ Resources:
           shelvery_encrypt_copy: !Ref ShelveryEncryptCopy
           shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
           shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
+          shelvery_enable_ebs_archive: !Ref ShelveryEnableEbsArchive
 
       Events:
 
@@ -276,6 +284,7 @@ Resources:
                 - ec2:ModifySnapshotAttribute
                 - ec2:ResetSnapshotAttribute
                 - ec2:DeleteSnapshot
+                - ec2:ModifySnapshotTier
                 - ec2:DescribeTags
                 - ec2:CreateTags
                 - ec2:DeleteTags

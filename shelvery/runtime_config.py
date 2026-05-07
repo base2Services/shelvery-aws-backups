@@ -64,6 +64,8 @@ class RuntimeConfig:
                                Note that when copying to a new key, the shelvery requires access to both the new key and the original key.
     shelvery_reencrypt_kms_key_id - when re-encrypting a snapshot with a new KMS key before sharing it to a new account.               
     shelvery_reencrypt_backup_cleanup_hours - number of hours to keep re-encrypted backups before cleaning up. Defaults to 72 hours.
+
+    shelvery_enable_ebs_archive - enable archiving monthly/yearly EBS snapshots to EBS Snapshots Archive tier. Defaults to false (opt-in).
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -106,7 +108,8 @@ class RuntimeConfig:
         'shelvery_encrypt_copy': False,
         'shelvery_copy_kms_key_id': None,
         'shelvery_reencrypt_kms_key_id': None,
-        'shelvery_reencrypt_backup_cleanup_hours': 72
+        'shelvery_reencrypt_backup_cleanup_hours': 72,
+        'shelvery_enable_ebs_archive': False
     }
 
     @classmethod
@@ -347,3 +350,8 @@ class RuntimeConfig:
     @classmethod
     def get_reencrypt_backup_cleanup_hours(cls, resource_tags, engine):
         return int(cls.get_conf_value('shelvery_reencrypt_backup_cleanup_hours', resource_tags, engine.lambda_payload))
+
+    @classmethod
+    def get_enable_ebs_archive(cls, resource_tags=None, engine=None):
+        val = cls.get_conf_value('shelvery_enable_ebs_archive', resource_tags, engine.lambda_payload)
+        return str(val).lower() in ['true', '1', 'yes']

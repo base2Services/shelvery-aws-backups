@@ -321,7 +321,13 @@ class ShelveryEngine:
             for br in backup_resources:
                 self.share_backup(br, aws_account_id)
 
+        self.post_create_backups(backup_resources)
+
         return backup_resources
+
+    def post_create_backups(self, backup_resources):
+        """Hook called after all backups are created, copied, and shared. Override in subclasses."""
+        pass
 
     def clean_backups(self):
         # collect backups

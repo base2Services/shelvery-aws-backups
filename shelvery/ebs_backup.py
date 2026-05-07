@@ -8,6 +8,7 @@ from shelvery.engine import SHELVERY_DO_BACKUP_TAGS
 from shelvery.ec2_backup import ShelveryEC2Backup
 from shelvery.entity_resource import EntityResource
 from shelvery.backup_resource import BackupResource
+from shelvery.runtime_config import RuntimeConfig
 
 
 class ShelveryEBSBackup(ShelveryEC2Backup):
@@ -65,6 +66,25 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         )
         backup_resource.backup_id = snap['SnapshotId']
         return backup_resource
+
+    def archive_backup(self, backup_resource: BackupResource):
+        """Move snapshot to the EBS Snapshots Archive tier for long-term storage."""
+        ec2client = AwsHelper.boto3_client('ec2', arn=self.role_arn, external_id=self.role_external_id)
+        ec2client.modify_snapshot_tier(
+            SnapshotId=backup_resource.backup_id,
+            StorageTier='archive'
+        )
+        self.logger.info(f"Initiated archive of snapshot {backup_resource.backup_id}")
+
+    def post_create_backups(self, backup_resources):
+        """Archive monthly/yearly EBS snapshots if archiving is enabled."""
+        for br in backup_resources:
+            if (RuntimeConfig.get_enable_ebs_archive(br.entity_resource.tags, self)
+                    and br.retention_type in [BackupResource.RETENTION_MONTHLY, BackupResource.RETENTION_YEARLY]):
+                try:
+                    self.archive_backup(br)
+                except Exception as e:
+                    self.logger.exception(f"Failed to archive snapshot {br.backup_id}: {e}")
 
     def get_backup_resource(self, region: str, backup_id: str) -> BackupResource:
         ec2 = AwsHelper.boto3_session('ec2', region_name=region, arn=self.role_arn, external_id=self.role_external_id)
