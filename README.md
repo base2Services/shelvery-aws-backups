@@ -328,6 +328,10 @@ backups
 - `shelvery_reencrypt_kms_key_id`  - when it is required to re-encrypt a RDS instance or cluster snapshot with a different KMS key 
                                 than that of the existing resource. Specify the ARN of the KMS Key.
 
+- `shelvery_enable_ebs_archive` - Enable EBS Snapshots Archive for monthly and yearly backups [boolean].
+  Archived snapshots are stored at a lower cost ($0.0125/GB-month vs $0.05/GB-month) but take
+  24-72 hours to restore and incur a $0.03/GB restore fee. Default: `false`.
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text
@@ -337,6 +341,7 @@ shelvery_keep_monthly_backups=12
 shelvery_keep_yearly_backups=10
 shelvery_wait_snapshot_timeout=120
 shelvery_lambda_max_wait_iterations=5
+shelvery_enable_ebs_archive=false
 ```
 
 ### Configuration Priority 1: Environment variables

@@ -148,6 +148,8 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
                 self.assertEqual(backup.retention_type, 'monthly')
 
         # Cleanup
+        # Note: Snapshots in 'archival-in-progress' state should still be deletable
+        # via the EC2 API. If cleanup fails, orphaned snapshots may need manual removal.
         print("Cleaning up EBS Archive test backups")
         backups_engine.clean_backups()
 

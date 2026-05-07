@@ -77,7 +77,14 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         self.logger.info(f"Initiated archive of snapshot {backup_resource.backup_id}")
 
     def post_create_backups(self, backup_resources):
-        """Archive monthly/yearly EBS snapshots if archiving is enabled."""
+        """Archive monthly/yearly EBS snapshots if archiving is enabled.
+
+        Note: In Lambda, waiting sequentially for multiple snapshots could
+        approach the 15-minute execution limit. The per-snapshot wait respects
+        the remaining Lambda execution time, so later snapshots may fail to
+        archive if insufficient time remains. Failures are logged but do not
+        block other operations.
+        """
         for br in backup_resources:
             if (RuntimeConfig.get_enable_ebs_archive(br.entity_resource.tags, self)
                     and br.retention_type in [BackupResource.RETENTION_MONTHLY, BackupResource.RETENTION_YEARLY]):

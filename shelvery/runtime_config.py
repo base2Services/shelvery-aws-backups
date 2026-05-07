@@ -353,5 +353,5 @@ class RuntimeConfig:
 
     @classmethod
     def get_enable_ebs_archive(cls, resource_tags=None, engine=None):
-        val = cls.get_conf_value('shelvery_enable_ebs_archive', resource_tags, engine.lambda_payload)
+        val = cls.get_conf_value('shelvery_enable_ebs_archive', resource_tags, engine.lambda_payload if engine else None)
         return str(val).lower() in ['true', '1', 'yes']
