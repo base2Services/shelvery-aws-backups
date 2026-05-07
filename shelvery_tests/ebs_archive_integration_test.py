@@ -131,12 +131,14 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
 
             if tier_response.get('SnapshotTierStatuses'):
                 tier_status = tier_response['SnapshotTierStatuses'][0]
-                print(f"Tiering status: {tier_status.get('Status', 'N/A')}")
+                status = tier_status.get('Status', '')
+                print(f"Tiering status: {status}")
                 print(f"Storage tier: {tier_status.get('StorageTier', 'N/A')}")
-                # Status should be 'archival-in-progress' or 'archival-completed'
+                # The API returns 'archival-in-progress' while archiving,
+                # and 'completed' once the archive operation finishes
                 self.assertIn(
-                    tier_status.get('Status', ''),
-                    ['archival-in-progress', 'archival-completed'],
+                    status,
+                    ['archival-in-progress', 'completed'],
                     f"Snapshot {snapshot_id} should be archiving or archived"
                 )
             else:
