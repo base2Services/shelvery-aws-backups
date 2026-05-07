@@ -25,6 +25,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         br = MagicMock(spec=BackupResource)
         br.backup_id = snapshot_id
         br.retention_type = retention_type
+        br.region = 'ap-southeast-2'
         br.entity_resource = MagicMock(spec=EntityResource)
         br.entity_resource.tags = {}
         return br
@@ -94,11 +95,13 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         monthly_br = self._make_backup_resource(BackupResource.RETENTION_MONTHLY, 'snap-monthly')
 
         engine.post_create_backups([monthly_br])
 
+        engine.wait_backup_available.assert_called_once_with('ap-southeast-2', 'snap-monthly', None, None)
         mock_client.modify_snapshot_tier.assert_called_once_with(
             SnapshotId='snap-monthly',
             StorageTier='archive'
@@ -116,11 +119,13 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         yearly_br = self._make_backup_resource(BackupResource.RETENTION_YEARLY, 'snap-yearly')
 
         engine.post_create_backups([yearly_br])
 
+        engine.wait_backup_available.assert_called_once_with('ap-southeast-2', 'snap-yearly', None, None)
         mock_client.modify_snapshot_tier.assert_called_once_with(
             SnapshotId='snap-yearly',
             StorageTier='archive'
@@ -138,11 +143,13 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         daily_br = self._make_backup_resource(BackupResource.RETENTION_DAILY, 'snap-daily')
 
         engine.post_create_backups([daily_br])
 
+        engine.wait_backup_available.assert_not_called()
         mock_client.modify_snapshot_tier.assert_not_called()
 
     @patch('shelvery.ebs_backup.AwsHelper')
@@ -157,11 +164,13 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         weekly_br = self._make_backup_resource(BackupResource.RETENTION_WEEKLY, 'snap-weekly')
 
         engine.post_create_backups([weekly_br])
 
+        engine.wait_backup_available.assert_not_called()
         mock_client.modify_snapshot_tier.assert_not_called()
 
     @patch('shelvery.ebs_backup.AwsHelper')
@@ -176,11 +185,13 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         monthly_br = self._make_backup_resource(BackupResource.RETENTION_MONTHLY, 'snap-monthly')
 
         engine.post_create_backups([monthly_br])
 
+        engine.wait_backup_available.assert_not_called()
         mock_client.modify_snapshot_tier.assert_not_called()
 
     @patch('shelvery.ebs_backup.AwsHelper')
@@ -195,6 +206,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         daily_br = self._make_backup_resource(BackupResource.RETENTION_DAILY, 'snap-daily')
         weekly_br = self._make_backup_resource(BackupResource.RETENTION_WEEKLY, 'snap-weekly')
@@ -203,6 +215,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
 
         engine.post_create_backups([daily_br, weekly_br, monthly_br, yearly_br])
 
+        self.assertEqual(engine.wait_backup_available.call_count, 2)
         calls = mock_client.modify_snapshot_tier.call_args_list
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0].kwargs['SnapshotId'], 'snap-monthly')
@@ -221,6 +234,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         monthly_br = self._make_backup_resource(BackupResource.RETENTION_MONTHLY, 'snap-fail')
 
@@ -241,6 +255,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
         engine.role_external_id = None
         engine.logger = MagicMock()
         engine.lambda_payload = None
+        engine.wait_backup_available = MagicMock(return_value=True)
 
         monthly_br = self._make_backup_resource(BackupResource.RETENTION_MONTHLY, 'snap-override')
         monthly_br.entity_resource.tags = {
@@ -249,6 +264,7 @@ class ShelveryEBSArchiveUnitTest(unittest.TestCase):
 
         engine.post_create_backups([monthly_br])
 
+        engine.wait_backup_available.assert_not_called()
         mock_client.modify_snapshot_tier.assert_not_called()
 
 

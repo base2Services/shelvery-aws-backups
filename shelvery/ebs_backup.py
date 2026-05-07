@@ -82,6 +82,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
             if (RuntimeConfig.get_enable_ebs_archive(br.entity_resource.tags, self)
                     and br.retention_type in [BackupResource.RETENTION_MONTHLY, BackupResource.RETENTION_YEARLY]):
                 try:
+                    self.wait_backup_available(br.region, br.backup_id, None, None)
                     self.archive_backup(br)
                 except Exception as e:
                     self.logger.exception(f"Failed to archive snapshot {br.backup_id}: {e}")
