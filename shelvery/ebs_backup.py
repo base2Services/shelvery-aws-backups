@@ -76,6 +76,17 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         )
         self.logger.info(f"Initiated archive of snapshot {backup_resource.backup_id}")
 
+    def _will_archive(self, backup_resource: BackupResource) -> bool:
+        return (RuntimeConfig.get_enable_ebs_archive(backup_resource.entity_resource.tags, self)
+                and backup_resource.retention_type in [BackupResource.RETENTION_MONTHLY, BackupResource.RETENTION_YEARLY])
+
+    def is_backup_shareable(self, backup_resource: BackupResource) -> bool:
+        """Archived EBS snapshots cannot be copied cross-account, so exclude
+        them from sharing to prevent destination pull operations from hanging."""
+        if self._will_archive(backup_resource):
+            return False
+        return True
+
     def post_create_backups(self, backup_resources):
         """Archive monthly/yearly EBS snapshots if archiving is enabled.
 
@@ -86,8 +97,7 @@ class ShelveryEBSBackup(ShelveryEC2Backup):
         block other operations.
         """
         for br in backup_resources:
-            if (RuntimeConfig.get_enable_ebs_archive(br.entity_resource.tags, self)
-                    and br.retention_type in [BackupResource.RETENTION_MONTHLY, BackupResource.RETENTION_YEARLY]):
+            if self._will_archive(br):
                 try:
                     self.wait_backup_available(br.region, br.backup_id, None, None)
                     self.archive_backup(br)

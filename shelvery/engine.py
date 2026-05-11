@@ -319,7 +319,11 @@ class ShelveryEngine:
 
         for aws_account_id in RuntimeConfig.get_share_with_accounts(self):
             for br in backup_resources:
-                self.share_backup(br, aws_account_id)
+                if self.is_backup_shareable(br):
+                    self.share_backup(br, aws_account_id)
+                else:
+                    self.logger.info(f"Skipping share of backup {br.name} with account {aws_account_id} "
+                                     f"- backup is not eligible for cross-account sharing")
 
         self.post_create_backups(backup_resources)
 
@@ -585,6 +589,12 @@ class ShelveryEngine:
                 'Region': region
             }
             ShelveryInvoker().invoke_shelvery_operation(self, method, arguments)
+
+    def is_backup_shareable(self, backup_resource: BackupResource) -> bool:
+        """Check whether a backup resource is eligible for cross-account sharing.
+        Subclasses can override to exclude backups that cannot be copied cross-account
+        (e.g. EBS snapshots destined for archive tier)."""
+        return True
 
     def share_backup(self, backup_resource: BackupResource, aws_account_id: str):
         """
