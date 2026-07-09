@@ -148,20 +148,27 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         backups_engine = ebs_test_class.backups_engine
         client = ebs_test_class.client
 
-        print("Creating shared backups")
-        backups = backups_engine.create_backups()
-        print(f"First batch: {len(backups)} shared backup(s) created")
-        self.assertGreaterEqual(len(backups), 1, "Expected at least 1 backup from first create_backups()")
+        print("Creating shared backups (daily + monthly for destination pull test)")
+        os.environ['shelvery_current_retention_type'] = 'daily'
+        daily_backups = backups_engine.create_backups()
+        print(f"Daily batch: {len(daily_backups)} shared backup(s) created")
+        self.assertEqual(len(daily_backups), 1, "Expected 1 daily backup from create_backups()")
 
-        # Destination pull tests need one shared backup each (archive disabled vs enabled).
         time.sleep(30)  # EBS snapshot create rate limit
-        second_batch = backups_engine.create_backups()
-        print(f"Second batch: {len(second_batch)} shared backup(s) created")
-        backups = backups + second_batch
+        os.environ['shelvery_current_retention_type'] = 'monthly'
+        monthly_backups = backups_engine.create_backups()
+        print(f"Monthly batch: {len(monthly_backups)} shared backup(s) created")
+        self.assertEqual(len(monthly_backups), 1, "Expected 1 monthly backup from create_backups()")
+
+        backups = daily_backups + monthly_backups
         print(f"{len(backups)} shared backups created in total")
-        self.assertGreaterEqual(
-            len(backups), 2,
-            f"Expected 2 shared backups for destination pull tests, got {len(backups)}"
+        self.assertEqual(len(backups), 2, f"Expected 2 shared backups (daily + monthly), got {len(backups)}")
+
+        retention_types = {backup.retention_type for backup in backups}
+        self.assertEqual(
+            retention_types,
+            {'daily', 'monthly'},
+            f"Expected daily and monthly retention types, got {retention_types}"
         )
 
         for backup in backups:

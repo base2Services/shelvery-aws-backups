@@ -69,3 +69,56 @@ def compare_backups(self,backup,backup_engine):
         )
     
     return True
+
+
+def snapshot_retention_type(snapshot: dict) -> str:
+    """Return shelvery retention_type from EC2 snapshot tags."""
+    tag_prefix = RuntimeConfig.get_tag_prefix()
+    tags = {tag['Key']: tag['Value'] for tag in snapshot.get('Tags', [])}
+    return tags.get(f"{tag_prefix}:retention_type", '')
+
+
+def group_snapshots_by_retention_type(snapshots: list) -> dict:
+    """Group describe_snapshots results by shelvery retention_type tag."""
+    grouped = {}
+    for snapshot in snapshots:
+        retention_type = snapshot_retention_type(snapshot)
+        grouped.setdefault(retention_type, []).append(snapshot)
+    return grouped
+
+
+def assert_snapshot_is_standard(test_case, client, snapshot_id: str) -> None:
+    """Assert an EBS snapshot remains on the standard storage tier."""
+    response = client.describe_snapshots(SnapshotIds=[snapshot_id])
+    storage_tier = response['Snapshots'][0].get('StorageTier', 'standard')
+    test_case.assertEqual(
+        storage_tier,
+        'standard',
+        f"Snapshot {snapshot_id} should remain standard tier, got {storage_tier}"
+    )
+
+
+def assert_snapshot_is_archived_or_archiving(test_case, client, snapshot_id: str) -> None:
+    """Assert an EBS snapshot is archived or archival is in progress."""
+    time.sleep(5)
+    snapshot = client.describe_snapshots(SnapshotIds=[snapshot_id])['Snapshots'][0]
+    storage_tier = snapshot.get('StorageTier', 'standard')
+    if storage_tier == 'archive':
+        return
+
+    tier_response = client.describe_snapshot_tier_status(
+        Filters=[{'Name': 'snapshot-id', 'Values': [snapshot_id]}]
+    )
+    if tier_response.get('SnapshotTierStatuses'):
+        status = tier_response['SnapshotTierStatuses'][0].get('Status', '')
+        test_case.assertIn(
+            status,
+            ['archival-in-progress', 'completed'],
+            f"Snapshot {snapshot_id} should be archiving or archived, got status {status!r}"
+        )
+        return
+
+    test_case.fail(
+        f"Snapshot {snapshot_id} expected archive tier or tiering status, "
+        f"got StorageTier={storage_tier!r}"
+    )
