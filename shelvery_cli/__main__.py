@@ -28,7 +28,7 @@ def main(args=None):
         args.insert(0, 'ebs')
     if len(args) < 2:
         print("""Usage: shelvery <backup_type> <action>\n\nBackup types: rds ebs rds_cluster ec2ami redshift
-Actions:\n\tcreate_backups\n\tclean_backups\n\tcreate_data_buckets\n\tpull_shared_backups""")
+Actions:\n\tcreate_backups\n\tclean_backups\n\tcreate_data_buckets\n\tpull_shared_backups\n\tarchive_pending_backups""")
         exit(-2)
 
     setup_logging()

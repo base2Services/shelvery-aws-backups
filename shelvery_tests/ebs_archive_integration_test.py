@@ -71,8 +71,8 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
     """Integration tests for EBS Snapshots Archive tier feature.
 
     These tests require real AWS credentials and an EBS volume tagged
-    for shelvery backups. They verify that the archive tier API is
-    called correctly for monthly retention type backups.
+    for shelvery backups. They verify archive runs after backup creation
+    via archive_pending_backups (standalone mode).
     """
 
     def id(self):
@@ -83,17 +83,17 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
         self.regional_snapshots = []
         setup_source(self)
 
-        # Enable archive feature and force monthly retention for test
         os.environ['shelvery_enable_ebs_archive'] = 'true'
         os.environ['shelvery_current_retention_type'] = 'monthly'
+        os.environ['shelvery_share_aws_account_ids'] = ''
 
         ebs_test_class = EBSArchiveTestClass()
         ebs_test_class.wait_for_resource()
         ebs_test_class.add_backup_tags()
 
     @pytest.mark.source
-    def test_CreateEbsBackupWithArchive(self):
-        """Create an EBS backup with monthly retention and verify it is archived."""
+    def test_CreateEbsBackupThenArchivePending(self):
+        """Create backup (no immediate archive), then archive via archive_pending_backups."""
         print("Running EBS archive integration test")
         ebs_test_class = EBSArchiveTestClass()
         backups_engine = ebs_test_class.backups_engine
@@ -107,24 +107,24 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
         for backup in backups:
             snapshot_id = backup.backup_id
             self.created_snapshots.append(snapshot_id)
-            print(f"Checking archive status for snapshot {snapshot_id}")
-
-            # Wait for snapshot to be available before checking tier
             backups_engine.wait_backup_available(backup.region, snapshot_id, None, None)
 
-            # Allow time for the archive tier transition to be initiated
-            time.sleep(5)
-
-            # Describe the snapshot to check storage tier
             response = client.describe_snapshots(SnapshotIds=[snapshot_id])
             snapshot = response['Snapshots'][0]
+            storage_tier = snapshot.get('StorageTier', 'standard')
+            print(f"Snapshot {snapshot_id} StorageTier after create: {storage_tier}")
+            self.assertEqual(
+                storage_tier,
+                'standard',
+                f"Snapshot {snapshot_id} should remain standard tier until archive_pending_backups runs"
+            )
 
-            # The snapshot should either be archiving or already archived
-            # Note: StorageTier may show 'standard' briefly while archival is in progress,
-            # but describe_snapshot_tier_status should show the tiering status
-            print(f"Snapshot {snapshot_id} StorageTier: {snapshot.get('StorageTier', 'standard')}")
+        backups_engine.archive_pending_backups()
 
-            # Check tiering status via describe_snapshot_tier_status
+        for backup in backups:
+            snapshot_id = backup.backup_id
+            time.sleep(5)
+
             tier_response = client.describe_snapshot_tier_status(
                 Filters=[{'Name': 'snapshot-id', 'Values': [snapshot_id]}]
             )
@@ -132,24 +132,15 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
             if tier_response.get('SnapshotTierStatuses'):
                 tier_status = tier_response['SnapshotTierStatuses'][0]
                 status = tier_status.get('Status', '')
-                print(f"Tiering status: {status}")
-                print(f"Storage tier: {tier_status.get('StorageTier', 'N/A')}")
-                # The API returns 'archival-in-progress' while archiving,
-                # and 'completed' once the archive operation finishes
+                print(f"Tiering status for {snapshot_id}: {status}")
                 self.assertIn(
                     status,
                     ['archival-in-progress', 'completed'],
                     f"Snapshot {snapshot_id} should be archiving or archived"
                 )
             else:
-                # If the API doesn't return status immediately, the modify call was made
-                # This can happen with very new snapshots
-                print(f"No tier status yet for {snapshot_id} - verifying via retention type")
                 self.assertEqual(backup.retention_type, 'monthly')
 
-        # Cleanup
-        # Note: Snapshots in 'archival-in-progress' state should still be deletable
-        # via the EC2 API. If cleanup fails, orphaned snapshots may need manual removal.
         print("Cleaning up EBS Archive test backups")
         backups_engine.clean_backups()
 
@@ -173,18 +164,17 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
             self.created_snapshots.append(snapshot_id)
 
             backups_engine.wait_backup_available(backup.region, snapshot_id, None, None)
+            backups_engine.archive_pending_backups()
             time.sleep(5)
 
             response = client.describe_snapshots(SnapshotIds=[snapshot_id])
             snapshot = response['Snapshots'][0]
 
-            # Snapshot should remain in standard tier
             storage_tier = snapshot.get('StorageTier', 'standard')
             print(f"Snapshot {snapshot_id} StorageTier: {storage_tier}")
             self.assertEqual(storage_tier, 'standard',
                              f"Snapshot {snapshot_id} should remain in standard tier when archive is disabled")
 
-        # Cleanup
         print("Cleaning up EBS Archive disabled test backups")
         backups_engine.clean_backups()
 
@@ -209,6 +199,7 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
             self.created_snapshots.append(snapshot_id)
 
             backups_engine.wait_backup_available(backup.region, snapshot_id, None, None)
+            backups_engine.archive_pending_backups()
             time.sleep(5)
 
             response = client.describe_snapshots(SnapshotIds=[snapshot_id])
@@ -219,14 +210,14 @@ class ShelveryEBSArchiveIntegrationTestCase(unittest.TestCase):
             self.assertEqual(storage_tier, 'standard',
                              f"Daily snapshot {snapshot_id} should NOT be archived")
 
-        # Cleanup
         print("Cleaning up daily backup test")
         backups_engine.clean_backups()
 
     def tearDown(self):
-        # Reset env vars
         os.environ.pop('shelvery_enable_ebs_archive', None)
+        os.environ.pop('shelvery_enable_ebs_archive_pulled', None)
         os.environ.pop('shelvery_current_retention_type', None)
+        os.environ.pop('shelvery_share_aws_account_ids', None)
         print("Waiting 30s due to EBS Snapshot rate limit...")
         time.sleep(30)
 

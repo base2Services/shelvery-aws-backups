@@ -14,6 +14,9 @@ Parameters:
   PullSharedBackupsSchedule:
     Type: String
     Default: "0 2 ? * * *"
+  ArchivePendingBackupsSchedule:
+    Type: String
+    Default: "0 3 ? * * *"
   S3BackupSchedule:
     Type: String
     Default: "0 1 ? * * *"
@@ -72,7 +75,14 @@ Parameters:
     Type: String
     Default: ''
   ShelveryEnableEbsArchive:
-    Description: Enable archiving monthly/yearly EBS snapshots to archive tier
+    Description: Enable archiving monthly/yearly EBS snapshots to archive tier in source account after pull
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+  ShelveryEnableEbsArchivePulled:
+    Description: Enable archiving monthly/yearly EBS snapshots in databunker account after pull
     Type: String
     AllowedValues:
       - 'true'
@@ -151,6 +161,7 @@ Resources:
           shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
           shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
           shelvery_enable_ebs_archive: !Ref ShelveryEnableEbsArchive
+          shelvery_enable_ebs_archive_pulled: !Ref ShelveryEnableEbsArchivePulled
 
       Events:
 
@@ -243,6 +254,12 @@ Resources:
           Properties:
             Schedule: !Sub cron(${PullSharedBackupsSchedule})
             Input: '{"backup_type":"docdb","action":"pull_shared_backups"}'
+
+        ArchiveEbs:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${ArchivePendingBackupsSchedule})
+            Input: '{"backup_type":"ebs","action":"archive_pending_backups"}'
 
       Policies:
         - Version: "2012-10-17"

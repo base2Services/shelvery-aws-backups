@@ -333,6 +333,14 @@ class ShelveryEngine:
         """Hook called after all backups are created, copied, and shared. Override in subclasses."""
         pass
 
+    def post_pull_backups(self, backup_resources):
+        """Hook called after shared backups are copied into this account. Override in subclasses."""
+        pass
+
+    def archive_pending_backups(self):
+        """Archive backups that are ready for long-term storage. Override in subclasses."""
+        pass
+
     def clean_backups(self):
         # collect backups
         existing_backups = self.get_existing_backups(RuntimeConfig.get_tag_prefix())
@@ -463,6 +471,7 @@ class ShelveryEngine:
                         new_backup = shared_backup.cross_account_copy(new_backup_id)
                         self.tag_backup_resource(new_backup)
                         self.store_backup_data(new_backup)
+                        self.post_pull_backups([new_backup])
                         regional_client.delete_object(Bucket=bucket_name, Key=backup_object['Key'])
                         self.logger.info(f"Removed s3://{bucket_name}/{backup_object['Key']}")
                         regional_client.put_object(

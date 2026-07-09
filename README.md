@@ -328,9 +328,15 @@ backups
 - `shelvery_reencrypt_kms_key_id`  - when it is required to re-encrypt a RDS instance or cluster snapshot with a different KMS key 
                                 than that of the existing resource. Specify the ARN of the KMS Key.
 
-- `shelvery_enable_ebs_archive` - Enable EBS Snapshots Archive for monthly and yearly backups [boolean].
+- `shelvery_enable_ebs_archive` - Enable EBS Snapshots Archive for monthly and yearly backups in the
+  **source account**, after all configured share targets have pulled the snapshot [boolean].
   Archived snapshots are stored at a lower cost ($0.0125/GB-month vs $0.05/GB-month) but take
   24-72 hours to restore and incur a $0.03/GB restore fee. Default: `false`.
+  When no share accounts are configured, eligible snapshots are archived directly by
+  `archive_pending_backups`.
+
+- `shelvery_enable_ebs_archive_pulled` - Enable EBS Snapshots Archive for monthly and yearly backups in the
+  **databunker account**, immediately after a shared snapshot is pulled [boolean]. Default: `false`.
 
 ### Configuration Priority 0: Sensible defaults
 
@@ -342,6 +348,7 @@ shelvery_keep_yearly_backups=10
 shelvery_wait_snapshot_timeout=120
 shelvery_lambda_max_wait_iterations=5
 shelvery_enable_ebs_archive=false
+shelvery_enable_ebs_archive_pulled=false
 ```
 
 ### Configuration Priority 1: Environment variables
@@ -418,6 +425,36 @@ $ export shelvery_source_aws_account_ids=222222222222,333333333333
 # this command will pull backups from both accounts
 $ shelvery ebs pull_shared_backups
 ```
+
+### EBS Snapshots Archive (multi-account)
+
+When sharing EBS backups to a databunker account, snapshots must remain in the standard tier until
+the destination account has copied them. Archived snapshots cannot be copied cross-account.
+
+Flow with archive enabled:
+
+1. **Source account** — `create_backups` creates and shares snapshots as normal (no immediate archive)
+2. **Databunker account** — `pull_shared_backups` copies snapshots; optionally archives pulled copies
+   when `shelvery_enable_ebs_archive_pulled=true`
+3. **Source account** — `archive_pending_backups` scans S3 `-processed` markers and archives source
+   snapshots once all share targets have pulled them (when `shelvery_enable_ebs_archive=true`)
+
+```bash
+# Source account
+$ export shelvery_share_aws_account_ids=111111111111
+$ export shelvery_enable_ebs_archive=true
+$ shelvery ebs create_backups
+$ shelvery ebs archive_pending_backups
+
+# Databunker account
+$ export shelvery_source_aws_account_ids=222222222222
+$ export shelvery_enable_ebs_archive_pulled=true
+$ shelvery ebs pull_shared_backups
+```
+
+When deployed via SAM, `archive_pending_backups` runs on a schedule (default 03:00 UTC) after pull.
+
+Per-resource opt-out: `shelvery:config:shelvery_enable_ebs_archive=false` on the EBS volume.
 
 ## Cross-account copying of encrypted backups
 
