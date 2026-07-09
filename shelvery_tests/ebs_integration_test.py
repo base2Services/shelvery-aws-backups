@@ -148,9 +148,28 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
         backups_engine = ebs_test_class.backups_engine
         client = ebs_test_class.client
 
-        print("Creating shared backups")
-        backups = backups_engine.create_backups()
-        print(f"{len(backups)} shared backups created")
+        print("Creating shared backups (daily + monthly for destination pull test)")
+        os.environ['shelvery_current_retention_type'] = 'daily'
+        daily_backups = backups_engine.create_backups()
+        print(f"Daily batch: {len(daily_backups)} shared backup(s) created")
+        self.assertEqual(len(daily_backups), 1, "Expected 1 daily backup from create_backups()")
+
+        time.sleep(30)  # EBS snapshot create rate limit
+        os.environ['shelvery_current_retention_type'] = 'monthly'
+        monthly_backups = backups_engine.create_backups()
+        print(f"Monthly batch: {len(monthly_backups)} shared backup(s) created")
+        self.assertEqual(len(monthly_backups), 1, "Expected 1 monthly backup from create_backups()")
+
+        backups = daily_backups + monthly_backups
+        print(f"{len(backups)} shared backups created in total")
+        self.assertEqual(len(backups), 2, f"Expected 2 shared backups (daily + monthly), got {len(backups)}")
+
+        retention_types = {backup.retention_type for backup in backups}
+        self.assertEqual(
+            retention_types,
+            {'daily', 'monthly'},
+            f"Expected daily and monthly retention types, got {retention_types}"
+        )
 
         for backup in backups:
             snapshot_id = backup.backup_id

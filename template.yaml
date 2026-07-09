@@ -14,6 +14,9 @@ Parameters:
   PullSharedBackupsSchedule:
     Type: String
     Default: "0 2 ? * * *"
+  ArchivePendingBackupsSchedule:
+    Type: String
+    Default: "0 3 ? * * *"
   S3BackupSchedule:
     Type: String
     Default: "0 1 ? * * *"
@@ -71,6 +74,20 @@ Parameters:
     Description: During the share task, Kms key id to encrypt snapshots with
     Type: String
     Default: ''
+  ShelveryEnableEbsArchive:
+    Description: Enable archiving monthly/yearly EBS snapshots to archive tier in source account after pull
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+  ShelveryEnableEbsArchivePulled:
+    Description: Enable archiving monthly/yearly EBS snapshots in databunker account after pull
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
 
 Resources:
 
@@ -122,7 +139,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.13
+        ShelveryVersion: 0.9.14
 
       Environment:
         Variables:
@@ -143,6 +160,8 @@ Resources:
           shelvery_encrypt_copy: !Ref ShelveryEncryptCopy
           shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
           shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
+          shelvery_enable_ebs_archive: !Ref ShelveryEnableEbsArchive
+          shelvery_enable_ebs_archive_pulled: !Ref ShelveryEnableEbsArchivePulled
 
       Events:
 
@@ -236,6 +255,12 @@ Resources:
             Schedule: !Sub cron(${PullSharedBackupsSchedule})
             Input: '{"backup_type":"docdb","action":"pull_shared_backups"}'
 
+        ArchiveEbs:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub cron(${ArchivePendingBackupsSchedule})
+            Input: '{"backup_type":"ebs","action":"archive_pending_backups"}'
+
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -276,6 +301,7 @@ Resources:
                 - ec2:ModifySnapshotAttribute
                 - ec2:ResetSnapshotAttribute
                 - ec2:DeleteSnapshot
+                - ec2:ModifySnapshotTier
                 - ec2:DescribeTags
                 - ec2:CreateTags
                 - ec2:DeleteTags
