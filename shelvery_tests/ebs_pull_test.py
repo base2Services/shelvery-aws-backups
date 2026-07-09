@@ -22,37 +22,28 @@ class ShelveryEBSPullTestCase(unittest.TestCase):
     
     @pytest.mark.destination
     def test_PullEBSBackup(self):
-
-        # Complete initial setup
-        print(f"EBS - Running pull shared backups test")
+        """Pull shared backups with archive-on-pull disabled (default)."""
+        print("EBS - Running pull shared backups test")
         setup_destination(self)
-    
-        # Create test resource class
+        os.environ.pop('shelvery_enable_ebs_archive_pulled', None)
+
         ebs_test_class = EBSTestClass()
         backups_engine = ebs_test_class.backups_engine
         client = ebs_test_class.client
-        
-        # Clean residual existing snapshots
+
         backups_engine.clean_backups()
 
-        search_filter = [{'Name':'tag:ResourceName',
-                        'Values':[EBS_INSTANCE_RESOURCE_NAME]
-                        }]
+        search_filter = [{'Name': 'tag:ResourceName', 'Values': [EBS_INSTANCE_RESOURCE_NAME]}]
+        pre_pull_count = len(client.describe_snapshots(Filters=search_filter)['Snapshots'])
 
-        # Snapshot count before pull (may include non-stale leftovers from prior runs)
-        pre_pull_count = len(client.describe_snapshots(
-                        Filters=search_filter
-                    )['Snapshots'])
-
-        # Pull shared backups
         backups_engine.pull_shared_backups()
 
-        snapshots = client.describe_snapshots(
-                        Filters=search_filter
-                    )['Snapshots']
-
+        snapshots = client.describe_snapshots(Filters=search_filter)['Snapshots']
         pulled_count = len(snapshots) - pre_pull_count
-        self.assertGreaterEqual(pulled_count, 1, f"Expected at least 1 new snapshot from pull, but got {pulled_count}")
+        self.assertGreaterEqual(
+            pulled_count, 1,
+            f"Expected at least 1 new snapshot from pull, but got {pulled_count}"
+        )
 
     @pytest.mark.destination
     def test_PullEBSBackupWithArchivePulledEnabled(self):

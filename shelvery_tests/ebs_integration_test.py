@@ -150,7 +150,19 @@ class ShelveryEBSIntegrationTestCase(unittest.TestCase):
 
         print("Creating shared backups")
         backups = backups_engine.create_backups()
-        print(f"{len(backups)} shared backups created")
+        print(f"First batch: {len(backups)} shared backup(s) created")
+        self.assertGreaterEqual(len(backups), 1, "Expected at least 1 backup from first create_backups()")
+
+        # Destination pull tests need one shared backup each (archive disabled vs enabled).
+        time.sleep(30)  # EBS snapshot create rate limit
+        second_batch = backups_engine.create_backups()
+        print(f"Second batch: {len(second_batch)} shared backup(s) created")
+        backups = backups + second_batch
+        print(f"{len(backups)} shared backups created in total")
+        self.assertGreaterEqual(
+            len(backups), 2,
+            f"Expected 2 shared backups for destination pull tests, got {len(backups)}"
+        )
 
         for backup in backups:
             snapshot_id = backup.backup_id
