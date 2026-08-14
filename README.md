@@ -241,6 +241,53 @@ RuntimeConfiguration section below), whether success or failure. From SNS topic 
 subscribe custom Lambda functions, send payload to HTTP(S) endpoints etc. This allows monitoring systems
 to hook into shelvery, and possibly alert on any errors occurred.
 
+## Backup status reporting
+
+The notifications above tell you about individual operations. They do not tell you whether a run as
+a whole passed. Shelvery therefore also builds one **status report** per invocation and publishes it
+to `shelvery_status_sns_topic` - a topic kept separate from the per-operation ones. Shelvery does not
+create that topic; point the key at an existing one whose policy allows shelvery's role to publish.
+If the key is unset, no report is sent.
+
+```json
+{
+  "shelvery_version": "0.10.0",
+  "run_id": "3f2a9c1e-8b44-4d0a-9e21-77c0a1b2d3e4",
+  "account_id": "123456789012",
+  "region": "ap-southeast-2",
+  "backup_type": "ebs",
+  "action": "create_backups",
+  "started_at": "2026-08-14T01:00:03Z",
+  "ended_at": "2026-08-14T01:00:41Z",
+  "status": "PARTIAL",
+  "summary": {"collected": 3, "succeeded": 2, "skipped": 0, "failed": 1},
+  "entries_omitted": 0,
+  "entries": [
+    {"operation": "CreateBackup", "status": "OK", "entity_id": "vol-0abc123",
+     "backup_id": "snap-0def456", "backup_name": "web-data-a1b2c3-2026-08-14-0100-daily"},
+    {"operation": "CreateBackup", "status": "ERROR", "entity_id": "db-prod-1",
+     "error": "InvalidDBInstanceState: DB Instance db-prod-1 is not in available state"}
+  ]
+}
+```
+
+Run `status` is `OK` (nothing failed), `PARTIAL` (some succeeded, some failed) or `FAILED`
+(everything failed, or the run itself aborted). Entry `status` reuses the per-operation literals
+`OK` / `ERROR` / `IGNORE`, plus `ABORTED` when the action raised.
+
+In lambda, `run_id` is the request id, so a report links straight back to its CloudWatch log stream.
+
+A few things worth knowing:
+
+- `create_backups`, `clean_backups`, `pull_shared_backups` and `create_data_buckets` each report, and
+  so do the copy / share / store-metadata operations - those run in their own invocations
+  (see [Delayed operations](#delayed-operations)) and therefore produce their own reports.
+- `entries` is capped at 500 to stay inside the SNS message limit. Failures are kept in preference to
+  successes and `entries_omitted` records the rest; the `summary` counters are always complete.
+- Reporting is best effort. A failure to publish is logged and never fails a backup run.
+- If the lambda is killed by a timeout or runs out of memory, no report is sent - nothing gets to
+  run. The CloudWatch `Errors` metric on the function still covers that case.
+
 ## Supported services
 
 ### EC2
@@ -327,6 +374,11 @@ backups
 
 - `shelvery_reencrypt_kms_key_id`  - when it is required to re-encrypt a RDS instance or cluster snapshot with a different KMS key 
                                 than that of the existing resource. Specify the ARN of the KMS Key.
+
+- `shelvery_status_sns_topic` - ARN of an existing SNS topic that per-run backup status reports are
+                                published to. Separate from `shelvery_sns_topic`, which carries the
+                                per-operation notifications, and not created by shelvery. Status
+                                reporting is off when this is unset.
 
 ### Configuration Priority 0: Sensible defaults
 
