@@ -247,3 +247,49 @@ class CreateBackupsReportTest(EngineTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StoreBackupDataReportTest(EngineTestCase):
+    """do_store_backup_data has no notification of its own, so its report line is easy to lose."""
+
+    def test_a_successful_store_is_recorded(self):
+        backup = MagicMock()
+        backup.region = 'ap-southeast-2'
+        backup.name = 'disk-2026-08-14-0100-daily'
+        backup.account_id = '123456789012'
+
+        self.engine.get_backup_resource = MagicMock(return_value=backup)
+        self.engine.is_backup_available = MagicMock(return_value=True)
+        self.engine._get_data_bucket = MagicMock()
+        self.engine._write_backup_data = MagicMock()
+
+        self.engine.do_store_backup_data(
+            {'BackupId': 'snap-1', 'BackupRegion': 'ap-southeast-2'})
+
+        entries = self.report['entries']
+        self.assertEqual(1, len(entries), 'the report was empty - the report() line is missing')
+        self.assertEqual('StoreBackupData', entries[0]['operation'])
+        self.assertEqual('snap-1', entries[0]['backup_id'])
+        self.assertEqual(1, self.report['summary']['succeeded'])
+        # still report only - this path has never notified
+        self.engine.snspublisher.notify.assert_not_called()
+
+
+class NotApplicableActionTest(EngineTestCase):
+    """An action that never enumerates should say nothing, not report an empty run."""
+
+    def test_pull_shared_backups_publishes_nothing_when_no_source_accounts(self):
+        with patch.dict('os.environ', {'shelvery_source_aws_account_ids': ''}):
+            self.engine.pull_shared_backups()
+
+        self.assertEqual([], self.published,
+                         'a non-databunker account should not publish a pull report')
+
+    def test_pull_shared_backups_still_reports_when_configured(self):
+        self.engine.get_remote_bucket_name = MagicMock(return_value='some-bucket')
+
+        with patch.dict('os.environ', {'shelvery_source_aws_account_ids': '111111111111'}):
+            self.engine.pull_shared_backups()
+
+        self.assertEqual(1, len(self.published))
+        self.assertEqual('pull_shared_backups', self.published[0]['action'])

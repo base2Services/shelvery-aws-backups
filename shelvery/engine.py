@@ -104,6 +104,14 @@ class ShelveryEngine:
                 entry[key] = value
         self.run_report.add(entry)
 
+    def skip_run_report(self):
+        """Drop the current run report without publishing it.
+
+        For actions that turn out not to apply at all - reporting 'ran, found nothing' is
+        indistinguishable from 'looked and there was nothing', which is a different fact.
+        """
+        self.run_report = None
+
     def publish_run_report(self):
         """Send the run report to the status topic, if one is configured. Never raises."""
         report, self.run_report = self.run_report, None
@@ -515,6 +523,7 @@ class ShelveryEngine:
 
         if not accounts:
           self.logger.info("No shared backups will be pulled as no account IDs were specified to pull from.")
+          self.skip_run_report()
           return
 
         for src_account_id in accounts:
@@ -919,6 +928,11 @@ class ShelveryEngine:
             backup_resource.account_id = self.account_id
         bucket = self._get_data_bucket(backup_resource.region)
         self._write_backup_data(backup_resource, bucket)
+        # this operation has never had a notification of its own, so unlike the other
+        # actions there is no notify() call to sit alongside - without this the report
+        # for do_store_backup_data would always be empty
+        self.report('StoreBackupData', 'OK', backup_id=backup_id,
+                    backup_name=backup_resource.name)
 
     ####
     # Abstract methods, for engine implementations to implement
