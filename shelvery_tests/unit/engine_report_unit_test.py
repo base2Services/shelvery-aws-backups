@@ -293,3 +293,53 @@ class NotApplicableActionTest(EngineTestCase):
 
         self.assertEqual(1, len(self.published))
         self.assertEqual('pull_shared_backups', self.published[0]['action'])
+
+
+class ResourceContextTest(EngineTestCase):
+    """A bare 'vol-046251e32bb3227c0' does not say which resource failed."""
+
+    def setUp(self):
+        super().setUp()
+        self.engine.tag_backup_resource = MagicMock()
+        self.engine.store_backup_data = MagicMock()
+        self.engine.get_entities_to_backup = MagicMock(return_value=[
+            EntityResource('vol-0abc', 'ap-southeast-2', '2026-08-17', {'Name': 'web-data'})
+        ])
+
+    def test_success_entry_names_the_resource_and_retention(self):
+        def backup_resource(br):
+            br.backup_id = 'snap-1'
+        self.engine.backup_resource = backup_resource
+
+        self.engine.create_backups()
+
+        entry = self.report['entries'][0]
+        self.assertEqual('vol-0abc', entry['entity_id'])
+        self.assertEqual('web-data', entry['entity_name'])
+        self.assertIn(entry['retention_type'], ['daily', 'weekly', 'monthly', 'yearly'])
+
+    def test_failure_entry_names_the_resource_too(self):
+        self.engine.backup_resource = MagicMock(
+            side_effect=ClientError({'Error': {'Code': 'SnapshotLimitExceeded', 'Message': 'x'}},
+                                    'CreateSnapshot'))
+
+        self.engine.create_backups()
+
+        failed = [e for e in self.report['entries'] if e['status'] == 'ERROR'][0]
+        self.assertEqual('web-data', failed['entity_name'])
+        self.assertEqual('vol-0abc', failed['entity_id'])
+
+    def test_backup_context_reads_the_resource_name_tag_off_a_backup(self):
+        from shelvery.backup_resource import BackupResource
+        backup = BackupResource(None, None, True)
+        backup.entity_id = 'vol-9'
+        backup.retention_type = 'yearly'
+        backup.tags = {'ResourceName': 'prod-db-volume'}
+
+        self.assertEqual(
+            {'entity_id': 'vol-9', 'entity_name': 'prod-db-volume', 'retention_type': 'yearly'},
+            self.engine.backup_context(backup))
+
+    def test_backup_context_tolerates_a_bare_object(self):
+        self.assertEqual({'entity_id': None, 'entity_name': None, 'retention_type': None},
+                         self.engine.backup_context(object()))

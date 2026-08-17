@@ -91,18 +91,48 @@ class ShelveryEngine:
             version=__version__
         )
 
-    def report(self, operation, status, entity_id=None, backup_id=None, backup_name=None,
-               error=None):
-        """Add an operation outcome to the current run report. Publishes nothing, never raises."""
+    def report(self, operation, status, entity_id=None, entity_name=None, retention_type=None,
+               backup_id=None, backup_name=None, error=None):
+        """Add an operation outcome to the current run report. Publishes nothing, never raises.
+
+        entity_name and retention_type are what make an entry readable - a bare
+        'vol-046251e32bb3227c0' says nothing about which resource failed, or whether the
+        backup that was lost was a daily or a yearly.
+        """
         if self.run_report is None:
             return
 
         entry = {'operation': operation, 'status': status}
-        for key, value in (('entity_id', entity_id), ('backup_id', backup_id),
+        for key, value in (('entity_id', entity_id), ('entity_name', entity_name),
+                           ('retention_type', retention_type), ('backup_id', backup_id),
                            ('backup_name', backup_name), ('error', describe_error(error))):
             if value is not None:
                 entry[key] = value
         self.run_report.add(entry)
+
+    @staticmethod
+    def backup_context(backup):
+        """Resource context to report alongside a backup.
+
+        Everything here is already on the BackupResource - 'ResourceName' is the source
+        resource's Name tag, copied on at creation - so this costs no extra API calls.
+        """
+        tags = getattr(backup, 'tags', None) or {}
+        entity_name = tags.get('ResourceName')
+
+        if not entity_name:
+            # a BackupResource built with construct=True never sets entity_resource, so
+            # entity_resource_tags() raises on it - the legs hand us exactly those
+            try:
+                entity_name = (backup.entity_resource_tags() or {}).get('Name')
+            except Exception:
+                entity_name = None
+
+        return {
+            'entity_id': getattr(backup, 'entity_id', None),
+            'entity_name': entity_name,
+            'retention_type': getattr(backup, 'retention_type', None)
+        }
 
     def skip_run_report(self):
         """Drop the current run report without publishing it.
@@ -313,8 +343,8 @@ class ShelveryEngine:
 
             # Skip current backup
             if skip_backup:
-                self.report('CreateBackup', 'IGNORE', entity_id=backup_resource.entity_id,
-                            backup_name=backup_resource.name)
+                self.report('CreateBackup', 'IGNORE', backup_name=backup_resource.name,
+                            **self.backup_context(backup_resource))
                 continue
 
             dr_regions = RuntimeConfig.get_dr_regions(backup_resource.entity_resource.tags, self)
@@ -342,9 +372,9 @@ class ShelveryEngine:
                     'BackupName': backup_resource.name,
                     'EntityId': backup_resource.entity_id
                 })
-                self.report('CreateBackup', 'OK', entity_id=backup_resource.entity_id,
-                            backup_id=backup_resource.backup_id,
-                            backup_name=backup_resource.name)
+                self.report('CreateBackup', 'OK', backup_id=backup_resource.backup_id,
+                            backup_name=backup_resource.name,
+                            **self.backup_context(backup_resource))
             except ClientError as e:
                 if e.response['Error']['Code'] == 'InvalidDBInstanceState':
                     if RuntimeConfig.ignore_invalid_resource_state(self):
@@ -360,8 +390,8 @@ class ShelveryEngine:
                         self.logger.warn(ignore_message)
                         self.logger.warn(ignore_message)
                         self.report('CreateBackup', 'IGNORE',
-                                    entity_id=backup_resource.entity_id,
-                                    backup_name=backup_resource.name)
+                                    backup_name=backup_resource.name,
+                                    **self.backup_context(backup_resource))
                     else:
                         self.snspublisher_error.notify({
                             'Operation': 'CreateBackup',
@@ -373,8 +403,8 @@ class ShelveryEngine:
                         })
                         self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
                         self.report('CreateBackup', 'ERROR', error=e,
-                                    entity_id=backup_resource.entity_id,
-                                    backup_name=backup_resource.name)
+                                    backup_name=backup_resource.name,
+                                    **self.backup_context(backup_resource))
                 else:
                     self.snspublisher_error.notify({
                         'Operation': 'CreateBackup',
@@ -386,8 +416,8 @@ class ShelveryEngine:
                     })
                     self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
                     self.report('CreateBackup', 'ERROR', error=e,
-                                entity_id=backup_resource.entity_id,
-                                backup_name=backup_resource.name)
+                                backup_name=backup_resource.name,
+                                **self.backup_context(backup_resource))
             except Exception as e:
                 # Anything that isn't a ClientError used to abort the whole run mid loop,
                 # leaving every remaining resource silently un-backed-up. Keep going.
@@ -401,8 +431,8 @@ class ShelveryEngine:
                 })
                 self.logger.exception(f"Failed to create backup {backup_resource.name}:{e}")
                 self.report('CreateBackup', 'ERROR', error=e,
-                            entity_id=backup_resource.entity_id,
-                            backup_name=backup_resource.name)
+                            backup_name=backup_resource.name,
+                            **self.backup_context(backup_resource))
 
         # create backups and disaster recovery region
         for br in backup_resources:
@@ -411,8 +441,8 @@ class ShelveryEngine:
             except Exception as e:
                 # one failed dispatch used to abort the copy of every remaining backup
                 self.logger.exception(f"Failed to dispatch DR copy of backup {br.name}:{e}")
-                self.report('CopyBackupToRegion', 'ERROR', error=e, entity_id=br.entity_id,
-                            backup_name=br.name)
+                self.report('CopyBackupToRegion', 'ERROR', error=e, backup_name=br.name,
+                            **self.backup_context(br))
 
         for aws_account_id in RuntimeConfig.get_share_with_accounts(self):
             for br in backup_resources:
@@ -421,7 +451,8 @@ class ShelveryEngine:
                 except Exception as e:
                     self.logger.exception(f"Failed to dispatch share of backup {br.name} "
                                           f"with account {aws_account_id}:{e}")
-                    self.report('ShareBackup', 'ERROR', error=e, backup_name=br.name)
+                    self.report('ShareBackup', 'ERROR', error=e, backup_name=br.name,
+                                **self.backup_context(br))
 
         return backup_resources
 
@@ -466,7 +497,7 @@ class ShelveryEngine:
                         'BackupName': backup.name,
                     })
                     self.report('DeleteBackup', 'OK', backup_id=backup.backup_id,
-                                backup_name=backup.name)
+                                backup_name=backup.name, **self.backup_context(backup))
                 
                 # If re-encrypt backup is older than re-encrypt backup cleanup hours, clean up the backup
                 elif '-re-encrypted' in backup.backup_id:
@@ -496,7 +527,8 @@ class ShelveryEngine:
                                 'AgeHours': age_hours
                             })
                             self.report('DeleteReencryptedBackup', 'OK',
-                                        backup_id=backup.backup_id, backup_name=backup.name)
+                                        backup_id=backup.backup_id, backup_name=backup.name,
+                                        **self.backup_context(backup))
                         else:
                             self.logger.info(f"Re-encrypted backup {backup.name} is {age_hours:.1f} hours old (< {cleanup_hours} hours), keeping")
                     
@@ -513,7 +545,7 @@ class ShelveryEngine:
                 })
                 self.logger.exception(f"Error checking backup {backup.backup_id} for cleanup: {e}")
                 self.report('DeleteBackup', 'ERROR', error=e, backup_id=backup.backup_id,
-                            backup_name=backup.name)
+                            backup_name=backup.name, **self.backup_context(backup))
 
     @reported_action
     def pull_shared_backups(self):
@@ -585,7 +617,8 @@ class ShelveryEngine:
                             'Backup': shared_backup.name
                         })
                         self.report('PullSharedBackup', 'OK', backup_id=new_backup_id,
-                                    backup_name=shared_backup.name)
+                                    backup_name=shared_backup.name,
+                                    **self.backup_context(shared_backup))
                     except Exception as e:
                         backup_name = backup_object['Key'].split('/')[-1].replace('.yaml', '')
                         self.logger.exception(f"Failed to copy shared backup '{backup_name}' specified in s3://{bucket_name}/{backup_object['Key']}")
@@ -774,7 +807,8 @@ class ShelveryEngine:
                 'BackupType': self.get_engine_type(),
                 'BackupId': kwargs['BackupId'],
             })
-            self.report('CopyBackupToRegion', 'OK', backup_id=kwargs['BackupId'])
+            self.report('CopyBackupToRegion', 'OK', backup_id=kwargs['BackupId'],
+                        **self.backup_context(original_backup))
             self.store_backup_data(resource_copy)
         except Exception as e:
             self.snspublisher_error.notify({
@@ -803,7 +837,8 @@ class ShelveryEngine:
                     'BackupType': self.get_engine_type(),
                     'BackupId': kwargs['BackupId'],
                 })
-                self.report('ShareRegionalBackupCopy', 'OK', backup_id=kwargs['BackupId'])
+                self.report('ShareRegionalBackupCopy', 'OK', backup_id=kwargs['BackupId'],
+                            **self.backup_context(backup_resource))
             except Exception as e:
                 self.snspublisher_error.notify({
                     'Operation': 'ShareRegionalBackupCopy',
@@ -860,7 +895,8 @@ class ShelveryEngine:
                 'DestinationAccount': kwargs['AwsAccountId']
             })
             self.report('ShareBackup', 'OK', backup_id=backup_id,
-                        backup_name=backup_resource.name)
+                        backup_name=backup_resource.name,
+                        **self.backup_context(backup_resource))
         except ClientError as e:
             if e.response['Error']['Code'] == 'InvalidDBSnapshotState':
                 # This will occasionally happen due to AWS eventual consistency model
@@ -932,7 +968,8 @@ class ShelveryEngine:
         # actions there is no notify() call to sit alongside - without this the report
         # for do_store_backup_data would always be empty
         self.report('StoreBackupData', 'OK', backup_id=backup_id,
-                    backup_name=backup_resource.name)
+                    backup_name=backup_resource.name,
+                    **self.backup_context(backup_resource))
 
     ####
     # Abstract methods, for engine implementations to implement
