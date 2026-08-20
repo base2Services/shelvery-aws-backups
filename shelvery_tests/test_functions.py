@@ -19,16 +19,25 @@ def retention_type_filter():
             'Values': [TEST_RETENTION_TYPE]}
 
 
-def created_by_this_run(backups):
+def created_by_this_run(backups, client):
     """Same job as retention_type_filter, done client side.
 
-    The RDS and DocDB describe calls take no tag filter, but do return TagList inline, so
-    no extra API call is needed to narrow the result.
+    The RDS and DocDB describe calls take no tag filter, so the backups are narrowed here.
+    Tags are always fetched with list_tags_for_resource rather than read off the describe
+    response: rds returns TagList inline but the docdb model has no such member at all, and
+    reading it off the response there silently matches nothing - which reads as "the pull
+    did not happen" rather than as a broken filter. Both clients take the same call.
     """
     key = f"{RuntimeConfig.get_tag_prefix()}:retention_type"
+
+    def tags_of(backup):
+        arn = backup['DBClusterSnapshotArn'] if 'DBClusterSnapshotArn' in backup \
+            else backup['DBSnapshotArn']
+        return client.list_tags_for_resource(ResourceName=arn)['TagList']
+
     return [backup for backup in backups
             if any(tag['Key'] == key and tag['Value'] == TEST_RETENTION_TYPE
-                   for tag in backup.get('TagList', []))]
+                   for tag in tags_of(backup))]
 
 
 def setup_source(self):

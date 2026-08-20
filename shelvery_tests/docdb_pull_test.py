@@ -45,7 +45,7 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
         )
 
         # Verify that only one snapshot was pulled
-        self.assertEqual(len(created_by_this_run(pulled_snapshots['DBClusterSnapshots'])), 1)
+        self.assertEqual(len(created_by_this_run(pulled_snapshots['DBClusterSnapshots'], client)), 1)
 
     @pytest.mark.cleanup
     def test_cleanup(self):
