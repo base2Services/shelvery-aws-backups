@@ -3,7 +3,7 @@ import unittest
 import os
 import pytest
 from shelvery_tests.docdb_integration_test import DocDBTestClass
-from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.test_functions import setup_destination, created_by_this_run
 from shelvery_tests.resources import DOCDB_RESOURCE_NAME
 
 
@@ -36,13 +36,16 @@ class ShelveryDocDBPullTestCase(unittest.TestCase):
         backups_engine.pull_shared_backups()
 
         # Get post-pull snapshot count
+        # Scoped to this run's retention type. Counting every backup on the resource made
+        # the assertion fail against ones left behind by earlier runs, which clean_backups()
+        # cannot remove once their retention outlasts the test.
         pulled_snapshots = client.describe_db_cluster_snapshots(
             DBClusterIdentifier=DOCDB_RESOURCE_NAME,
             SnapshotType='Manual'
         )
 
         # Verify that only one snapshot was pulled
-        self.assertEqual(len(pulled_snapshots['DBClusterSnapshots']), 1)
+        self.assertEqual(len(created_by_this_run(pulled_snapshots['DBClusterSnapshots'])), 1)
 
     @pytest.mark.cleanup
     def test_cleanup(self):

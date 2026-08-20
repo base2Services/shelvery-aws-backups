@@ -6,14 +6,39 @@ from shelvery_tests.conftest import destination_account, source_account
 from shelvery.runtime_config import RuntimeConfig
 from shelvery.aws_helper import AwsHelper
 
+# Every backup the integration tests create carries this retention type, expiring after a
+# day. Assertions filter on it so they count only what the run itself produced: the tests
+# tidy up with clean_backups(), which respects retention, so a backup with a longer type
+# survives that cleanup and would otherwise be counted by every later run forever.
+TEST_RETENTION_TYPE = 'shortLived'
+
+
+def retention_type_filter():
+    """EC2 style tag filter narrowing a describe call to the backups this run created."""
+    return {'Name': f"tag:{RuntimeConfig.get_tag_prefix()}:retention_type",
+            'Values': [TEST_RETENTION_TYPE]}
+
+
+def created_by_this_run(backups):
+    """Same job as retention_type_filter, done client side.
+
+    The RDS and DocDB describe calls take no tag filter, but do return TagList inline, so
+    no extra API call is needed to narrow the result.
+    """
+    key = f"{RuntimeConfig.get_tag_prefix()}:retention_type"
+    return [backup for backup in backups
+            if any(tag['Key'] == key and tag['Value'] == TEST_RETENTION_TYPE
+                   for tag in backup.get('TagList', []))]
+
+
 def setup_source(self):
     print(f"Setting up integration test")
     self.share_with_id = destination_account
     os.environ["shelvery_share_aws_account_ids"] = destination_account
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
-    os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
-    os.environ['shelvery_current_retention_type'] = 'shortLived'
+    os.environ['shelvery_custom_retention_types'] = f'{TEST_RETENTION_TYPE}:1'
+    os.environ['shelvery_current_retention_type'] = TEST_RETENTION_TYPE
     
     sts = AwsHelper.boto3_client('sts')
     self.id = sts.get_caller_identity()
@@ -24,8 +49,8 @@ def setup_destination(self):
 
     os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
     os.environ['SHELVERY_MONO_THREAD'] = '1'
-    os.environ['shelvery_custom_retention_types'] = 'shortLived:1'
-    os.environ['shelvery_current_retention_type'] = 'shortLived'
+    os.environ['shelvery_custom_retention_types'] = f'{TEST_RETENTION_TYPE}:1'
+    os.environ['shelvery_current_retention_type'] = TEST_RETENTION_TYPE
     os.environ["shelvery_source_aws_account_ids"] = source_account
     
     sts = AwsHelper.boto3_client('sts')

@@ -3,7 +3,7 @@ import unittest
 import pytest
 import os
 from shelvery_tests.rds_integration_test import RDSInstanceTestClass
-from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.test_functions import setup_destination, created_by_this_run
 from shelvery_tests.resources import RDS_INSTANCE_RESOURCE_NAME
 
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -35,13 +35,16 @@ class ShelveryRDSPullTestCase(unittest.TestCase):
         backups_engine.pull_shared_backups()
 
         # Get post-pull snapshot count
+        # Scoped to this run's retention type. Counting every backup on the resource made
+        # the assertion fail against ones left behind by earlier runs, which clean_backups()
+        # cannot remove once their retention outlasts the test.
         pulled_snapshots = client.describe_db_snapshots(
             DBInstanceIdentifier=RDS_INSTANCE_RESOURCE_NAME,
             SnapshotType='Manual'
         )
 
         # Verify that only one snapshot was pulled
-        self.assertEqual(len(pulled_snapshots["DBSnapshots"]), 1)
+        self.assertEqual(len(created_by_this_run(pulled_snapshots["DBSnapshots"])), 1)
         
     @pytest.mark.cleanup
     def test_cleanup(self):
