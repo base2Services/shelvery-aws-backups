@@ -3,7 +3,7 @@ import unittest
 import os
 import pytest
 from shelvery_tests.ebs_integration_test import EBSTestClass
-from shelvery_tests.test_functions import setup_destination
+from shelvery_tests.test_functions import setup_destination, retention_type_filter
 from shelvery_tests.resources import EBS_INSTANCE_RESOURCE_NAME
 
 
@@ -36,10 +36,14 @@ class ShelveryEBSPullTestCase(unittest.TestCase):
         backups_engine.pull_shared_backups()
 
         # Get post-pull snapshot count
+        # Scoped to this run's retention type. Counting every backup on the resource made
+        # the assertion fail against ones left behind by earlier runs, which clean_backups()
+        # cannot remove once their retention outlasts the test.
         search_filter = [{'Name':'tag:ResourceName',
                         'Values':[EBS_INSTANCE_RESOURCE_NAME]
-                        }]
-                                  
+                        },
+                        retention_type_filter()]
+
         #Retrieve pulled images from shelvery-test stack
         snapshots = client.describe_snapshots(
                         Filters=search_filter

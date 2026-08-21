@@ -71,6 +71,15 @@ Parameters:
     Description: During the share task, Kms key id to encrypt snapshots with
     Type: String
     Default: ''
+  ShelveryStatusSnsTopic:
+    Description: >-
+      ARN of an existing SNS topic to publish per run backup status reports to.
+      Leave empty to disable status reporting.
+    Type: String
+    Default: ''
+
+Conditions:
+  HasStatusTopic: !Not [!Equals [!Ref ShelveryStatusSnsTopic, '']]
 
 Resources:
 
@@ -122,7 +131,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.13
+        ShelveryVersion: 0.10.0
 
       Environment:
         Variables:
@@ -143,6 +152,7 @@ Resources:
           shelvery_encrypt_copy: !Ref ShelveryEncryptCopy
           shelvery_copy_kms_key_id: !Ref ShelveryCopyKmsKeyId
           shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
+          shelvery_status_sns_topic: !Ref ShelveryStatusSnsTopic
 
       Events:
 
@@ -334,6 +344,14 @@ Resources:
                 - sns:Publish*
               Resource:
                 - !Ref SnsTopic
+                - !Ref SnsTopicErrors
+            - !If
+              - HasStatusTopic
+              - Effect: Allow
+                Action:
+                  - sns:Publish*
+                Resource: !Ref ShelveryStatusSnsTopic
+              - !Ref AWS::NoValue
             - Effect: Allow
               Action:
                 - sqs:ChangeMessageVisibility
