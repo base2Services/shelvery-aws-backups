@@ -57,6 +57,11 @@ class RuntimeConfig:
 
     shelvery_ignore_invalid_resource_state - ignore exceptions due to the resource being in a unavailable state,
                                              such as shutdown, rebooting.
+
+    shelvery_status_sns_topic - ARN of an existing SNS topic that per-run backup status reports are
+                                published to. Separate from shelvery_sns_topic, which carries the
+                                per-operation notifications, and not created by shelvery. Status
+                                reporting is off when this is unset.
                                              
     shelvery_encrypt_copy - when copying a shared unencrypted snapshot, encrypt the shapshot. 
                             when enabled 'shelvery_copy_kms_key_id' must also be set.
@@ -113,7 +118,8 @@ class RuntimeConfig:
         'shelvery_reencrypt_kms_key_id': None,
         'shelvery_reencrypt_backup_cleanup_hours': 72,
         'shelvery_enable_ebs_archive': False,
-        'shelvery_enable_ebs_archive_pulled': False
+        'shelvery_enable_ebs_archive_pulled': False,
+        'shelvery_status_sns_topic': None
     }
 
     @classmethod
@@ -364,3 +370,7 @@ class RuntimeConfig:
     def get_enable_ebs_archive_pulled(cls, resource_tags=None, engine=None):
         val = cls.get_conf_value('shelvery_enable_ebs_archive_pulled', resource_tags, engine.lambda_payload if engine else None)
         return str(val).lower() in ['true', '1', 'yes']
+
+    @classmethod
+    def get_status_sns_topic(cls, engine):
+        return cls.get_conf_value('shelvery_status_sns_topic', None, engine.lambda_payload)

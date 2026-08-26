@@ -88,6 +88,15 @@ Parameters:
       - 'true'
       - 'false'
     Default: 'false'
+  ShelveryStatusSnsTopic:
+    Description: >-
+      ARN of an existing SNS topic to publish per run backup status reports to.
+      Leave empty to disable status reporting.
+    Type: String
+    Default: ''
+
+Conditions:
+  HasStatusTopic: !Not [!Equals [!Ref ShelveryStatusSnsTopic, '']]
 
 Resources:
 
@@ -139,7 +148,7 @@ Resources:
       Tags:
         Name: Shelvery
         CreatedBy: Shelvery
-        ShelveryVersion: 0.9.14
+        ShelveryVersion: 0.10.1
 
       Environment:
         Variables:
@@ -162,6 +171,7 @@ Resources:
           shelvery_reencrypt_kms_key_id: !Ref ShelveryReencryptKmsKeyId
           shelvery_enable_ebs_archive: !Ref ShelveryEnableEbsArchive
           shelvery_enable_ebs_archive_pulled: !Ref ShelveryEnableEbsArchivePulled
+          shelvery_status_sns_topic: !Ref ShelveryStatusSnsTopic
 
       Events:
 
@@ -360,6 +370,14 @@ Resources:
                 - sns:Publish*
               Resource:
                 - !Ref SnsTopic
+                - !Ref SnsTopicErrors
+            - !If
+              - HasStatusTopic
+              - Effect: Allow
+                Action:
+                  - sns:Publish*
+                Resource: !Ref ShelveryStatusSnsTopic
+              - !Ref AWS::NoValue
             - Effect: Allow
               Action:
                 - sqs:ChangeMessageVisibility
