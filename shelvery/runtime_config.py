@@ -74,6 +74,11 @@ class RuntimeConfig:
         in the source account after all share targets have pulled them. Defaults to false (opt-in).
     shelvery_enable_ebs_archive_pulled - enable archiving monthly/yearly EBS snapshots in the databunker account
         immediately after they are pulled. Defaults to false (opt-in).
+
+    shelvery_share_bucket_policy_actions - comma separated S3 actions the data bucket policy grants each share
+        account on its own backups/shared/<account id>/ prefix. Defaults to
+        s3:GetObject,s3:PutObject,s3:DeleteObject, which is everything pulling shared backups uses.
+        Setting s3:* restores the pre-0.10.2 access, which fails Security Hub S3.6.
     """
 
     DEFAULT_KEEP_DAILY = 14
@@ -119,7 +124,8 @@ class RuntimeConfig:
         'shelvery_reencrypt_backup_cleanup_hours': 72,
         'shelvery_enable_ebs_archive': False,
         'shelvery_enable_ebs_archive_pulled': False,
-        'shelvery_status_sns_topic': None
+        'shelvery_status_sns_topic': None,
+        'shelvery_share_bucket_policy_actions': None
     }
 
     @classmethod
@@ -370,6 +376,24 @@ class RuntimeConfig:
     def get_enable_ebs_archive_pulled(cls, resource_tags=None, engine=None):
         val = cls.get_conf_value('shelvery_enable_ebs_archive_pulled', resource_tags, engine.lambda_payload if engine else None)
         return str(val).lower() in ['true', '1', 'yes']
+
+    @classmethod
+    def get_share_bucket_policy_actions(cls, engine):
+        actions = cls.get_conf_value('shelvery_share_bucket_policy_actions', None, engine.lambda_payload)
+        if actions is None:
+            return None
+        if isinstance(actions, str):
+            actions = actions.split(',')
+        actions = [str(action).strip() for action in actions if str(action).strip() != '']
+        if len(actions) == 0:
+            return None
+
+        # an invalid action makes put_bucket_policy fail on every run, leaving the old policy in place
+        invalid = [action for action in actions if not re.match(r'^s3:[A-Za-z*]+$', action)]
+        if invalid:
+            engine.logger.error(f"Invalid shelvery_share_bucket_policy_actions {invalid}, using default actions")
+            return None
+        return actions
 
     @classmethod
     def get_status_sns_topic(cls, engine):

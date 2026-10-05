@@ -5,18 +5,24 @@ from botocore.config import Config
 from shelvery.runtime_config import RuntimeConfig
 from shelvery import S3_DATA_PREFIX
 
+DEFAULT_SHARE_BUCKET_POLICY_ACTIONS = ['s3:GetObject', 's3:PutObject', 's3:DeleteObject']
+
 class AwsHelper:
 
 
     @staticmethod
-    def get_shelvery_bucket_policy(owner_id, share_account_ids, bucket_name):
+    def get_shelvery_bucket_policy(owner_id, share_account_ids, bucket_name, share_actions=None):
         """
         Returns bucket policy allowing all destination accounts access to shared
         paths
         :param share_account_ids:
         :param bucket_name:
+        :param share_actions: actions granted to share accounts on their own shared prefix,
+                              defaults to DEFAULT_SHARE_BUCKET_POLICY_ACTIONS
         :return:
         """
+        if not share_actions:
+            share_actions = DEFAULT_SHARE_BUCKET_POLICY_ACTIONS
         policy_stmt = [{
             'Effect': 'Allow',
             'Principal':{'AWS':f"arn:aws:iam::{owner_id}:root"} ,
@@ -34,11 +40,13 @@ class AwsHelper:
                     'Action': ['s3:Get*', 's3:List*'],
                     'Resource': f"arn:aws:s3:::{bucket_name}"
                 })
+                # Object-level access only: pull_shared_backups reads, rewrites and
+                # removes the share account's own metadata under this prefix.
                 policy_stmt.append({
                     'Effect': 'Allow',
                     'Principal':{'AWS':f"arn:aws:iam::{shared_account_id}:root"} ,
-                    'Action': 's3:*',
-                    'Resource': f"arn:aws:s3:::{bucket_name}/{S3_DATA_PREFIX}/shared/{shared_account_id}*"
+                    'Action': list(share_actions),
+                    'Resource': f"arn:aws:s3:::{bucket_name}/{S3_DATA_PREFIX}/shared/{shared_account_id}/*"
                 })
         return json.dumps({'Version': '2012-10-17', 'Id': 'shelvery-generated', 'Statement': policy_stmt}, separators=(',', ':'))
 

@@ -188,7 +188,8 @@ class ShelveryEngine:
         shelvery_bucket_policy = AwsHelper.get_shelvery_bucket_policy(
             self.account_id,
             RuntimeConfig.get_share_with_accounts(self),
-            bucket)
+            bucket,
+            RuntimeConfig.get_share_bucket_policy_actions(self))
         return current_policy != shelvery_bucket_policy
 
     def _get_data_bucket(self, region=None):
@@ -232,7 +233,8 @@ class ShelveryEngine:
                                            Policy=AwsHelper.get_shelvery_bucket_policy(
                                                self.account_id,
                                                RuntimeConfig.get_share_with_accounts(self),
-                                               bucket_name)
+                                               bucket_name,
+                                               RuntimeConfig.get_share_bucket_policy_actions(self))
                                            )
                 return s3.Bucket(bucket_name)
             else:
@@ -681,7 +683,8 @@ class ShelveryEngine:
             
             if self._bucket_policy_changed(region,bucket.name):
                 policy = AwsHelper.get_shelvery_bucket_policy(self.account_id,
-                            RuntimeConfig.get_share_with_accounts(self),bucket.name)
+                            RuntimeConfig.get_share_with_accounts(self),bucket.name,
+                            RuntimeConfig.get_share_bucket_policy_actions(self))
                 self.logger.info(f"Bucket policy has changed, updating policy to {policy}")
                 AwsHelper.boto3_client('s3', region_name=region).put_bucket_policy(Bucket=bucket.name,Policy=policy)
             else:

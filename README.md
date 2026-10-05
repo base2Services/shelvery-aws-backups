@@ -390,6 +390,11 @@ backups
                                 per-operation notifications, and not created by shelvery. Status
                                 reporting is off when this is unset.
 
+- `shelvery_share_bucket_policy_actions` - Comma separated S3 actions the data bucket policy grants each
+  share account on its own `backups/shared/<account id>/` prefix. Default:
+  `s3:GetObject,s3:PutObject,s3:DeleteObject`, which is everything pulling shared backups uses.
+  Setting `s3:*` restores the pre-0.10.2 access, which fails Security Hub control S3.6.
+
 ### Configuration Priority 0: Sensible defaults
 
 ```text

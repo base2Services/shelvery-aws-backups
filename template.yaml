@@ -94,6 +94,13 @@ Parameters:
       Leave empty to disable status reporting.
     Type: String
     Default: ''
+  ShelveryShareBucketPolicyActions:
+    Description: >-
+      Comma separated S3 actions the data bucket policy grants each share account on its own
+      shared prefix. Leave empty for s3:GetObject,s3:PutObject,s3:DeleteObject. s3:* restores
+      the pre-0.10.2 policy, which fails Security Hub S3.6.
+    Type: String
+    Default: ''
 
 Conditions:
   HasStatusTopic: !Not [!Equals [!Ref ShelveryStatusSnsTopic, '']]
@@ -172,6 +179,7 @@ Resources:
           shelvery_enable_ebs_archive: !Ref ShelveryEnableEbsArchive
           shelvery_enable_ebs_archive_pulled: !Ref ShelveryEnableEbsArchivePulled
           shelvery_status_sns_topic: !Ref ShelveryStatusSnsTopic
+          shelvery_share_bucket_policy_actions: !Ref ShelveryShareBucketPolicyActions
 
       Events:
 
